@@ -1,0 +1,385 @@
+/**
+ * PicturaAI — Frontend Application
+ * ==================================
+ * Pictura (Latin: "a painting") — AI-powered Neural Style Transfer Studio
+ * Handles: style loading, image upload, job submission,
+ * WebSocket progress streaming, result rendering, gallery.
+ */
+
+const API = '';   // same origin; change to 'http://localhost:8000' for dev
+let currentJobId = null;
+let currentWS = null;
+let selectedPreset = null;
+let resultB64 = null;
+let contentFile = null;
+let styleFile = null;
+
+// ── Navbar scroll effect ─────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
+});
+
+// ── On load ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadStyles();
+  setupDnD('contentUploadZone', 'contentInput', handleContentFile);
+  setupDnD('customPanel', 'styleCustomInput', handleStyleFile);
+  document.getElementById('contentInput').addEventListener('change', e => handleContentFile(e.target.files[0]));
+  document.getElementById('styleCustomInput').addEventListener('change', e => handleStyleFile(e.target.files[0]));
+});
+
+// ── Slider helpers ───────────────────────────────────────────────
+function updateSlider(el, labelId) {
+  document.getElementById(labelId).textContent = parseFloat(el.value).toLocaleString();
+}
+function updateLRSlider(el) {
+  document.getElementById('lrVal').textContent = parseFloat(el.value).toFixed(3);
+}
+
+// ── Style tab switch ─────────────────────────────────────────────
+function switchStyleTab(tab) {
+  const isPreset = tab === 'presets';
+  document.getElementById('tabPresets').classList.toggle('active', isPreset);
+  document.getElementById('tabCustom').classList.toggle('active', !isPreset);
+  document.getElementById('presetPanel').style.display = isPreset ? 'grid' : 'none';
+  document.getElementById('customPanel').style.display = isPreset ? 'none' : 'flex';
+  if (!isPreset) { selectedPreset = null; clearPresetSelection(); }
+}
+
+// ── Load styles from API ─────────────────────────────────────────
+async function loadStyles() {
+  try {
+    const res = await fetch(`${API}/api/styles`);
+    const styles = await res.json();
+    renderPresets(styles);
+    renderGallery(styles);
+  } catch (e) {
+    document.getElementById('presetPanel').innerHTML =
+      '<div class="preset-loading"><span>⚠ Could not load styles. Is the server running?</span></div>';
+  }
+}
+
+function renderPresets(styles) {
+  const grid = document.getElementById('presetPanel');
+  grid.innerHTML = '';
+  styles.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'preset-card';
+    card.id = `preset-${s.key}`;
+    card.innerHTML = `
+      ${s.thumbnail
+        ? `<img src="data:image/jpeg;base64,${s.thumbnail}" alt="${s.name}" loading="lazy" />`
+        : `<div style="background:var(--surface-2);width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;">🎨</div>`}
+      <div class="preset-caption">${s.name}</div>
+      <div class="preset-check">✓</div>
+    `;
+    card.addEventListener('click', () => selectPreset(s.key, card));
+    card.title = `${s.name} by ${s.artist} — ${s.description}`;
+    grid.appendChild(card);
+  });
+}
+
+function renderGallery(styles) {
+  const grid = document.getElementById('galleryGrid');
+  grid.innerHTML = '';
+  styles.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'gallery-card';
+    card.innerHTML = `
+      ${s.thumbnail
+        ? `<img src="data:image/jpeg;base64,${s.thumbnail}" alt="${s.name}" loading="lazy" />`
+        : `<div style="background:var(--surface-2);width:100%;height:100%;"></div>`}
+      <div class="gallery-info">
+        <h4>${s.name}</h4>
+        <p>${s.artist} · ${s.description}</p>
+        <button class="gallery-apply" onclick="applyFromGallery('${s.key}', event)">Use This Style →</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function selectPreset(key, el) {
+  clearPresetSelection();
+  el.classList.add('active');
+  selectedPreset = key;
+  styleFile = null;
+  toast(`Style selected: ${el.querySelector('.preset-caption').textContent}`, 'info');
+}
+
+function clearPresetSelection() {
+  document.querySelectorAll('.preset-card.active').forEach(el => el.classList.remove('active'));
+  selectedPreset = null;
+}
+
+function applyFromGallery(key, e) {
+  e.stopPropagation();
+  // Switch to presets tab and select
+  switchStyleTab('presets');
+  const card = document.getElementById(`preset-${key}`);
+  if (card) { selectPreset(key, card); }
+  document.getElementById('studio').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Drag & Drop ──────────────────────────────────────────────────
+function setupDnD(zoneId, inputId, handler) {
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handler(file);
+    else toast('Please drop an image file', 'error');
+  });
+}
+
+// ── File handlers ────────────────────────────────────────────────
+function handleContentFile(file) {
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('Image too large (max 10MB)', 'error'); return; }
+  contentFile = file;
+  showImagePreview(file, 'contentPreview', 'contentPlaceholder', 'contentClear');
+  // Update compare box
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('compareContent').src = e.target.result; };
+  reader.readAsDataURL(file);
+}
+
+function handleStyleFile(file) {
+  if (!file) return;
+  styleFile = file;
+  clearPresetSelection();
+  showImagePreview(file, 'styleCustomPreview', 'stylePlaceholder', 'styleClear');
+}
+
+function showImagePreview(file, previewId, placeholderId, clearId) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById(previewId);
+    img.src = e.target.result;
+    img.classList.remove('hidden');
+    document.getElementById(placeholderId).classList.add('hidden');
+    document.getElementById(clearId).classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage(type, e) {
+  e.stopPropagation();
+  if (type === 'content') {
+    contentFile = null;
+    resetUploadZone('contentPreview', 'contentPlaceholder', 'contentClear', 'contentInput');
+  } else {
+    styleFile = null;
+    resetUploadZone('styleCustomPreview', 'stylePlaceholder', 'styleClear', 'styleCustomInput');
+  }
+}
+
+function resetUploadZone(previewId, placeholderId, clearId, inputId) {
+  document.getElementById(previewId).classList.add('hidden');
+  document.getElementById(previewId).src = '';
+  document.getElementById(placeholderId).classList.remove('hidden');
+  document.getElementById(clearId).classList.add('hidden');
+  document.getElementById(inputId).value = '';
+}
+
+// ── Start Transfer ───────────────────────────────────────────────
+async function startTransfer() {
+  if (!contentFile) { toast('Please upload a content image first', 'error'); return; }
+  if (!selectedPreset && !styleFile) { toast('Please pick a style preset or upload one', 'error'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.querySelector('.btn-text').textContent = 'Sending to AI…';
+
+  closeWS();
+  setOutputState('progress');
+  document.getElementById('outputActions').style.display = 'none';
+  document.getElementById('resultCompare').style.display = 'none';
+
+  // Build form data
+  const form = new FormData();
+  form.append('content_image', contentFile);
+  if (styleFile) form.append('style_image', styleFile);
+  if (selectedPreset) form.append('style_preset', selectedPreset);
+  form.append('style_weight', document.getElementById('styleWeight').value);
+  form.append('content_weight', document.getElementById('contentWeight').value);
+  form.append('tv_weight', document.getElementById('tvWeight').value);
+  form.append('num_steps', document.getElementById('numSteps').value);
+  form.append('learning_rate', document.getElementById('lrSlider').value);
+
+  try {
+    const res = await fetch(`${API}/api/transfer`, { method: 'POST', body: form });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    const data = await res.json();
+    currentJobId = data.job_id;
+    toast('Job started! Streaming progress…', 'success');
+    btn.querySelector('.btn-text').textContent = 'Processing…';
+    connectWS(currentJobId);
+  } catch (err) {
+    showError(err.message);
+    btn.disabled = false;
+    btn.querySelector('.btn-text').textContent = 'Generate Artwork';
+  }
+}
+
+// ── WebSocket ────────────────────────────────────────────────────
+function connectWS(jobId) {
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const host = location.host || 'localhost:8000';
+  const ws = new WebSocket(`${wsProto}://${host}/ws/${jobId}`);
+  currentWS = ws;
+
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'progress') onProgress(msg);
+    else if (msg.type === 'done') onDone(msg);
+    else if (msg.type === 'error') onWsError(msg);
+    // ping: ignore
+  };
+  ws.onerror = () => pollFallback(jobId);
+  ws.onclose = () => { };
+}
+
+function closeWS() {
+  if (currentWS) { currentWS.close(); currentWS = null; }
+}
+
+// ── Progress handler ─────────────────────────────────────────────
+function onProgress(msg) {
+  const pct = msg.percent ?? 0;
+  const step = msg.step ?? 0;
+  const total = msg.total ?? parseInt(document.getElementById('numSteps').value);
+  const loss = msg.loss;
+
+  document.getElementById('progressBar').style.width = `${pct}%`;
+  document.getElementById('progressPct').textContent = `${pct}%`;
+  document.getElementById('progressStep').textContent = `Step ${step} / ${total}`;
+  document.getElementById('progressLabel').textContent = pct < 10
+    ? 'Initialising AI…' : pct < 50 ? 'Applying style…' : pct < 85 ? 'Refining artwork…' : 'Final polish…';
+
+  if (loss != null) {
+    document.getElementById('progressLoss').textContent = `Loss: ${loss.toExponential(2)}`;
+  }
+  if (msg.preview) {
+    const img = document.getElementById('progressPreview');
+    img.src = `data:image/jpeg;base64,${msg.preview}`;
+    img.style.opacity = '1';
+  }
+}
+
+// ── Done handler ─────────────────────────────────────────────────
+function onDone(msg) {
+  closeWS();
+  resultB64 = msg.result;
+  const imgSrc = `data:image/jpeg;base64,${resultB64}`;
+  const resultImg = document.getElementById('resultImage');
+  resultImg.src = imgSrc;
+  document.getElementById('compareResult').src = imgSrc;
+
+  const steps = document.getElementById('numSteps').value;
+  document.getElementById('resultMeta').textContent = `Generated with ${steps} iterations · EfficientNetB0`;
+
+  setOutputState('result');
+  document.getElementById('outputActions').style.display = 'flex';
+  document.getElementById('resultCompare').style.display = 'flex';
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = false;
+  btn.querySelector('.btn-text').textContent = 'Generate Artwork';
+  toast('🎨 PicturaAI — your masterpiece is ready!', 'success');
+}
+
+function onWsError(msg) {
+  closeWS();
+  showError(msg.message || 'An error occurred');
+}
+
+// ── Poll fallback (if WS fails) ──────────────────────────────────
+async function pollFallback(jobId) {
+  try {
+    const res = await fetch(`${API}/api/jobs/${jobId}`);
+    const data = await res.json();
+    if (data.status === 'done') {
+      onDone({ result: data.result });
+    } else if (data.status === 'error') {
+      showError(data.error);
+    } else {
+      onProgress({ percent: data.progress || 0, preview: data.preview });
+      setTimeout(() => pollFallback(jobId), 2000);
+    }
+  } catch (e) {
+    setTimeout(() => pollFallback(jobId), 3000);
+  }
+}
+
+// ── Output state ─────────────────────────────────────────────────
+function setOutputState(state) {
+  document.getElementById('outputIdle').classList.add('hidden');
+  document.getElementById('outputProgress').classList.add('hidden');
+  document.getElementById('outputResult').classList.add('hidden');
+  document.getElementById('outputError').classList.add('hidden');
+  document.getElementById(`output${state.charAt(0).toUpperCase() + state.slice(1)}`).classList.remove('hidden');
+}
+
+function showError(msg) {
+  document.getElementById('errorMessage').textContent = msg;
+  setOutputState('error');
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = false;
+  btn.querySelector('.btn-text').textContent = 'Generate Artwork';
+  toast(msg, 'error');
+}
+
+// ── Download ─────────────────────────────────────────────────────
+function downloadResult() {
+  if (currentJobId) {
+    const a = document.createElement('a');
+    a.href = `${API}/api/result/${currentJobId}`;
+    a.download = `pictura_${currentJobId.substr(0, 8)}.jpg`;
+    a.click();
+    toast('Downloading your artwork…', 'info');
+  } else if (resultB64) {
+    const a = document.createElement('a');
+    a.href = `data:image/jpeg;base64,${resultB64}`;
+    a.download = 'pictura_result.jpg';
+    a.click();
+  }
+}
+
+// ── Reset ────────────────────────────────────────────────────────
+function resetStudio() {
+  closeWS();
+  currentJobId = null;
+  resultB64 = null;
+
+  resetUploadZone('contentPreview', 'contentPlaceholder', 'contentClear', 'contentInput');
+  resetUploadZone('styleCustomPreview', 'stylePlaceholder', 'styleClear', 'styleCustomInput');
+  clearPresetSelection();
+  contentFile = null;
+  styleFile = null;
+
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressPct').textContent = '0%';
+  document.getElementById('progressStep').textContent = 'Step 0 / 0';
+
+  setOutputState('idle');
+  document.getElementById('outputActions').style.display = 'none';
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = false;
+  btn.querySelector('.btn-text').textContent = 'Generate Artwork';
+}
+
+// ── Toast ────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(110%)'; t.style.transition = 'all 0.4s'; setTimeout(() => t.remove(), 400); }, 4000);
+}

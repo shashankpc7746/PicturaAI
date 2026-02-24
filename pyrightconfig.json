@@ -1,0 +1,21 @@
+{
+  // PicturaAI — Pyright / Pylance type-checker configuration
+  // Points to the project venv so all third-party packages are resolved.
+  "venvPath": ".",
+  "venv": "venv",
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Windows",
+
+  // Source roots — backend is a standalone package
+  "include": ["backend"],
+  "exclude": ["venv", "**/__pycache__", "**/*.pyc"],
+
+  "reportMissingModuleSource": "none",
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": "none",
+
+  // Pyre2 / Pylance strictness — balance between catching real bugs vs noise
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportGeneralTypeIssues": "warning"
+}

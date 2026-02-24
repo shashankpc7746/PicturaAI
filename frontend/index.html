@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PicturaAI – Neural Style Transfer Studio</title>
+  <meta name="description"
+    content="Transform your photos into stunning artworks using PicturaAI — AI-powered Neural Style Transfer. Latin for 'a painting'. Choose from famous styles or upload your own." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+
+<body>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║          NAVIGATION              ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="logo-icon">✦</span>
+        <span>PicturaAI</span>
+      </a>
+      <div class="nav-links">
+        <a href="#studio">Studio</a>
+        <a href="#gallery">Gallery</a>
+        <a href="#how-it-works">How It Works</a>
+      </div>
+      <a href="#studio" class="btn btn-primary btn-sm">Start Creating</a>
+    </div>
+  </nav>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║            HERO                  ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <section class="hero" id="home">
+    <div class="hero-bg">
+      <div class="hero-orb orb-1"></div>
+      <div class="hero-orb orb-2"></div>
+      <div class="hero-orb orb-3"></div>
+      <div class="hero-grid"></div>
+    </div>
+    <div class="hero-content">
+      <div class="badge-pill">
+        <span class="badge-dot"></span>
+        Pictura · Latin for "A Painting"
+      </div>
+      <h1 class="hero-title">
+        Transform Photos<br />
+        Into <span class="gradient-text">Living Art</span>
+      </h1>
+      <p class="hero-subtitle">
+        PicturaAI blends the structure of your photo with the brushstrokes of Van Gogh,
+        Picasso, Hokusai — and more. Real-time AI art, in minutes.
+      </p>
+      <div class="hero-actions">
+        <a href="#studio" class="btn btn-primary btn-lg">
+          <span>Open Studio →</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </a>
+        <a href="#how-it-works" class="btn btn-ghost btn-lg">How It Works</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">13+</span><span class="stat-label">Art Styles</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><span class="stat-num">AI</span><span class="stat-label">Powered</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><span class="stat-num">Real-time</span><span class="stat-label">Preview</span></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="canvas-preview">
+        <div class="preview-card card-base">
+          <img
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3CdefinS%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23667eea'/%3E%3Cstop offset='1' stop-color='%23764ba2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='300' height='200'/%3E%3C/svg%3E"
+            alt="Demo" class="preview-img" id="heroPreviewImg" />
+          <div class="preview-label">Content</div>
+        </div>
+        <div class="plus-icon">+</div>
+        <div class="preview-card card-style">
+          <img
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f59e0b' width='300' height='200'/%3E%3C/svg%3E"
+            alt="Style" class="preview-img" id="heroStyleImg" />
+          <div class="preview-label">Style</div>
+        </div>
+        <div class="arrow-icon">→</div>
+        <div class="preview-card card-result">
+          <div class="result-shimmer">
+            <div class="shimmer-wave"></div>
+          </div>
+          <div class="preview-label">Masterpiece</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║    HOW IT WORKS                  ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <section class="section" id="how-it-works">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Process</div>
+        <h2 class="section-title">How PicturaAI Works</h2>
+        <p class="section-subtitle">Three simple steps to transform your images into art</p>
+      </div>
+      <div class="steps-grid">
+        <div class="step-card" data-step="01">
+          <div class="step-icon">📸</div>
+          <h3>Upload Content</h3>
+          <p>Upload any photo — portrait, landscape, cityscape. PicturaAI understands structure and depth.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-card" data-step="02">
+          <div class="step-icon">🎨</div>
+          <h3>Choose a Style</h3>
+          <p>Pick from 13 iconic art styles — Van Gogh, Hokusai, Picasso — or upload your own painting.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-card" data-step="03">
+          <div class="step-icon">✨</div>
+          <h3>Get Your Art</h3>
+          <p>Watch real-time previews as EfficientNetB0 weaves your photo with the chosen masterpiece.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║        STUDIO                    ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <section class="section studio-section" id="studio">
+    <div class="container container-wide">
+      <div class="section-header">
+        <div class="section-tag">Studio</div>
+        <h2 class="section-title">Create Your Artwork</h2>
+        <p class="section-subtitle">Upload, configure, and watch your masterpiece come to life in real-time</p>
+      </div>
+
+      <div class="studio-layout">
+
+        <!-- LEFT PANEL: Inputs -->
+        <div class="studio-panel panel-left">
+
+          <!-- Step 1: Content Image -->
+          <div class="panel-section">
+            <div class="panel-label">
+              <span class="step-badge">1</span>
+              <span>Content Image</span>
+            </div>
+            <div class="upload-zone" id="contentUploadZone" onclick="document.getElementById('contentInput').click()">
+              <input type="file" id="contentInput" accept="image/*" hidden />
+              <div class="upload-placeholder" id="contentPlaceholder">
+                <div class="upload-icon">📷</div>
+                <div class="upload-text">Drop your photo here</div>
+                <div class="upload-hint">PNG, JPG, WEBP · Max 10MB</div>
+              </div>
+              <img id="contentPreview" class="upload-preview hidden" alt="Content" />
+              <button class="upload-clear hidden" id="contentClear" onclick="clearImage('content', event)">✕</button>
+            </div>
+          </div>
+
+          <!-- Step 2: Style -->
+          <div class="panel-section">
+            <div class="panel-label">
+              <span class="step-badge">2</span>
+              <span>Art Style</span>
+            </div>
+
+            <div class="style-tabs">
+              <button class="style-tab active" id="tabPresets" onclick="switchStyleTab('presets')">Presets</button>
+              <button class="style-tab" id="tabCustom" onclick="switchStyleTab('custom')">Upload Custom</button>
+            </div>
+
+            <!-- Preset gallery -->
+            <div id="presetPanel" class="preset-grid" style="display:grid">
+              <div class="preset-loading">
+                <div class="spinner"></div>
+                <span>Loading styles…</span>
+              </div>
+            </div>
+
+            <!-- Custom upload -->
+            <div id="customPanel" class="upload-zone small" style="display:none"
+              onclick="document.getElementById('styleCustomInput').click()">
+              <input type="file" id="styleCustomInput" accept="image/*" hidden />
+              <div class="upload-placeholder" id="stylePlaceholder">
+                <div class="upload-icon">🖼️</div>
+                <div class="upload-text">Upload any painting as style</div>
+              </div>
+              <img id="styleCustomPreview" class="upload-preview hidden" alt="Style" />
+              <button class="upload-clear hidden" id="styleClear" onclick="clearImage('style', event)">✕</button>
+            </div>
+          </div>
+
+          <!-- Step 3: Controls -->
+          <div class="panel-section">
+            <div class="panel-label">
+              <span class="step-badge">3</span>
+              <span>Fine-tune Parameters</span>
+            </div>
+
+            <div class="controls-grid">
+              <div class="control-item">
+                <div class="control-header">
+                  <label>Style Strength</label>
+                  <span class="control-value" id="styleWeightVal">0.01</span>
+                </div>
+                <input type="range" id="styleWeight" min="0.001" max="0.1" step="0.001" value="0.01"
+                  class="slider slider-style" oninput="updateSlider(this,'styleWeightVal')" />
+                <div class="control-hints"><span>Subtle</span><span>Bold</span></div>
+              </div>
+
+              <div class="control-item">
+                <div class="control-header">
+                  <label>Content Fidelity</label>
+                  <span class="control-value" id="contentWeightVal">10000</span>
+                </div>
+                <input type="range" id="contentWeight" min="1000" max="100000" step="1000" value="10000"
+                  class="slider slider-content" oninput="updateSlider(this,'contentWeightVal')" />
+                <div class="control-hints"><span>Artistic</span><span>Faithful</span></div>
+              </div>
+
+              <div class="control-item">
+                <div class="control-header">
+                  <label>Smoothness (TV)</label>
+                  <span class="control-value" id="tvWeightVal">30</span>
+                </div>
+                <input type="range" id="tvWeight" min="0" max="100" step="1" value="30" class="slider slider-tv"
+                  oninput="updateSlider(this,'tvWeightVal')" />
+                <div class="control-hints"><span>Textured</span><span>Smooth</span></div>
+              </div>
+
+              <div class="control-item">
+                <div class="control-header">
+                  <label>Iterations</label>
+                  <span class="control-value" id="numStepsVal">300</span>
+                </div>
+                <input type="range" id="numSteps" min="50" max="1000" step="50" value="300" class="slider slider-steps"
+                  oninput="updateSlider(this,'numStepsVal')" />
+                <div class="control-hints"><span>Fast</span><span>Quality</span></div>
+              </div>
+
+              <div class="control-item control-item-full">
+                <div class="control-header">
+                  <label>Learning Rate</label>
+                  <span class="control-value" id="lrVal">0.020</span>
+                </div>
+                <input type="range" id="lrSlider" min="0.005" max="0.05" step="0.005" value="0.02"
+                  class="slider slider-lr" oninput="updateLRSlider(this)" />
+                <div class="control-hints"><span>Slow/Stable</span><span>Fast/Bold</span></div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-generate" id="generateBtn" onclick="startTransfer()">
+              <span class="btn-icon">✦</span>
+              <span class="btn-text">Generate Artwork</span>
+              <div class="btn-shine"></div>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- RIGHT PANEL: Output -->
+        <div class="studio-panel panel-right">
+          <div class="output-header">
+            <h3>Output Canvas</h3>
+            <div class="output-actions" id="outputActions" style="display:none">
+              <button class="btn btn-ghost btn-sm" onclick="downloadResult()">
+                ⬇ Download
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="resetStudio()">
+                ↺ Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- Idle state -->
+          <div class="output-idle" id="outputIdle">
+            <div class="idle-art">
+              <div class="idle-circle c1"></div>
+              <div class="idle-circle c2"></div>
+              <div class="idle-circle c3"></div>
+            </div>
+            <h3>Your Canvas Awaits</h3>
+            <p>Upload an image and pick a style to begin your artistic journey</p>
+          </div>
+
+          <!-- Progress state -->
+          <div class="output-progress hidden" id="outputProgress">
+            <div class="progress-preview-wrap">
+              <img id="progressPreview" class="progress-preview-img" alt="Progress" src="" />
+              <div class="progress-overlay">
+                <div class="progress-status">
+                  <div class="progress-spinner"></div>
+                  <span id="progressLabel">Initialising AI…</span>
+                </div>
+              </div>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+              </div>
+              <div class="progress-info">
+                <span id="progressPct">0%</span>
+                <span id="progressLoss">Loss: —</span>
+                <span id="progressStep">Step 0 / 0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result state -->
+          <div class="output-result hidden" id="outputResult">
+            <div class="result-image-wrap">
+              <img id="resultImage" class="result-image" alt="Styled Result" />
+              <div class="result-badge">✦ Masterpiece Ready</div>
+            </div>
+            <div class="result-compare" id="resultCompare" style="display:none">
+              <div class="compare-item">
+                <img id="compareContent" class="compare-img" alt="Content" />
+                <span>Original</span>
+              </div>
+              <div class="compare-arrow">→</div>
+              <div class="compare-item">
+                <img id="compareResult" class="compare-img" alt="Result" />
+                <span>Styled</span>
+              </div>
+            </div>
+            <div class="result-meta" id="resultMeta"></div>
+          </div>
+
+          <!-- Error state -->
+          <div class="output-error hidden" id="outputError">
+            <div class="error-icon">⚠️</div>
+            <h3>Something went wrong</h3>
+            <p id="errorMessage"></p>
+            <button class="btn btn-ghost" onclick="resetStudio()">Try Again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║          GALLERY                 ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <section class="section" id="gallery">
+    <div class="container">
+      <div class="section-header">
+        <div class="section-tag">Showcase</div>
+        <h2 class="section-title">Style Gallery</h2>
+        <p class="section-subtitle">Explore the iconic art styles available in PicturaAI</p>
+      </div>
+      <div class="gallery-grid" id="galleryGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║          TOAST                   ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ╔══════════════════════════════════╗ -->
+  <!-- ║          FOOTER                  ║ -->
+  <!-- ╚══════════════════════════════════╝ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="logo-icon">✦</span>
+          <span class="footer-name">PicturaAI</span>
+          <p><em>Pictura</em> — Latin for "a painting." Your AI-powered art studio.</p>
+        </div>
+        <div class="footer-note">
+          Built with EfficientNetB0 · FastAPI · Pure JS<br />
+          &copy; 2026 PicturaAI. All rights reserved.
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/app.js"></script>
+</body>
+
+</html>
