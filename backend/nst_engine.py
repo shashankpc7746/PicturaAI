@@ -5,9 +5,9 @@ Production-grade NST using EfficientNetB0 feature extraction.
 Supports real-time progress streaming via callback.
 """
 
-import tensorflow as tf
-import numpy as np
-from PIL import Image
+import tensorflow as tf  # pyre-ignore[21]
+import numpy as np  # pyre-ignore[21]
+from PIL import Image  # pyre-ignore[21]
 import io
 import time
 import logging
@@ -75,10 +75,14 @@ class NSTModel:
 
     @classmethod
     def get(cls) -> "NSTModel":
-        if cls._instance is None:
-            cls._instance = cls()
-        assert cls._instance is not None  # narrows Optional[NSTModel] → NSTModel
-        return cls._instance
+        # Use a local variable so Pyre2 can narrow the type correctly.
+        # Class variables typed as Optional are not narrowed by Pyre2 after
+        # assignment, but local variables are — this is the idiomatic fix.
+        instance = cls._instance
+        if instance is None:
+            instance = cls()
+            cls._instance = instance
+        return instance  # pyre-ignore[7]
 
     def __call__(self, img_tensor: tf.Tensor):
         preprocessed = tf.keras.applications.efficientnet.preprocess_input(

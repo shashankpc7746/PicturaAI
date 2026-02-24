@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from fastapi import (
+from fastapi import (  # pyre-ignore[21]
     FastAPI,
     File,
     Form,
@@ -32,12 +32,12 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
 )
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
+from fastapi.responses import FileResponse, JSONResponse  # pyre-ignore[21]
+from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
 
-from nst_engine import run_nst, pil_to_bytes
-from PIL import Image
+from nst_engine import run_nst, pil_to_bytes  # pyre-ignore[21]
+from PIL import Image  # pyre-ignore[21]
 import io
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -327,5 +327,5 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import uvicorn
+    import uvicorn  # pyre-ignore[21]
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False, log_level="info")

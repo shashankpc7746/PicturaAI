@@ -1,10 +1,12 @@
 {
   "site_package_search_strategy": "all",
-  "source_directories": ["backend"],
+  "source_directories": [
+    { "root": "backend" }
+  ],
   "search_path": [
     "venv/Lib/site-packages"
   ],
   "python_version": "3.10",
-  "strict_handling_undefined_names": false,
-  "report_uninitialized_module_imports": false
+  "strict": false,
+  "report_any_as_error": false
 }

@@ -1,0 +1,29 @@
+{
+    // ── Python interpreter ─────────────────────────────────────────────────────
+    // Points VSCode, Pylance, AND Pyre2 to the project venv.
+    // This resolves all "Could not find import" errors for fastapi, tensorflow,
+    // PIL, numpy, uvicorn, nst_engine, etc.
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe",
+    "python.pythonPath": "${workspaceFolder}/venv/Scripts/python.exe",
+    // ── Pyre2 extension settings ───────────────────────────────────────────────
+    "pyre2.pythonPath": "${workspaceFolder}/venv/Scripts/python.exe",
+    "pyre2.venvPath": "${workspaceFolder}/venv",
+    // ── Pylance / Pyright settings ─────────────────────────────────────────────
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/backend",
+        "${workspaceFolder}/venv/Lib/site-packages"
+    ],
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.useLibraryCodeForTypes": true,
+    // ── Tell the linter to use the venv ───────────────────────────────────────
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": false,
+    // ── File associations ──────────────────────────────────────────────────────
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/venv": false
+    }
+}
