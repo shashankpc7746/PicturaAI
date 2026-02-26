@@ -337,4 +337,5 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn  # pyre-ignore[21]
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False, log_level="info")
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False, log_level="info")
