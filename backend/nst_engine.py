@@ -115,31 +115,43 @@ def total_variation_loss(img: tf.Tensor) -> tf.Tensor:
     return tf.image.total_variation(img)[0]
 
 # ── Training step ──────────────────────────────────────────────────────────────
-@tf.function
-def train_step(
+def make_train_step(
     image: tf.Variable,
-    model: NSTModel,
-    target_style_grams,
-    target_content_feat: tf.Tensor,
+    model: "NSTModel",
     optimizer: tf.keras.optimizers.Optimizer,
-    style_weight: float,
-    content_weight: float,
-    tv_weight: float,
 ):
-    with tf.GradientTape() as tape:
-        features = model(image)
-        gen_style_feats = features[:NUM_STYLE_LAYERS]
-        gen_content_feat = features[NUM_STYLE_LAYERS]
+    """
+    Returns a @tf.function-compiled training step.
 
-        s_loss = style_loss(gen_style_feats, target_style_grams)
-        c_loss = content_loss(gen_content_feat, target_content_feat)
-        tv_loss = total_variation_loss(image)
-        loss = style_weight * s_loss + content_weight * c_loss + tv_weight * tv_loss
+    Keras 3 (TF 2.16+) requires optimizer state Variables (momentum, velocity)
+    to be created OUTSIDE @tf.function. By closing over a pre-built optimizer
+    in Python scope rather than passing it as a tf.function argument, we
+    satisfy that constraint without losing graph-mode performance.
+    """
+    @tf.function
+    def _step(
+        target_style_grams: list,
+        target_content_feat: tf.Tensor,
+        style_weight: float,
+        content_weight: float,
+        tv_weight: float,
+    ):
+        with tf.GradientTape() as tape:
+            features = model(image)
+            gen_style_feats = features[:NUM_STYLE_LAYERS]
+            gen_content_feat = features[NUM_STYLE_LAYERS]
 
-    grads = tape.gradient(loss, image)
-    optimizer.apply_gradients([(grads, image)])
-    image.assign(tf.clip_by_value(image, 0.0, 1.0))
-    return loss, s_loss, c_loss
+            s_loss = style_loss(gen_style_feats, target_style_grams)
+            c_loss = content_loss(gen_content_feat, target_content_feat)
+            tv_loss = total_variation_loss(image)
+            loss = style_weight * s_loss + content_weight * c_loss + tv_weight * tv_loss
+
+        grads = tape.gradient(loss, image)
+        optimizer.apply_gradients([(grads, image)])
+        image.assign(tf.clip_by_value(image, 0.0, 1.0))
+        return loss, s_loss, c_loss
+
+    return _step
 
 # ── Main API ───────────────────────────────────────────────────────────────────
 def run_nst(
@@ -182,13 +194,21 @@ def run_nst(
     image = tf.Variable(content_tensor, trainable=True, dtype=tf.float32)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, beta_1=0.99, epsilon=1e-1)
 
+    # Keras 3 (TF 2.16+) fix: pre-build optimizer state OUTSIDE @tf.function.
+    # Without this, Adam creates momentum/velocity Variables inside the traced
+    # function on the first call, which TF forbids after the first trace.
+    optimizer.build([image])
+
+    # Create the compiled training step (closure captures image + optimizer)
+    train_step = make_train_step(image, nst_model, optimizer)
+
     REPORT_EVERY = max(1, num_steps // 20)   # ~20 progress updates
     t0 = time.time()
 
     for step in range(1, num_steps + 1):
         loss, s_loss, c_loss = train_step(
-            image, nst_model, target_style_grams, target_content_feat,
-            optimizer, style_weight, content_weight, tv_weight
+            target_style_grams, target_content_feat,
+            style_weight, content_weight, tv_weight
         )
 
         if progress_callback is not None and (step % REPORT_EVERY == 0 or step == num_steps):
