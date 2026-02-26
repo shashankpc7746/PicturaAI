@@ -2,7 +2,7 @@
 
 <div align="center">
   <h1>✦ PicturaAI</h1>
-  <p><strong><em>Pictura</em> — Latin for "a painting." Production-grade Neural Style Transfer powered by EfficientNetB0 + FastAPI</strong></p>
+  <p><strong><em>Pictura</em> — Latin for "a painting." Instant Neural Style Transfer powered by Google Magenta + FastAPI</strong></p>
   <img src="images/generated images/Style-transfer-image.jpeg" alt="Demo Output" width="600" />
   <br/><br/>
   <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python" />
@@ -91,7 +91,7 @@ Neural Style Transfer/
 │
 ├── backend/                     ← FastAPI server
 │   ├── main.py                  ← API routes, WebSocket, job manager
-│   ├── nst_engine.py            ← Core NST logic (EfficientNetB0)
+│   ├── nst_engine.py            ← Core NST logic (Magenta pre-trained model)
 │   ├── requirements.txt         ← Python dependencies
 │   ├── uploads/                 ← Temp uploaded images (auto-created)
 │   └── outputs/                 ← Generated result images (auto-created)
@@ -159,7 +159,7 @@ Neural Style Transfer/
 ## 🤖 Technical Architecture
 
 ### NST Algorithm
-- **Backbone:** `EfficientNetB0` (ImageNet pretrained, frozen)
+- **Model:** Google Magenta's `arbitrary-image-stylization-v1-256` (pre-trained, instant)
 - **Style layers:** `block1a_activation` → `block4b_activation` (7 layers)
 - **Content layer:** `block5a_activation`
 - **Style loss:** Mean squared error on **Gram matrices**

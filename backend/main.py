@@ -60,7 +60,7 @@ for d in (UPLOAD_DIR, OUTPUT_DIR):
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="PicturaAI — Neural Style Transfer",
-    description="Production-grade Neural Style Transfer powered by EfficientNetB0. *Pictura* — Latin for 'a painting'.",
+    description="Instant Neural Style Transfer powered by Google Magenta's pre-trained model. *Pictura* — Latin for 'a painting'.",
     version="2.0.0",
 )
 

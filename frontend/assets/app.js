@@ -252,17 +252,23 @@ function closeWS() {
 function onProgress(msg) {
   const pct = msg.percent ?? 0;
   const step = msg.step ?? 0;
-  const total = msg.total ?? parseInt(document.getElementById('numSteps').value);
-  const loss = msg.loss;
+  const total = msg.total ?? 3;
 
   document.getElementById('progressBar').style.width = `${pct}%`;
   document.getElementById('progressPct').textContent = `${pct}%`;
-  document.getElementById('progressStep').textContent = `Step ${step} / ${total}`;
-  document.getElementById('progressLabel').textContent = pct < 10
-    ? 'Initialising AI…' : pct < 50 ? 'Applying style…' : pct < 85 ? 'Refining artwork…' : 'Final polish…';
+  document.getElementById('progressStep').textContent = total <= 5
+    ? `Phase ${step} / ${total}` : `Step ${step} / ${total}`;
 
-  if (loss != null) {
-    document.getElementById('progressLoss').textContent = `Loss: ${loss.toExponential(2)}`;
+  // Label based on phase for the fast model
+  if (pct < 20) document.getElementById('progressLabel').textContent = 'Loading AI model…';
+  else if (pct < 50) document.getElementById('progressLabel').textContent = 'Preprocessing images…';
+  else if (pct < 90) document.getElementById('progressLabel').textContent = 'Applying style…';
+  else document.getElementById('progressLabel').textContent = 'Finalising artwork…';
+
+  if (msg.loss != null && msg.loss > 0) {
+    document.getElementById('progressLoss').textContent = `Loss: ${msg.loss.toExponential(2)}`;
+  } else {
+    document.getElementById('progressLoss').textContent = '';
   }
   if (msg.preview) {
     const img = document.getElementById('progressPreview');
@@ -281,7 +287,7 @@ function onDone(msg) {
   document.getElementById('compareResult').src = imgSrc;
 
   const steps = document.getElementById('numSteps').value;
-  document.getElementById('resultMeta').textContent = `Generated with ${steps} iterations · EfficientNetB0`;
+  document.getElementById('resultMeta').textContent = `Styled with Magenta Arbitrary Style Transfer · PicturaAI`;
 
   setOutputState('result');
   document.getElementById('outputActions').style.display = 'flex';
