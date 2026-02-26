@@ -81,6 +81,15 @@ ws_clients: Dict[str, List[WebSocket]] = {}
 
 executor = ThreadPoolExecutor(max_workers=2)
 
+# ── Capture the main event loop at startup ─────────────────────────────────────
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+@app.on_event("startup")
+async def _capture_event_loop():
+    global _main_loop
+    _main_loop = asyncio.get_running_loop()
+    logger.info("Event loop captured for thread-safe WS broadcasting.")
+
 # ── Style presets ──────────────────────────────────────────────────────────────
 STYLE_PRESETS = {
     "starry_night":        {"file": "starry_night.jpg",        "name": "Starry Night",        "artist": "Van Gogh",     "description": "Swirling cosmic energy and deep blues"},
@@ -117,11 +126,11 @@ async def _broadcast(job_id: str, payload: dict):
 
 def _sync_broadcast(job_id: str, payload: dict):
     """Thread-safe broadcast from worker thread."""
-    loop = asyncio._get_running_loop() if hasattr(asyncio, "_get_running_loop") else None
+    loop = _main_loop
+    if loop is None or loop.is_closed():
+        return
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.run_coroutine_threadsafe(_broadcast(job_id, payload), loop)
+        asyncio.run_coroutine_threadsafe(_broadcast(job_id, payload), loop)
     except Exception:
         pass
 

@@ -163,16 +163,23 @@ def run_nst(
     # ── Phase 2: Style Transfer (single forward pass!) ──────────────────────
     logger.info("Running style transfer (single forward pass) …")
     stylized_tensor = model.stylize(content_tensor, style_tensor)
+
+    # ── Phase 2.5: Blend with content using style_weight as alpha ────────────
+    # style_weight = 0.0 → pure content, 1.0 → fully stylized
+    alpha = max(0.0, min(1.0, style_weight))
+    logger.info(f"Blending: {alpha*100:.0f}% style + {(1-alpha)*100:.0f}% content")
+    blended_tensor = alpha * stylized_tensor + (1.0 - alpha) * content_tensor
+
     elapsed = time.time() - t0
     logger.info(f"Style transfer complete in {elapsed:.1f}s")
 
     if progress_callback is not None:
-        pil_result = tensor_to_pil(stylized_tensor)
+        pil_result = tensor_to_pil(blended_tensor)
         preview_bytes = pil_to_bytes(pil_result, quality=75)
         progress_callback(2, total_steps, 0.0, preview_bytes)
 
     # ── Phase 3: Final output ───────────────────────────────────────────────
-    pil_result = tensor_to_pil(stylized_tensor)
+    pil_result = tensor_to_pil(blended_tensor)
     result_bytes = pil_to_bytes(pil_result, quality=95)
 
     if progress_callback is not None:

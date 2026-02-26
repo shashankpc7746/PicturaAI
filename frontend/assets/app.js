@@ -205,11 +205,13 @@ async function startTransfer() {
   form.append('content_image', contentFile);
   if (styleFile) form.append('style_image', styleFile);
   if (selectedPreset) form.append('style_preset', selectedPreset);
-  form.append('style_weight', document.getElementById('styleWeight').value);
-  form.append('content_weight', document.getElementById('contentWeight').value);
-  form.append('tv_weight', document.getElementById('tvWeight').value);
-  form.append('num_steps', document.getElementById('numSteps').value);
-  form.append('learning_rate', document.getElementById('lrSlider').value);
+  // Style intensity slider sends 0-100, convert to 0.0-1.0 alpha
+  const styleIntensity = parseFloat(document.getElementById('styleWeight').value) / 100;
+  form.append('style_weight', styleIntensity.toString());
+  form.append('content_weight', '1');
+  form.append('tv_weight', '0');
+  form.append('num_steps', '3');
+  form.append('learning_rate', '0.02');
 
   try {
     const res = await fetch(`${API}/api/transfer`, { method: 'POST', body: form });

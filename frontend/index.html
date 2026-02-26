@@ -19,7 +19,7 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap"
     rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=4" />
+  <link rel="stylesheet" href="assets/style.css?v=5" />
 </head>
 
 <body>
@@ -215,54 +215,14 @@
             </div>
 
             <div class="controls-grid">
-              <div class="control-item">
-                <div class="control-header">
-                  <label>Style Strength</label>
-                  <span class="control-value" id="styleWeightVal">0.01</span>
-                </div>
-                <input type="range" id="styleWeight" min="0.001" max="0.1" step="0.001" value="0.01"
-                  class="slider slider-style" oninput="updateSlider(this,'styleWeightVal')" />
-                <div class="control-hints"><span>Subtle</span><span>Bold</span></div>
-              </div>
-
-              <div class="control-item">
-                <div class="control-header">
-                  <label>Content Fidelity</label>
-                  <span class="control-value" id="contentWeightVal">10000</span>
-                </div>
-                <input type="range" id="contentWeight" min="1000" max="100000" step="1000" value="10000"
-                  class="slider slider-content" oninput="updateSlider(this,'contentWeightVal')" />
-                <div class="control-hints"><span>Artistic</span><span>Faithful</span></div>
-              </div>
-
-              <div class="control-item">
-                <div class="control-header">
-                  <label>Smoothness (TV)</label>
-                  <span class="control-value" id="tvWeightVal">30</span>
-                </div>
-                <input type="range" id="tvWeight" min="0" max="100" step="1" value="30" class="slider slider-tv"
-                  oninput="updateSlider(this,'tvWeightVal')" />
-                <div class="control-hints"><span>Textured</span><span>Smooth</span></div>
-              </div>
-
-              <div class="control-item">
-                <div class="control-header">
-                  <label>Iterations</label>
-                  <span class="control-value" id="numStepsVal">300</span>
-                </div>
-                <input type="range" id="numSteps" min="50" max="1000" step="50" value="300" class="slider slider-steps"
-                  oninput="updateSlider(this,'numStepsVal')" />
-                <div class="control-hints"><span>Fast</span><span>Quality</span></div>
-              </div>
-
               <div class="control-item control-item-full">
                 <div class="control-header">
-                  <label>Learning Rate</label>
-                  <span class="control-value" id="lrVal">0.020</span>
+                  <label>Style Intensity</label>
+                  <span class="control-value" id="styleWeightVal">75%</span>
                 </div>
-                <input type="range" id="lrSlider" min="0.005" max="0.05" step="0.005" value="0.02"
-                  class="slider slider-lr" oninput="updateLRSlider(this)" />
-                <div class="control-hints"><span>Slow/Stable</span><span>Fast/Bold</span></div>
+                <input type="range" id="styleWeight" min="0" max="100" step="1" value="75" class="slider slider-style"
+                  oninput="document.getElementById('styleWeightVal').textContent = this.value + '%'" />
+                <div class="control-hints"><span>Subtle (more photo)</span><span>Bold (more art)</span></div>
               </div>
             </div>
 
