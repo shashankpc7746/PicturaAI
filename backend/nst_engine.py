@@ -168,6 +168,12 @@ def run_nst(
     # style_weight = 0.0 → pure content, 1.0 → fully stylized
     alpha = max(0.0, min(1.0, style_weight))
     logger.info(f"Blending: {alpha*100:.0f}% style + {(1-alpha)*100:.0f}% content")
+
+    # The model may output slightly different dimensions due to internal padding.
+    # Resize stylized output to match content tensor shape before blending.
+    content_shape = tf.shape(content_tensor)[1:3]  # [H, W]
+    stylized_tensor = tf.image.resize(stylized_tensor, content_shape)
+
     blended_tensor = alpha * stylized_tensor + (1.0 - alpha) * content_tensor
 
     elapsed = time.time() - t0
