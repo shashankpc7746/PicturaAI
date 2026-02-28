@@ -262,10 +262,19 @@ function onProgress(msg) {
     ? `Phase ${step} / ${total}` : `Step ${step} / ${total}`;
 
   // Label based on phase for the fast model
-  if (pct < 20) document.getElementById('progressLabel').textContent = 'Loading AI model…';
-  else if (pct < 50) document.getElementById('progressLabel').textContent = 'Preprocessing images…';
-  else if (pct < 90) document.getElementById('progressLabel').textContent = 'Applying style…';
-  else document.getElementById('progressLabel').textContent = 'Finalising artwork…';
+  if (pct >= 100) {
+    document.getElementById('progressLabel').textContent = 'Artwork ready!';
+    document.querySelector('.progress-bar-fill').classList.add('paused');
+    document.querySelector('.progress-spinner').classList.add('paused');
+  } else if (pct < 20) {
+    document.getElementById('progressLabel').textContent = 'Loading AI model…';
+  } else if (pct < 50) {
+    document.getElementById('progressLabel').textContent = 'Preprocessing images…';
+  } else if (pct < 90) {
+    document.getElementById('progressLabel').textContent = 'Applying style…';
+  } else {
+    document.getElementById('progressLabel').textContent = 'Finalising artwork…';
+  }
 
   if (msg.loss != null && msg.loss > 0) {
     document.getElementById('progressLoss').textContent = `Loss: ${msg.loss.toExponential(2)}`;
@@ -373,6 +382,10 @@ function resetStudio() {
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent = '0%';
   document.getElementById('progressStep').textContent = 'Step 0 / 0';
+  const barFill = document.querySelector('.progress-bar-fill');
+  const spinner = document.querySelector('.progress-spinner');
+  if (barFill) barFill.classList.remove('paused');
+  if (spinner) spinner.classList.remove('paused');
 
   setOutputState('idle');
   document.getElementById('outputActions').style.display = 'none';

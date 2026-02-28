@@ -1097,12 +1097,22 @@ a {
 
 @keyframes shimmer-bar {
   0% {
-    background-position: 0% 0;
+    background-position: 200% 0;
   }
 
   100% {
-    background-position: 200% 0;
+    background-position: 0% 0;
   }
+}
+
+.progress-bar-fill.paused {
+  animation-play-state: paused;
+}
+
+.progress-spinner.paused {
+  animation-play-state: paused;
+  border-top-color: var(--cyan);
+  opacity: 0.5;
 }
 
 .progress-info {
