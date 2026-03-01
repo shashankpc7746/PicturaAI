@@ -1176,6 +1176,31 @@ a {
   letter-spacing: 0.05em;
 }
 
+.result-download-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  z-index: 2;
+}
+
+.result-download-btn:hover {
+  background: var(--accent);
+  transform: scale(1.1);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
 .result-compare {
   display: flex;
   align-items: center;
