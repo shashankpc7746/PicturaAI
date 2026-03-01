@@ -200,6 +200,20 @@ async function startTransfer() {
   document.getElementById('outputActions').style.display = 'none';
   document.getElementById('resultCompare').style.display = 'none';
 
+  // Reset progress UI for fresh run
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressPct').textContent = '0%';
+  document.getElementById('progressStep').textContent = 'Phase 0 / 3';
+  document.getElementById('progressLabel').textContent = 'Initialising AI…';
+  document.getElementById('progressLoss').textContent = '';
+  const prevImg = document.getElementById('progressPreview');
+  prevImg.src = '';
+  prevImg.style.opacity = '0';
+  const barFill = document.querySelector('.progress-bar-fill');
+  const spinner = document.querySelector('.progress-spinner');
+  if (barFill) barFill.classList.remove('paused');
+  if (spinner) spinner.classList.remove('paused');
+
   // Build form data
   const form = new FormData();
   form.append('content_image', contentFile);
@@ -306,7 +320,7 @@ function onDone(msg) {
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = false;
-  btn.querySelector('.btn-text').textContent = 'Generate Artwork';
+  btn.querySelector('.btn-text').textContent = 'Regenerate Artwork';
   toast('🎨 PicturaAI — your masterpiece is ready!', 'success');
 }
 
