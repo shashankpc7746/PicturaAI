@@ -11,11 +11,21 @@ Endpoints:
   DELETE /api/jobs/{job_id} – Cancel / cleanup
 """
 
+import os
+import warnings
+import logging as _logging
+
+# Suppress TF noise BEFORE any TF import (nst_engine imports TF at module level)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = os.environ.get("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = os.environ.get("TF_ENABLE_ONEDNN_OPTS", "0")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+_logging.getLogger("tensorflow").setLevel(_logging.ERROR)
+
 import asyncio
 import base64
 import json
 import logging
-import os
 import shutil
 import time
 import uuid
@@ -77,6 +87,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _main_loop
     _main_loop = asyncio.get_running_loop()
     logger.info("Event loop captured for thread-safe WS broadcasting.")
+    port = int(os.environ.get("PORT", 8000))
+    logger.info(f"\n\n    🎨 PicturaAI is running!\n    ➜  Frontend:  http://localhost:{port}/app\n    ➜  API docs:  http://localhost:{port}/docs\n")
     yield
     # Shutdown: clean up executor
     executor.shutdown(wait=False)

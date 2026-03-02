@@ -8,22 +8,25 @@ One forward pass ≈ 2–5 seconds on CPU, <1 second on GPU.
 No iterative optimisation needed — instant results.
 """
 
-import tensorflow as tf  # pyre-ignore[21]
-import tensorflow_hub as hub  # pyre-ignore[21]
-import numpy as np  # pyre-ignore[21]
-from PIL import Image, __version__ as PIL_VERSION  # pyre-ignore[21]
 import io
-import time
 import logging
 import os
+import time
+import warnings
 from typing import Callable, Optional
 
-# Suppress non-critical TensorFlow warnings
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # hide INFO & WARNING from TF C++
-os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")  # suppress oneDNN info messages
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="tensorflow")
-warnings.filterwarnings("ignore", category=FutureWarning, module="tensorflow")
+# Suppress non-critical TensorFlow warnings — MUST be set BEFORE importing TF
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = os.environ.get("TF_CPP_MIN_LOG_LEVEL", "2")
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = os.environ.get("TF_ENABLE_ONEDNN_OPTS", "0")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+logging.getLogger("tensorflow").setLevel(logging.ERROR)
+
+import tensorflow as tf  # pyre-ignore[21]  # noqa: E402
+import tensorflow_hub as hub  # pyre-ignore[21]  # noqa: E402
+import numpy as np  # pyre-ignore[21]  # noqa: E402
+from PIL import Image, __version__ as PIL_VERSION  # pyre-ignore[21]  # noqa: E402
+
 tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
 
 logger = logging.getLogger("nst_engine")
