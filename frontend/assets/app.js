@@ -13,6 +13,8 @@ let selectedPreset = null;
 let resultB64 = null;
 let contentFile = null;
 let styleFile = null;
+let _doneReceived = false;
+let _polling = false;
 
 // ── Navbar scroll effect ─────────────────────────────────────────
 window.addEventListener('scroll', () => {
@@ -196,6 +198,8 @@ async function startTransfer() {
   btn.querySelector('.btn-text').textContent = 'Sending to AI…';
 
   closeWS();
+  _doneReceived = false;
+  _polling = false;
   setOutputState('progress');
   document.getElementById('outputActions').style.display = 'none';
   document.getElementById('resultCompare').style.display = 'none';
@@ -211,8 +215,8 @@ async function startTransfer() {
   prevImg.style.opacity = '0';
   const barFill = document.querySelector('.progress-bar-fill');
   const spinner = document.querySelector('.progress-spinner');
-  if (barFill) barFill.classList.remove('paused');
-  if (spinner) spinner.classList.remove('paused');
+  if (barFill) { barFill.classList.remove('paused'); barFill.classList.remove('completed'); }
+  if (spinner) { spinner.classList.remove('paused'); spinner.classList.remove('completed'); spinner.innerHTML = ''; }
 
   // Build form data
   const form = new FormData();
@@ -256,8 +260,8 @@ function connectWS(jobId) {
     else if (msg.type === 'error') onWsError(msg);
     // ping: ignore
   };
-  ws.onerror = () => pollFallback(jobId);
-  ws.onclose = () => { };
+  ws.onerror = () => { if (!_doneReceived && !_polling) pollFallback(jobId); };
+  ws.onclose = () => { if (!_doneReceived && !_polling && currentJobId) pollFallback(currentJobId); };
 }
 
 function closeWS() {
@@ -278,8 +282,18 @@ function onProgress(msg) {
   // Label based on phase for the fast model
   if (pct >= 100) {
     document.getElementById('progressLabel').textContent = 'Artwork ready!';
-    document.querySelector('.progress-bar-fill').classList.add('paused');
-    document.querySelector('.progress-spinner').classList.add('paused');
+    const bar = document.querySelector('.progress-bar-fill');
+    const spin = document.querySelector('.progress-spinner');
+    if (bar) { bar.classList.add('completed'); }
+    if (spin) {
+      spin.classList.add('completed');
+      spin.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    }
+    // Safety: if onDone hasn't fired within 4s, poll the server
+    if (!_doneReceived && currentJobId) {
+      const jid = currentJobId;
+      setTimeout(() => { if (!_doneReceived) pollFallback(jid); }, 4000);
+    }
   } else if (pct < 20) {
     document.getElementById('progressLabel').textContent = 'Loading AI model…';
   } else if (pct < 50) {
@@ -304,6 +318,7 @@ function onProgress(msg) {
 
 // ── Done handler ─────────────────────────────────────────────────
 function onDone(msg) {
+  _doneReceived = true;
   closeWS();
   resultB64 = msg.result;
   const imgSrc = `data:image/jpeg;base64,${resultB64}`;
@@ -331,6 +346,7 @@ function onWsError(msg) {
 
 // ── Poll fallback (if WS fails) ──────────────────────────────────
 async function pollFallback(jobId) {
+  _polling = true;
   try {
     const res = await fetch(`${API}/api/jobs/${jobId}`);
     const data = await res.json();
@@ -398,8 +414,8 @@ function resetStudio() {
   document.getElementById('progressStep').textContent = 'Step 0 / 0';
   const barFill = document.querySelector('.progress-bar-fill');
   const spinner = document.querySelector('.progress-spinner');
-  if (barFill) barFill.classList.remove('paused');
-  if (spinner) spinner.classList.remove('paused');
+  if (barFill) { barFill.classList.remove('paused'); barFill.classList.remove('completed'); }
+  if (spinner) { spinner.classList.remove('paused'); spinner.classList.remove('completed'); spinner.innerHTML = ''; }
 
   setOutputState('idle');
   document.getElementById('outputActions').style.display = 'none';

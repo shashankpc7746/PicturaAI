@@ -11,13 +11,25 @@ No iterative optimisation needed — instant results.
 import tensorflow as tf  # pyre-ignore[21]
 import tensorflow_hub as hub  # pyre-ignore[21]
 import numpy as np  # pyre-ignore[21]
-from PIL import Image  # pyre-ignore[21]
+from PIL import Image, __version__ as PIL_VERSION  # pyre-ignore[21]
 import io
 import time
 import logging
+import os
 from typing import Callable, Optional
 
+# Suppress non-critical TensorFlow warnings
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")  # hide INFO & WARNING from TF C++
+os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")  # suppress oneDNN info messages
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="tensorflow")
+warnings.filterwarnings("ignore", category=FutureWarning, module="tensorflow")
+tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
+
 logger = logging.getLogger("nst_engine")
+
+# Pillow 10+ moved LANCZOS to Image.Resampling
+_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 CONTENT_MAX_DIM = 512       # Max dimension for the content image
@@ -40,12 +52,12 @@ def load_and_preprocess(
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
     if target_size:
-        img = img.resize((target_size[1], target_size[0]), Image.LANCZOS)
+        img = img.resize((target_size[1], target_size[0]), _LANCZOS)
     else:
         w, h = img.size
         scale = max_dim / max(h, w)
         if scale < 1.0:  # only downscale, never upscale
-            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            img = img.resize((int(w * scale), int(h * scale)), _LANCZOS)
 
     arr = np.array(img, dtype=np.float32) / 255.0
     return tf.expand_dims(tf.constant(arr), axis=0)

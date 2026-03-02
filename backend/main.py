@@ -19,6 +19,8 @@ import os
 import shutil
 import time
 import uuid
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -40,6 +42,9 @@ from nst_engine import run_nst, pil_to_bytes  # pyre-ignore[21]
 from PIL import Image  # pyre-ignore[21]
 import io
 
+# Pillow 10+ moved LANCZOS to Image.Resampling
+_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
+
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -57,11 +62,31 @@ FRONTEND_DIR = BASE_DIR.parent / "frontend"
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
+# ── In-memory job store ────────────────────────────────────────────────────────
+jobs: Dict[str, dict] = {}
+ws_clients: Dict[str, List[WebSocket]] = {}
+
+executor = ThreadPoolExecutor(max_workers=2)
+
+# ── Capture the main event loop at startup ─────────────────────────────────────
+_main_loop: asyncio.AbstractEventLoop | None = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Modern lifespan handler (replaces deprecated on_event)."""
+    global _main_loop
+    _main_loop = asyncio.get_running_loop()
+    logger.info("Event loop captured for thread-safe WS broadcasting.")
+    yield
+    # Shutdown: clean up executor
+    executor.shutdown(wait=False)
+
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="PicturaAI — Neural Style Transfer",
     description="Instant Neural Style Transfer powered by Google Magenta's pre-trained model. *Pictura* — Latin for 'a painting'.",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -74,21 +99,6 @@ app.add_middleware(
 
 # Serve frontend static files
 app.mount("/app", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
-
-# ── In-memory job store ────────────────────────────────────────────────────────
-jobs: Dict[str, dict] = {}
-ws_clients: Dict[str, List[WebSocket]] = {}
-
-executor = ThreadPoolExecutor(max_workers=2)
-
-# ── Capture the main event loop at startup ─────────────────────────────────────
-_main_loop: asyncio.AbstractEventLoop | None = None
-
-@app.on_event("startup")
-async def _capture_event_loop():
-    global _main_loop
-    _main_loop = asyncio.get_running_loop()
-    logger.info("Event loop captured for thread-safe WS broadcasting.")
 
 # ── Style presets ──────────────────────────────────────────────────────────────
 STYLE_PRESETS = {
@@ -207,7 +217,7 @@ async def list_styles():
         thumbnail_b64 = None
         if style_path and style_path.exists():
             img = Image.open(style_path).convert("RGB")
-            img.thumbnail((200, 200), Image.LANCZOS)
+            img.thumbnail((200, 200), _LANCZOS)
             thumbnail_b64 = base64.b64encode(pil_to_bytes(img, quality=70)).decode()
         result.append({
             "key": key,
