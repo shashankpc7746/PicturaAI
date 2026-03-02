@@ -43,7 +43,7 @@ from PIL import Image  # pyre-ignore[21]
 import io
 
 # Pillow 10+ moved LANCZOS to Image.Resampling
-_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
+_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defined]
 
 # ── Logging ────────────────────────────────────────────────────────────────────
 logging.basicConfig(

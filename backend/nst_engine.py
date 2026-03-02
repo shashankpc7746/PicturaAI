@@ -29,7 +29,7 @@ tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
 logger = logging.getLogger("nst_engine")
 
 # Pillow 10+ moved LANCZOS to Image.Resampling
-_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS
+_LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defined]
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 CONTENT_MAX_DIM = 512       # Max dimension for the content image
@@ -65,7 +65,7 @@ def load_and_preprocess(
 
 def tensor_to_pil(tensor: tf.Tensor) -> Image.Image:
     """Convert a [1, H, W, 3] float tensor (0–1) → PIL Image."""
-    t = tensor.numpy()
+    t = tensor.numpy()  # type: ignore[union-attr]
     if t.ndim == 4:
         t = t[0]
     t = np.clip(t * 255.0, 0, 255).astype(np.uint8)
@@ -121,7 +121,7 @@ class StyleTransferModel:
         Returns:
             [1, H, W, 3] stylized image tensor
         """
-        outputs = self._model(tf.constant(content_tensor), tf.constant(style_tensor))  # pyre-ignore[29]
+        outputs = self._model(tf.constant(content_tensor), tf.constant(style_tensor))  # type: ignore[misc]  # pyre-ignore[29]
         return outputs[0]
 
 
@@ -183,10 +183,10 @@ def run_nst(
 
     # The model may output slightly different dimensions due to internal padding.
     # Resize stylized output to match content tensor shape before blending.
-    content_shape = tf.shape(content_tensor)[1:3]  # [H, W]
+    content_shape = tf.shape(content_tensor)[1:3]  # type: ignore[index]  # [H, W]
     stylized_tensor = tf.image.resize(stylized_tensor, content_shape)
 
-    blended_tensor = alpha * stylized_tensor + (1.0 - alpha) * content_tensor
+    blended_tensor = alpha * stylized_tensor + (1.0 - alpha) * content_tensor  # type: ignore[operator]
 
     elapsed = time.time() - t0
     logger.info(f"Style transfer complete in {elapsed:.1f}s")
