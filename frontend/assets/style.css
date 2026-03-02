@@ -181,19 +181,19 @@ a {
 
 /* Logo image in navbar and footer */
 .nav-logo-img {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
-  object-fit: cover;
+  object-fit: contain;
   flex-shrink: 0;
   filter: drop-shadow(0 0 6px rgba(124, 58, 237, 0.5));
 }
 
 .footer-logo-img {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  object-fit: cover;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  object-fit: contain;
 }
 
 .nav-links {
@@ -1342,44 +1342,133 @@ a {
 
 /* ── Footer ─────────────────────────────────────────────────────── */
 .footer {
+  position: relative;
   background: var(--bg-2);
   border-top: 1px solid var(--border);
-  padding: 48px 24px;
+  padding: 56px 24px 0;
+  overflow: hidden;
+}
+
+.footer-glow {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  height: 120px;
+  background: radial-gradient(ellipse, rgba(124,58,237,0.15) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .footer-inner {
   max-width: 1100px;
   margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 32px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 1fr;
+  gap: 48px;
+  padding-bottom: 40px;
 }
 
 .footer-brand {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.footer-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .footer-name {
   font-size: 20px;
   font-weight: 800;
+  color: var(--text);
 }
 
-.footer-brand p {
+.footer-tagline {
   color: var(--text-3);
   font-size: 13px;
-  max-width: 260px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-.footer-note {
+.footer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-links-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+
+.footer-links a {
   color: var(--text-3);
+  font-size: 14px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-links a:hover {
+  color: var(--accent);
+}
+
+.footer-tech {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-tech-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tech-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 99px;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  color: var(--text-2);
+}
+
+.footer-bottom {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
   font-size: 12px;
-  line-height: 1.8;
-  text-align: right;
+  color: var(--text-3);
+}
+
+.footer-bottom-sep {
+  opacity: 0.4;
+}
+
+.footer-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-github:hover {
+  color: var(--text);
 }
 
 /* ── Toast ──────────────────────────────────────────────────────── */
@@ -1482,11 +1571,25 @@ a {
   }
 
   .footer-inner {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    text-align: center;
   }
 
-  .footer-note {
-    text-align: left;
+  .footer-brand-row {
+    justify-content: center;
+  }
+
+  .footer-links {
+    align-items: center;
+  }
+
+  .footer-tech {
+    align-items: center;
+  }
+
+  .footer-tech-pills {
+    justify-content: center;
   }
 }
 
