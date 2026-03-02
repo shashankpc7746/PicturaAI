@@ -326,7 +326,6 @@ function onDone(msg) {
   resultImg.src = imgSrc;
   document.getElementById('compareResult').src = imgSrc;
 
-  const steps = document.getElementById('numSteps').value;
   document.getElementById('resultMeta').textContent = `Styled with Magenta Arbitrary Style Transfer · PicturaAI`;
 
   setOutputState('result');
