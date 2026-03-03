@@ -33,9 +33,10 @@ logger = logging.getLogger("nst_engine")
 
 # Pillow 10+ moved LANCZOS to Image.Resampling
 _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defined]
+from PIL import ImageFilter  # noqa: E402
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-CONTENT_MAX_DIM = 512       # Max dimension for the content image
+CONTENT_MAX_DIM = 768       # Raised from 512 for sharper output
 STYLE_IMG_SIZE  = 256       # Style model expects 256×256 (recommended)
 HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2"
 
@@ -79,6 +80,68 @@ def pil_to_bytes(img: Image.Image, fmt: str = "JPEG", quality: int = 92) -> byte
     buf = io.BytesIO()
     img.save(buf, format=fmt, quality=quality)
     return buf.getvalue()
+
+
+# ── Detail-preservation & post-processing utilities ────────────────────────────
+
+def _rgb_to_luminance(tensor: tf.Tensor) -> tf.Tensor:
+    """Extract perceptual luminance (Rec. 709) from [1,H,W,3] RGB tensor."""
+    return tf.reduce_sum(
+        tensor * tf.constant([[[0.2126, 0.7152, 0.0722]]]),  # type: ignore[operator]
+        axis=-1, keepdims=True,
+    )
+
+
+def _extract_high_freq(tensor: tf.Tensor, sigma: int = 3) -> tf.Tensor:
+    """Return the high-frequency detail layer (tensor − blurred)."""
+    blurred = tf.nn.avg_pool(tensor, ksize=[sigma, sigma], strides=[1, 1], padding="SAME")
+    return tensor - blurred  # type: ignore[operator]
+
+
+def _luminance_preserving_blend(
+    content: tf.Tensor,
+    stylized: tf.Tensor,
+    alpha: float,
+) -> tf.Tensor:
+    """
+    Blend that preserves content luminance structure.
+    At any alpha, the luminance channel is always taken from content,
+    while chrominance (colour) smoothly shifts toward the style.
+    This keeps edges and structures sharp even at 100 % style.
+    """
+    # Simple alpha blend for colour
+    blended = alpha * stylized + (1.0 - alpha) * content  # type: ignore[operator]
+
+    # Replace luminance of blended with a mix biased toward content luminance
+    lum_content = _rgb_to_luminance(content)
+    lum_blended = _rgb_to_luminance(blended)
+
+    # How much content luminance to keep: at alpha=1 keep 40%, at alpha=0 keep 100%
+    lum_keep = 1.0 - alpha * 0.6
+    target_lum = lum_keep * lum_content + (1.0 - lum_keep) * lum_blended  # type: ignore[operator]
+
+    # Adjust blended so its luminance matches the target
+    ratio = target_lum / (lum_blended + 1e-7)  # type: ignore[operator]
+    result = blended * ratio  # type: ignore[operator]
+    return tf.clip_by_value(result, 0.0, 1.0)  # type: ignore[return-value]
+
+
+def _reinject_details(
+    content: tf.Tensor,
+    stylized: tf.Tensor,
+    strength: float = 0.35,
+) -> tf.Tensor:
+    """
+    Extract high-frequency details from the content image and add them
+    back into the stylized image to recover edges and fine textures.
+    """
+    hf = _extract_high_freq(content, sigma=5)
+    return tf.clip_by_value(stylized + strength * hf, 0.0, 1.0)  # type: ignore[operator]
+
+
+def _unsharp_mask(img: Image.Image, radius: float = 1.5, percent: int = 60, threshold: int = 2) -> Image.Image:
+    """Apply PIL UnsharpMask for final edge crispness."""
+    return img.filter(ImageFilter.UnsharpMask(radius=radius, percent=percent, threshold=threshold))
 
 
 # ── Pre-trained Model (Singleton) ──────────────────────────────────────────────
@@ -156,7 +219,7 @@ def run_nst(
         JPEG bytes of the stylized image.
     """
     model = StyleTransferModel.get()
-    total_steps = 3  # We report 3 phases to keep the frontend progress bar useful
+    total_steps = 4  # 4 phases: preprocess, stylize, enhance, finalize
 
     # ── Phase 1: Preprocessing ──────────────────────────────────────────────
     if progress_callback is not None:
@@ -179,28 +242,41 @@ def run_nst(
     logger.info("Running style transfer (single forward pass) …")
     stylized_tensor = model.stylize(content_tensor, style_tensor)
 
-    # ── Phase 2.5: Blend with content using style_weight as alpha ────────────
-    # style_weight = 0.0 → pure content, 1.0 → fully stylized
-    alpha = max(0.0, min(1.0, style_weight))
-    logger.info(f"Blending: {alpha*100:.0f}% style + {(1-alpha)*100:.0f}% content")
-
-    # The model may output slightly different dimensions due to internal padding.
     # Resize stylized output to match content tensor shape before blending.
     content_shape = tf.shape(content_tensor)[1:3]  # type: ignore[index]  # [H, W]
     stylized_tensor = tf.image.resize(stylized_tensor, content_shape)
 
-    blended_tensor = alpha * stylized_tensor + (1.0 - alpha) * content_tensor  # type: ignore[operator]
+    if progress_callback is not None:
+        pil_preview = tensor_to_pil(stylized_tensor)
+        progress_callback(2, total_steps, 0.0, pil_to_bytes(pil_preview, quality=60))
+
+    # ── Phase 3: Detail-preserving blend + enhancement ──────────────────────
+    alpha = max(0.0, min(1.0, style_weight))
+    logger.info(f"Blending: {alpha*100:.0f}% style + {(1-alpha)*100:.0f}% content")
+
+    # 3a. Luminance-preserving blend keeps content structure sharp
+    blended_tensor = _luminance_preserving_blend(content_tensor, stylized_tensor, alpha)
+
+    # 3b. Re-inject high-frequency content details (edges, textures)
+    #     Strength scales with alpha: more detail injection at higher style
+    detail_strength = 0.15 + alpha * 0.30  # 0.15 at 0%, 0.45 at 100%
+    blended_tensor = _reinject_details(content_tensor, blended_tensor, strength=detail_strength)
 
     elapsed = time.time() - t0
-    logger.info(f"Style transfer complete in {elapsed:.1f}s")
+    logger.info(f"Style transfer + enhancement in {elapsed:.1f}s")
 
     if progress_callback is not None:
         pil_result = tensor_to_pil(blended_tensor)
         preview_bytes = pil_to_bytes(pil_result, quality=75)
-        progress_callback(2, total_steps, 0.0, preview_bytes)
+        progress_callback(3, total_steps, 0.0, preview_bytes)
 
-    # ── Phase 3: Final output ───────────────────────────────────────────────
+    # ── Phase 4: Final output with sharpening ───────────────────────────────
     pil_result = tensor_to_pil(blended_tensor)
+
+    # Adaptive unsharp mask: sharpen more at higher style intensity
+    sharp_pct = int(40 + alpha * 50)  # 40% at low style → 90% at full style
+    pil_result = _unsharp_mask(pil_result, radius=1.2, percent=sharp_pct, threshold=2)
+
     result_bytes = pil_to_bytes(pil_result, quality=95)
 
     if progress_callback is not None:
