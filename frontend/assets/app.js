@@ -207,7 +207,7 @@ async function startTransfer() {
   // Reset progress UI for fresh run
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent = '0%';
-  document.getElementById('progressStep').textContent = 'Phase 0 / 3';
+  document.getElementById('progressStep').textContent = 'Phase 0 / 4';
   document.getElementById('progressLabel').textContent = 'Initialising AI…';
   document.getElementById('progressLoss').textContent = '';
   const prevImg = document.getElementById('progressPreview');
@@ -296,12 +296,14 @@ function onProgress(msg) {
     }
   } else if (pct < 20) {
     document.getElementById('progressLabel').textContent = 'Loading AI model…';
-  } else if (pct < 50) {
+  } else if (pct < 40) {
     document.getElementById('progressLabel').textContent = 'Preprocessing images…';
-  } else if (pct < 90) {
+  } else if (pct < 60) {
     document.getElementById('progressLabel').textContent = 'Applying style…';
+  } else if (pct < 85) {
+    document.getElementById('progressLabel').textContent = 'Enhancing details…';
   } else {
-    document.getElementById('progressLabel').textContent = 'Finalising artwork…';
+    document.getElementById('progressLabel').textContent = 'Sharpening & finalising…';
   }
 
   if (msg.loss != null && msg.loss > 0) {
