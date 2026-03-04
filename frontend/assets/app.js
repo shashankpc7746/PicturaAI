@@ -28,6 +28,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupDnD('customPanel', 'styleCustomInput', handleStyleFile);
   document.getElementById('contentInput').addEventListener('change', e => handleContentFile(e.target.files[0]));
   document.getElementById('styleCustomInput').addEventListener('change', e => handleStyleFile(e.target.files[0]));
+  initBASlider();
 });
 
 // ── Slider helpers ───────────────────────────────────────────────
@@ -332,7 +333,15 @@ function onDone(msg) {
 
   setOutputState('result');
   document.getElementById('outputActions').style.display = 'flex';
-  document.getElementById('resultCompare').style.display = 'flex';
+  document.getElementById('resultCompare').style.display = 'block';
+
+  // Reset Before/After slider to 50 %
+  const baBefore = document.getElementById('baBefore');
+  const baHandle = document.getElementById('baHandle');
+  if (baBefore && baHandle) {
+    baBefore.style.width = '50%';
+    baHandle.style.left = '50%';
+  }
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = false;
@@ -434,4 +443,37 @@ function toast(msg, type = 'info') {
   t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
   document.getElementById('toastContainer').appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(110%)'; t.style.transition = 'all 0.4s'; setTimeout(() => t.remove(), 400); }, 4000);
+}
+
+// ── Before / After Comparison Slider ─────────────────────────────
+function initBASlider() {
+  const slider = document.getElementById('baSlider');
+  if (!slider) return;
+  const before = document.getElementById('baBefore');
+  const handle = document.getElementById('baHandle');
+  const beforeImg = before.querySelector('.ba-img-before');
+  let dragging = false;
+
+  function setPosition(x) {
+    const rect = slider.getBoundingClientRect();
+    let pct = ((x - rect.left) / rect.width) * 100;
+    pct = Math.max(0, Math.min(100, pct));
+    before.style.width = pct + '%';
+    handle.style.left = pct + '%';
+    // Keep the before-image aligned to the full slider width
+    beforeImg.style.width = (rect.width) + 'px';
+  }
+
+  slider.addEventListener('mousedown', e => { dragging = true; setPosition(e.clientX); });
+  slider.addEventListener('touchstart', e => { dragging = true; setPosition(e.touches[0].clientX); }, { passive: true });
+  window.addEventListener('mousemove', e => { if (dragging) setPosition(e.clientX); });
+  window.addEventListener('touchmove', e => { if (dragging) setPosition(e.touches[0].clientX); }, { passive: true });
+  window.addEventListener('mouseup', () => { dragging = false; });
+  window.addEventListener('touchend', () => { dragging = false; });
+
+  // Ensure before-image width stays correct on resize
+  new ResizeObserver(() => {
+    const rect = slider.getBoundingClientRect();
+    beforeImg.style.width = rect.width + 'px';
+  }).observe(slider);
 }
