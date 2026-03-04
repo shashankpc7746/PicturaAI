@@ -26,6 +26,9 @@ backend/outputs/
 Thumbs.db
 desktop.ini
 
+# ── Private notes ─────────────────────────────────────────────────────────────
+.roadmap.md
+
 # ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 

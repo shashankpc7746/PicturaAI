@@ -1,215 +1,277 @@
 # PicturaAI — Neural Style Transfer Studio
 
 <div align="center">
-  <h1>✦ PicturaAI</h1>
-  <p><strong><em>Pictura</em> — Latin for "a painting." Instant Neural Style Transfer powered by Google Magenta + FastAPI</strong></p>
-  <img src="images/generated images/Style-transfer-image.jpeg" alt="Demo Output" width="600" />
+  <img src="frontend/assets/logo.png" alt="PicturaAI Logo" width="120" />
+  <h1>PicturaAI</h1>
+  <p><strong><em>Pictura</em> — Latin for "a painting."</strong><br/>
+  Instant AI-powered Neural Style Transfer. Upload a photo, choose a masterpiece, get art.</p>
+
+  <br/>
+
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/TensorFlow-2.16+-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" />
+  <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
+  <img src="https://img.shields.io/badge/License-MIT-A855F7?style=for-the-badge" />
+
   <br/><br/>
-  <img src="https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python" />
-  <img src="https://img.shields.io/badge/TensorFlow-2.16+-orange?style=for-the-badge&logo=tensorflow" />
-  <img src="https://img.shields.io/badge/FastAPI-0.110+-green?style=for-the-badge&logo=fastapi" />
-  <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge" />
+
+  <img src="images/generated images/Style-transfer-image.jpeg" alt="Demo — Style Transfer Output" width="640" style="border-radius:12px;" />
 </div>
 
 ---
 
-## 🎨 What Is PicturaAI?
+## What Is PicturaAI?
 
-**Pictura** is the Latin word for *"a painting."*  
-PicturaAI is a **full-stack, production-ready** Neural Style Transfer application.  
-Upload any photo, choose a famous painting style (or bring your own), and watch an AI **blend the content of your image with the brushstrokes, colours, and textures of the artwork** — in real time.
+PicturaAI transforms your everyday photos into stunning artwork by blending them with the brushstrokes, colours, and textures of famous paintings — powered by Google Magenta's pre-trained Neural Style Transfer model.
 
-Built on top of a 1-year-old Jupyter notebook prototype, this version adds:
+**Key highlights:**
 
-| Feature | Notebook | PicturaAI v2 |
-|---------|----------|-------------|
-| Interface | Jupyter sliders | Full web studio |
-| Style options | 1 at a time | 13 presets + custom upload |
-| Progress | tqdm bar | Real-time WebSocket preview |
-| Deployment | Google Colab | Local / any server |
-| Download | Manual | One-click JPEG download |
-| Architecture | Single script | Frontend + FastAPI backend |
+- **Instant results** — single forward-pass model, no iterative optimisation
+- **13 built-in art styles** — Van Gogh, Hokusai, Picasso, Munch, and more
+- **Custom style upload** — use any painting or texture as a style source
+- **Real-time WebSocket progress** — watch your artwork being created live
+- **Detail-preserving pipeline** — luminance-preserving blend, high-frequency reinjection, adaptive sharpening
+- **One-click download** — save your masterpiece as a high-quality JPEG
+- **Dynamic regeneration** — change style or intensity without re-uploading
 
 ---
 
-## 🚀 Quick Start
+## Tech Stack
 
-### 1. Prerequisites
-- Python 3.10+
-- At least 4 GB RAM (8 GB recommended for quality output)
+| Layer | Technology |
+|-------|-----------|
+| **AI Model** | [Google Magenta Arbitrary Style Transfer v1-256](https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2) via TF Hub |
+| **Backend** | Python 3.10 · FastAPI · Uvicorn · TensorFlow 2.x · Pillow |
+| **Frontend** | Vanilla HTML / CSS / JavaScript (zero frameworks) |
+| **Real-time** | WebSocket streaming with automatic REST polling fallback |
+| **Design** | Dark glassmorphism UI with CSS animations |
 
-### 2. Clone / navigate to project
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Python 3.10+**
+- **4 GB RAM** minimum (8 GB recommended)
+- Stable internet for first run (model download ~100 MB, cached thereafter)
+
+### 1. Clone the repository
 
 ```bash
-cd "Neural Style Transfer"
+git clone https://github.com/shashankpc7746/PicturaAI.git
+cd PicturaAI
 ```
 
-### 3. Create virtual environment *(already done if you see `venv/`)*
+### 2. Create a virtual environment
 
 ```bash
 python -m venv venv
 ```
 
-### 4. Install dependencies
+### 3. Install dependencies
 
 ```bash
+# Windows
 .\venv\Scripts\pip install -r backend\requirements.txt
+
+# macOS / Linux
+venv/bin/pip install -r backend/requirements.txt
 ```
 
-> **Note:** TensorFlow (~600 MB) will download on first install. Be patient!
+> TensorFlow (~600 MB) will download on the first install. Be patient!
 
-### 5. Start the server
+### 4. Start the server
 
-**Option A — Double-click:**
+**Option A — One-click (Windows):**
 ```
 start_server.bat
 ```
 
-**Option B — Python:**
+**Option B — Python launcher:**
 ```bash
 python run.py
 ```
 
-**Option C — Direct uvicorn:**
+**Option C — Uvicorn directly:**
 ```bash
-.\venv\Scripts\python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+cd backend
+../venv/Scripts/python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
-*(run from the `backend/` directory)*
 
-### 6. Open your browser
+### 5. Open the studio
 
 ```
 http://localhost:8000/app
 ```
 
+On first run, the Magenta model (~100 MB) downloads from TF Hub and caches locally. Subsequent launches load instantly.
+
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
-Neural Style Transfer/
+PicturaAI/
+├── backend/
+│   ├── main.py              # FastAPI routes, WebSocket, job manager
+│   ├── nst_engine.py         # NST pipeline (Magenta model + quality enhancements)
+│   ├── requirements.txt      # Python dependencies
+│   ├── uploads/              # Temp uploaded images (auto-created, git-ignored)
+│   └── outputs/              # Generated results (auto-created, git-ignored)
 │
-├── backend/                     ← FastAPI server
-│   ├── main.py                  ← API routes, WebSocket, job manager
-│   ├── nst_engine.py            ← Core NST logic (Magenta pre-trained model)
-│   ├── requirements.txt         ← Python dependencies
-│   ├── uploads/                 ← Temp uploaded images (auto-created)
-│   └── outputs/                 ← Generated result images (auto-created)
-│
-├── frontend/                    ← Pure HTML/CSS/JS SPA
-│   ├── index.html               ← Main page (hero, studio, gallery)
+├── frontend/
+│   ├── index.html            # Main SPA — hero, studio, gallery, footer
 │   └── assets/
-│       ├── style.css            ← Dark glassmorphism design system
-│       └── app.js               ← WebSocket client, upload logic, UI
+│       ├── app.js            # Upload logic, WS client, progress UI
+│       ├── style.css         # Dark glassmorphism design system
+│       ├── logo.png          # Brand logo
+│       └── favicon.ico       # Browser favicon
 │
 ├── images/
-│   ├── content_image/           ← Sample content photos
-│   ├── style_image/             ← Built-in art style images (13 styles)
-│   └── generated images/        ← Past results
+│   ├── content_image/        # Sample content photos
+│   ├── style_image/          # 13 built-in art style images
+│   └── generated images/     # Sample outputs
 │
-├── venv/                        ← Python virtual environment
-├── run.py                       ← Python server launcher
-├── start_server.bat             ← Windows batch launcher
-├── NST_Manual.ipynb             ← Original prototype notebook
-└── README.md                    ← This file
+├── run.py                    # Python server launcher
+├── start_server.bat          # Windows batch launcher
+├── Dockerfile                # Container build
+├── NST_Manual.ipynb          # Original Jupyter prototype
+└── README.md
 ```
 
 ---
 
-## 🎛️ Studio Controls
+## How It Works
 
-| Control | Description | Range |
-|---------|-------------|-------|
-| **Style Strength** | How strongly the art style is applied | 0.001 – 0.1 |
-| **Content Fidelity** | How closely the output matches your photo | 1,000 – 100,000 |
-| **Smoothness (TV)** | Total variation — reduces noise/grain | 0 – 100 |
-| **Iterations** | More = better quality, longer time | 50 – 1,000 |
-| **Learning Rate** | Adam optimizer step size | 0.005 – 0.05 |
+```
+┌────────────┐     ┌────────────┐     ┌──────────────────────────────────────┐
+│   Content   │     │    Style    │     │          NST Pipeline                │
+│   Image     │────▶│   Image     │────▶│  1. Preprocess (resize, normalise)  │
+│  (your pic) │     │ (painting)  │     │  2. Stylize (Magenta forward pass)  │
+└────────────┘     └────────────┘     │  3. Luminance-preserving blend      │
+                                       │  4. Detail reinjection + sharpening │
+                                       └──────────────┬───────────────────────┘
+                                                       │
+                                                       ▼
+                                              ┌────────────────┐
+                                              │  Your Artwork   │
+                                              │  (JPEG output)  │
+                                              └────────────────┘
+```
 
-### Recommended presets
+### Quality Enhancement Pipeline (v1.1)
 
-| Goal | Style | Content | TV | Steps |
-|------|-------|---------|-----|-------|
-| Painterly look | 0.05 | 5,000 | 20 | 500 |
-| Subtle texture | 0.005 | 20,000 | 50 | 200 |
-| Maximum art | 0.1 | 1,000 | 10 | 800 |
-
----
-
-## 🖼️ Available Art Styles
-
-| Style | Artist | Character |
-|-------|--------|-----------|
-| Starry Night | Van Gogh | Swirling cosmic energy |
-| The Scream | Munch | Anguished expressionist curves |
-| The Great Wave | Hokusai | Bold Japanese woodblock |
-| La Muse | Picasso | Cubist fragments |
-| Rain Princess | Afremov | Rainy street in warm colour |
-| Udnie | Picabia | Abstract art-deco swirls |
-| The Shipwreck | Turner | Dramatic seascape |
-| Aquarelle | — | Soft watercolour washes |
-| Chinese Ink | Traditional | Delicate ink brush strokes |
-| Space | Digital | Nebulae and cosmic textures |
-| Hampson | Hampson | Bold illustrative style |
-| Mountain | Nature | Rugged mountain textures |
-| Paris | Photography | Parisian street atmosphere |
+1. **Higher resolution** — content images processed at up to 768px (raised from 512px)
+2. **Luminance-preserving blend** — keeps content structure and edges sharp even at 100% style intensity
+3. **High-frequency detail reinjection** — extracts fine textures from the original and adds them back to the styled result
+4. **Adaptive unsharp mask** — final edge crispness that scales with style intensity
 
 ---
 
-## 🤖 Technical Architecture
+## Available Art Styles
 
-### NST Algorithm
-- **Model:** Google Magenta's `arbitrary-image-stylization-v1-256` (pre-trained, instant)
-- **Style layers:** `block1a_activation` → `block4b_activation` (7 layers)
-- **Content layer:** `block5a_activation`
-- **Style loss:** Mean squared error on **Gram matrices**
-- **Content loss:** Mean squared error on raw feature maps
-- **Regularisation:** Total Variation loss (controls grain)
-- **Optimizer:** Adam (lr=0.02, β₁=0.99, ε=1e-1)
+| # | Style | Artist | Character |
+|---|-------|--------|-----------|
+| 1 | Starry Night | Van Gogh | Swirling cosmic energy |
+| 2 | The Scream | Munch | Anguished expressionist curves |
+| 3 | The Great Wave | Hokusai | Bold Japanese woodblock |
+| 4 | La Muse | Picasso | Cubist fragments |
+| 5 | Rain Princess | Afremov | Rainy street in warm colour |
+| 6 | Udnie | Picabia | Abstract art-deco swirls |
+| 7 | The Shipwreck | Turner | Dramatic seascape |
+| 8 | Aquarelle | — | Soft watercolour washes |
+| 9 | Chinese Ink | Traditional | Delicate ink brush strokes |
+| 10 | Space | Digital | Nebulae and cosmic textures |
+| 11 | Hampson | Hampson | Bold illustrative style |
+| 12 | Mountain | Nature | Rugged mountain textures |
+| 13 | Paris | Photography | Parisian street atmosphere |
 
-### Backend (FastAPI)
-- Asynchronous job queue with `ThreadPoolExecutor` (TF not async-safe)
-- **WebSocket** streaming — sends base64 preview every ~5% of steps
-- REST fallback polling for environments where WS is blocked
-- Automatic `uploads/` and `outputs/` cleanup on cancel
-
-### Frontend
-- **Zero framework** — vanilla HTML + CSS + JS
-- WebSocket client with automatic polling fallback
-- Drag-and-drop image upload with live previews
-- Glassmorphism dark UI with CSS animations
+> **Custom styles:** Switch to the "Upload Custom" tab and use any image as a style source.
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET`  | `/`                    | Redirect to studio |
-| `GET`  | `/app`                 | Serve frontend |
-| `GET`  | `/api/styles`          | List all style presets + thumbnails |
-| `POST` | `/api/transfer`        | Start NST job → returns `job_id` |
-| `GET`  | `/api/jobs/{id}`       | Poll job status, progress, preview |
-| `GET`  | `/api/result/{id}`     | Download final JPEG |
-| `DELETE` | `/api/jobs/{id}`    | Cancel & cleanup job |
-| `WS`   | `/ws/{job_id}`         | Real-time progress stream |
-| `GET`  | `/docs`                | Swagger UI |
+| `GET` | `/` | Redirect to studio |
+| `GET` | `/app` | Serve frontend SPA |
+| `GET` | `/api/styles` | List all style presets with thumbnails |
+| `POST` | `/api/transfer` | Start NST job → returns `job_id` |
+| `GET` | `/api/jobs/{id}` | Poll job status, progress, preview |
+| `GET` | `/api/result/{id}` | Download final JPEG |
+| `DELETE` | `/api/jobs/{id}` | Cancel & cleanup job |
+| `WS` | `/ws/{job_id}` | Real-time progress stream |
+| `GET` | `/docs` | Interactive Swagger UI |
+
+### Example: Start a transfer
+
+```bash
+curl -X POST http://localhost:8000/api/transfer \
+  -F "content_image=@photo.jpg" \
+  -F "style_preset=starry_night" \
+  -F "style_weight=0.75"
+```
 
 ---
 
-## 🛠️ Development
+## Development
 
 ```bash
 # Run with hot reload
-.\venv\Scripts\python -m uvicorn main:app --reload
-# (from backend/ directory)
+cd backend
+../venv/Scripts/python -m uvicorn main:app --reload
 
-# Swagger UI (auto-generated)
+# Auto-generated API docs
 http://localhost:8000/docs
 ```
 
 ---
 
-## 📄 License
+## Deployment
 
-MIT © 2026 Shashank · PicturaAI Neural Style Transfer Studio
+### Docker
+
+```bash
+docker build -t picturaai .
+docker run -p 8000:8000 picturaai
+```
+
+### Cloud (Render / Railway / Fly.io)
+
+1. Push to GitHub
+2. Connect the repo to your cloud platform
+3. Set build command: `pip install -r backend/requirements.txt`
+4. Set start command: `cd backend && python main.py`
+5. Expose port `8000`
+
+---
+
+## Changelog
+
+### v1.1 — Quality & Polish
+- Raised content resolution from 512px to 768px
+- Luminance-preserving style blending
+- High-frequency detail reinjection
+- Adaptive unsharp mask post-processing
+- 4-phase progress pipeline with real-time labels
+- Suppressed all TensorFlow warnings
+- Modern FastAPI lifespan handler
+- Redesigned footer with tech pills
+- SVG favicon
+
+### v1.0 — Initial Release
+- Full-stack Neural Style Transfer studio
+- 13 built-in art styles + custom upload
+- Real-time WebSocket progress with preview
+- One-click download
+- Dynamic regeneration
+- Dark glassmorphism UI
+- FastAPI backend with job queue
+
+---
+
+## License
+
+MIT © 2026 [Shashank](https://github.com/shashankpc7746) · **PicturaAI** — Neural Style Transfer Studio
