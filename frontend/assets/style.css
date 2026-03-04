@@ -783,6 +783,88 @@ a {
   display: flex;
 }
 
+/* ── Style Mixing Section ──────────────────────────────────────── */
+.style-mix-section {
+  margin-top: 0.75rem;
+}
+
+.style-mix-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1.5px dashed rgba(124, 58, 237, 0.35);
+  border-radius: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.style-mix-toggle:hover {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.style-mix-toggle.active {
+  background: rgba(124, 58, 237, 0.18);
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+
+.mix-toggle-icon { font-size: 16px; }
+.mix-toggle-text { flex: 1; text-align: left; }
+
+.mix-toggle-arrow {
+  transition: transform 0.25s ease;
+}
+
+.style-mix-toggle.active .mix-toggle-arrow {
+  transform: rotate(180deg);
+}
+
+.style-mix-body {
+  margin-top: 0.5rem;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.style-mix-hint {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.preset-grid-sm {
+  grid-template-columns: repeat(4, 1fr);
+  max-height: 190px;
+  gap: 6px;
+}
+
+.preset-grid-sm .preset-card {
+  height: 56px;
+}
+
+.preset-grid-sm .preset-caption {
+  font-size: 7px;
+  padding: 10px 3px 3px;
+}
+
+.preset-grid-sm .preset-check {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+  top: 3px;
+  right: 3px;
+}
+
 /* ── Controls ───────────────────────────────────────────────────── */
 .controls-grid {
   display: grid;

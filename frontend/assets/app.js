@@ -15,6 +15,9 @@ let contentFile = null;
 let styleFile = null;
 let _doneReceived = false;
 let _polling = false;
+let styleMixEnabled = false;
+let styleFile2 = null;
+let selectedPreset2 = null;
 
 // ── Navbar scroll effect ─────────────────────────────────────────
 window.addEventListener('scroll', () => {
@@ -26,8 +29,10 @@ window.addEventListener('DOMContentLoaded', () => {
   loadStyles();
   setupDnD('contentUploadZone', 'contentInput', handleContentFile);
   setupDnD('customPanel', 'styleCustomInput', handleStyleFile);
+  setupDnD('customPanel2', 'styleCustomInput2', handleStyleFile2);
   document.getElementById('contentInput').addEventListener('change', e => handleContentFile(e.target.files[0]));
   document.getElementById('styleCustomInput').addEventListener('change', e => handleStyleFile(e.target.files[0]));
+  document.getElementById('styleCustomInput2').addEventListener('change', e => handleStyleFile2(e.target.files[0]));
   initBASlider();
 });
 
@@ -55,6 +60,7 @@ async function loadStyles() {
     const res = await fetch(`${API}/api/styles`);
     const styles = await res.json();
     renderPresets(styles);
+    renderPresets2(styles);
     renderGallery(styles);
   } catch (e) {
     document.getElementById('presetPanel').innerHTML =
@@ -158,6 +164,80 @@ function handleStyleFile(file) {
   showImagePreview(file, 'styleCustomPreview', 'stylePlaceholder', 'styleClear');
 }
 
+// ── Style Mixing ─────────────────────────────────────────────────
+function toggleStyleMix() {
+  styleMixEnabled = !styleMixEnabled;
+  const toggle = document.getElementById('styleMixToggle');
+  const body = document.getElementById('styleMixBody');
+  toggle.classList.toggle('active', styleMixEnabled);
+  if (styleMixEnabled) {
+    body.classList.remove('hidden');
+  } else {
+    body.classList.add('hidden');
+    // Clear second style when disabled
+    styleFile2 = null;
+    selectedPreset2 = null;
+    clearPresetSelection2();
+    resetUploadZone('styleCustomPreview2', 'stylePlaceholder2', 'styleClear2', 'styleCustomInput2');
+  }
+}
+
+function switchStyleTab2(tab) {
+  const isPreset = tab === 'presets';
+  document.getElementById('tabPresets2').classList.toggle('active', isPreset);
+  document.getElementById('tabCustom2').classList.toggle('active', !isPreset);
+  document.getElementById('presetPanel2').style.display = isPreset ? 'grid' : 'none';
+  document.getElementById('customPanel2').style.display = isPreset ? 'none' : 'flex';
+  if (!isPreset) { selectedPreset2 = null; clearPresetSelection2(); }
+}
+
+function renderPresets2(styles) {
+  const grid = document.getElementById('presetPanel2');
+  if (!grid) return;
+  grid.innerHTML = '';
+  styles.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'preset-card';
+    card.id = `preset2-${s.key}`;
+    card.innerHTML = `
+      ${s.thumbnail
+        ? `<img src="data:image/jpeg;base64,${s.thumbnail}" alt="${s.name}" loading="lazy" />`
+        : `<div style="background:var(--surface-2);width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;">🎨</div>`}
+      <div class="preset-caption">${s.name}</div>
+      <div class="preset-check">✓</div>
+    `;
+    card.addEventListener('click', () => selectPreset2(s.key, card));
+    card.title = `${s.name} by ${s.artist}`;
+    grid.appendChild(card);
+  });
+}
+
+function selectPreset2(key, el) {
+  clearPresetSelection2();
+  el.classList.add('active');
+  selectedPreset2 = key;
+  styleFile2 = null;
+  toast(`Second style: ${el.querySelector('.preset-caption').textContent}`, 'info');
+}
+
+function clearPresetSelection2() {
+  document.querySelectorAll('#presetPanel2 .preset-card.active').forEach(el => el.classList.remove('active'));
+  selectedPreset2 = null;
+}
+
+function handleStyleFile2(file) {
+  if (!file) return;
+  styleFile2 = file;
+  clearPresetSelection2();
+  showImagePreview(file, 'styleCustomPreview2', 'stylePlaceholder2', 'styleClear2');
+}
+
+function updateMixRatio(val) {
+  const a = 100 - parseInt(val);
+  const b = parseInt(val);
+  document.getElementById('mixRatioVal').textContent = `${a} / ${b}`;
+}
+
 function showImagePreview(file, previewId, placeholderId, clearId) {
   const reader = new FileReader();
   reader.onload = e => {
@@ -175,6 +255,9 @@ function clearImage(type, e) {
   if (type === 'content') {
     contentFile = null;
     resetUploadZone('contentPreview', 'contentPlaceholder', 'contentClear', 'contentInput');
+  } else if (type === 'style2') {
+    styleFile2 = null;
+    resetUploadZone('styleCustomPreview2', 'stylePlaceholder2', 'styleClear2', 'styleCustomInput2');
   } else {
     styleFile = null;
     resetUploadZone('styleCustomPreview', 'stylePlaceholder', 'styleClear', 'styleCustomInput');
@@ -231,6 +314,14 @@ async function startTransfer() {
   form.append('tv_weight', '0');
   form.append('num_steps', '3');
   form.append('learning_rate', '0.02');
+
+  // Style Mixing — optional second style
+  if (styleMixEnabled) {
+    if (styleFile2) form.append('style_image_2', styleFile2);
+    if (selectedPreset2) form.append('style_preset_2', selectedPreset2);
+    const mixRatio = parseFloat(document.getElementById('mixRatio').value) / 100;
+    form.append('style_mix_ratio', mixRatio.toString());
+  }
 
   try {
     const res = await fetch(`${API}/api/transfer`, { method: 'POST', body: form });
@@ -418,6 +509,11 @@ function resetStudio() {
   clearPresetSelection();
   contentFile = null;
   styleFile = null;
+
+  // Reset style mixing
+  if (styleMixEnabled) toggleStyleMix();
+  styleFile2 = null;
+  selectedPreset2 = null;
 
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent = '0%';

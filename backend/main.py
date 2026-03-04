@@ -166,6 +166,8 @@ def _nst_worker(
     tv_weight: float,
     num_steps: int,
     learning_rate: float,
+    style_bytes_2: bytes | None = None,
+    style_mix_ratio: float = 0.5,
 ):
     job = jobs[job_id]
     job["status"] = "processing"
@@ -195,6 +197,8 @@ def _nst_worker(
             num_steps=num_steps,
             learning_rate=learning_rate,
             progress_callback=progress_callback,
+            style_bytes_2=style_bytes_2,
+            style_mix_ratio=style_mix_ratio,
         )
         out_path = OUTPUT_DIR / f"{job_id}.jpg"
         out_path.write_bytes(result_bytes)
@@ -250,6 +254,9 @@ async def start_transfer(
     tv_weight: float = Form(30.0),
     num_steps: int = Form(300),
     learning_rate: float = Form(0.02),
+    style_image_2: Optional[UploadFile] = File(None),
+    style_preset_2: Optional[str] = Form(None),
+    style_mix_ratio: float = Form(0.5),
 ):
     # Validate
     if style_image is None and style_preset is None:
@@ -269,6 +276,17 @@ async def start_transfer(
         assert style_path is not None  # narrowed: HTTPException raised if None
         style_bytes = style_path.read_bytes()
 
+    # ── Optional second style (style mixing) ─────────────────────────────
+    style_bytes_2: bytes | None = None
+    if style_image_2 is not None:
+        raw = await style_image_2.read()
+        if len(raw) > 0:
+            style_bytes_2 = raw
+    elif style_preset_2 is not None:
+        style_path_2 = get_style_path(style_preset_2)
+        if style_path_2 and style_path_2.exists():
+            style_bytes_2 = style_path_2.read_bytes()
+
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
         "id": job_id,
@@ -286,6 +304,7 @@ async def start_transfer(
         job_id, content_bytes, style_bytes,
         style_weight, content_weight, tv_weight,
         num_steps, learning_rate,
+        style_bytes_2, style_mix_ratio,
     )
 
     return JSONResponse({"job_id": job_id, "status": "queued"})

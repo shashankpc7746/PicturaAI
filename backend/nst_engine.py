@@ -202,6 +202,8 @@ def run_nst(
     num_steps: int = 300,
     learning_rate: float = 0.02,
     progress_callback: Optional[Callable[[int, int, float, bytes], None]] = None,
+    style_bytes_2: Optional[bytes] = None,
+    style_mix_ratio: float = 0.5,
 ) -> bytes:
     """
     Run Neural Style Transfer using the pre-trained Magenta model.
@@ -212,7 +214,9 @@ def run_nst(
 
     Args:
         content_bytes:     Raw bytes of the content image.
-        style_bytes:       Raw bytes of the style image.
+        style_bytes:       Raw bytes of the primary style image.
+        style_bytes_2:     Optional raw bytes of a second style image (style mixing).
+        style_mix_ratio:   Blend ratio 0–1. 0 = 100 % Style A, 1 = 100 % Style B.
         progress_callback: Called with (step, total, loss, jpg_bytes).
 
     Returns:
@@ -225,7 +229,8 @@ def run_nst(
     if progress_callback is not None:
         progress_callback(0, total_steps, 0.0, b"")
 
-    logger.info("Preprocessing content & style images …")
+    mixing = style_bytes_2 is not None
+    logger.info("Preprocessing content & style images%s …", " (mixing 2 styles)" if mixing else "")
     t0 = time.time()
     content_tensor = load_and_preprocess(content_bytes, max_dim=CONTENT_MAX_DIM)
     style_tensor = load_and_preprocess(
@@ -234,6 +239,17 @@ def run_nst(
     )
     # Light blur on style image for better stylisation (recommended by TF docs)
     style_tensor = tf.nn.avg_pool(style_tensor, ksize=[3, 3], strides=[1, 1], padding="SAME")
+
+    # ── Style Mixing: blend two style tensors if a second style is provided ──
+    if mixing:
+        style_tensor_2 = load_and_preprocess(
+            style_bytes_2,
+            target_size=(STYLE_IMG_SIZE, STYLE_IMG_SIZE),
+        )
+        style_tensor_2 = tf.nn.avg_pool(style_tensor_2, ksize=[3, 3], strides=[1, 1], padding="SAME")
+        ratio = max(0.0, min(1.0, style_mix_ratio))
+        style_tensor = (1.0 - ratio) * style_tensor + ratio * style_tensor_2  # type: ignore[operator]
+        logger.info(f"Style mix: {(1-ratio)*100:.0f}% Style A + {ratio*100:.0f}% Style B")
 
     if progress_callback is not None:
         progress_callback(1, total_steps, 0.0, b"")

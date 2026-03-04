@@ -205,6 +205,46 @@
               <img id="styleCustomPreview" class="upload-preview hidden" alt="Style" />
               <button class="upload-clear hidden" id="styleClear" onclick="clearImage('style', event)">✕</button>
             </div>
+
+            <!-- Style Mixing (Optional Second Style) -->
+            <div class="style-mix-section" id="styleMixSection">
+              <button class="style-mix-toggle" id="styleMixToggle" onclick="toggleStyleMix()" type="button">
+                <span class="mix-toggle-icon">🎨</span>
+                <span class="mix-toggle-text">Mix with Second Style</span>
+                <svg class="mix-toggle-arrow" id="mixArrow" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div class="style-mix-body hidden" id="styleMixBody">
+                <p class="style-mix-hint">Pick a second style to blend. Completely optional.</p>
+                <div class="style-tabs">
+                  <button class="style-tab active" id="tabPresets2" onclick="switchStyleTab2('presets')">Presets</button>
+                  <button class="style-tab" id="tabCustom2" onclick="switchStyleTab2('custom')">Upload Custom</button>
+                </div>
+                <div id="presetPanel2" class="preset-grid preset-grid-sm" style="display:grid"></div>
+                <div id="customPanel2" class="upload-zone small" style="display:none"
+                  onclick="document.getElementById('styleCustomInput2').click()">
+                  <input type="file" id="styleCustomInput2" accept="image/*" hidden />
+                  <div class="upload-placeholder" id="stylePlaceholder2">
+                    <div class="upload-icon">🖼️</div>
+                    <div class="upload-text">Upload second style image</div>
+                  </div>
+                  <img id="styleCustomPreview2" class="upload-preview hidden" alt="Style 2" />
+                  <button class="upload-clear hidden" id="styleClear2"
+                    onclick="clearImage('style2', event)">✕</button>
+                </div>
+                <div class="control-item control-item-full" style="margin-top:0.75rem">
+                  <div class="control-header">
+                    <label>Mix Ratio</label>
+                    <span class="control-value" id="mixRatioVal">50 / 50</span>
+                  </div>
+                  <input type="range" id="mixRatio" min="0" max="100" step="1" value="50" class="slider slider-style"
+                    oninput="updateMixRatio(this.value)" />
+                  <div class="control-hints"><span>More Style A</span><span>More Style B</span></div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Step 3: Controls -->
