@@ -426,13 +426,20 @@ function onDone(msg) {
   document.getElementById('outputActions').style.display = 'flex';
   document.getElementById('resultCompare').style.display = 'block';
 
-  // Reset Before/After slider to 50 %
-  const baBefore = document.getElementById('baBefore');
-  const baHandle = document.getElementById('baHandle');
-  if (baBefore && baHandle) {
-    baBefore.style.width = '50%';
-    baHandle.style.left = '50%';
-  }
+  // Reset Before/After slider to 50 % and sync before-image width
+  requestAnimationFrame(() => {
+    const baSlider = document.getElementById('baSlider');
+    const baBefore = document.getElementById('baBefore');
+    const baHandle = document.getElementById('baHandle');
+    const baImgBefore = document.querySelector('.ba-img-before');
+    if (baBefore && baHandle) {
+      baBefore.style.width = '50%';
+      baHandle.style.left = '50%';
+    }
+    if (baSlider && baImgBefore) {
+      baImgBefore.style.width = baSlider.getBoundingClientRect().width + 'px';
+    }
+  });
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = false;
@@ -550,14 +557,18 @@ function initBASlider() {
   const beforeImg = before.querySelector('.ba-img-before');
   let dragging = false;
 
+  function syncWidth() {
+    const w = slider.getBoundingClientRect().width;
+    if (w > 0) beforeImg.style.width = w + 'px';
+  }
+
   function setPosition(x) {
     const rect = slider.getBoundingClientRect();
     let pct = ((x - rect.left) / rect.width) * 100;
     pct = Math.max(0, Math.min(100, pct));
     before.style.width = pct + '%';
     handle.style.left = pct + '%';
-    // Keep the before-image aligned to the full slider width
-    beforeImg.style.width = (rect.width) + 'px';
+    syncWidth();
   }
 
   slider.addEventListener('mousedown', e => { dragging = true; setPosition(e.clientX); });
@@ -567,9 +578,6 @@ function initBASlider() {
   window.addEventListener('mouseup', () => { dragging = false; });
   window.addEventListener('touchend', () => { dragging = false; });
 
-  // Ensure before-image width stays correct on resize
-  new ResizeObserver(() => {
-    const rect = slider.getBoundingClientRect();
-    beforeImg.style.width = rect.width + 'px';
-  }).observe(slider);
+  // Ensure before-image width stays correct on resize / visibility change
+  new ResizeObserver(() => { syncWidth(); }).observe(slider);
 }
