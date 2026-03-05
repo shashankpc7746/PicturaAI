@@ -426,20 +426,11 @@ function onDone(msg) {
   document.getElementById('outputActions').style.display = 'flex';
   document.getElementById('resultCompare').style.display = 'block';
 
-  // Reset Before/After slider to 50 % and sync before-image width
-  requestAnimationFrame(() => {
-    const baSlider = document.getElementById('baSlider');
-    const baBefore = document.getElementById('baBefore');
-    const baHandle = document.getElementById('baHandle');
-    const baImgBefore = document.querySelector('.ba-img-before');
-    if (baBefore && baHandle) {
-      baBefore.style.width = '50%';
-      baHandle.style.left = '50%';
-    }
-    if (baSlider && baImgBefore) {
-      baImgBefore.style.width = baSlider.getBoundingClientRect().width + 'px';
-    }
-  });
+  // Reset Before/After slider to 50 %
+  const baImgBefore = document.querySelector('.ba-img-before');
+  const baHandle = document.getElementById('baHandle');
+  if (baImgBefore) baImgBefore.style.clipPath = 'inset(0 50% 0 0)';
+  if (baHandle) baHandle.style.left = '50%';
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = false;
@@ -552,32 +543,22 @@ function toast(msg, type = 'info') {
 function initBASlider() {
   const slider = document.getElementById('baSlider');
   if (!slider) return;
-  const before = document.getElementById('baBefore');
+  const beforeImg = slider.querySelector('.ba-img-before');
   const handle = document.getElementById('baHandle');
-  const beforeImg = before.querySelector('.ba-img-before');
   let dragging = false;
-
-  function syncWidth() {
-    const w = slider.getBoundingClientRect().width;
-    if (w > 0) beforeImg.style.width = w + 'px';
-  }
 
   function setPosition(x) {
     const rect = slider.getBoundingClientRect();
     let pct = ((x - rect.left) / rect.width) * 100;
     pct = Math.max(0, Math.min(100, pct));
-    before.style.width = pct + '%';
+    beforeImg.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
     handle.style.left = pct + '%';
-    syncWidth();
   }
 
-  slider.addEventListener('mousedown', e => { dragging = true; setPosition(e.clientX); });
+  slider.addEventListener('mousedown', e => { e.preventDefault(); dragging = true; setPosition(e.clientX); });
   slider.addEventListener('touchstart', e => { dragging = true; setPosition(e.touches[0].clientX); }, { passive: true });
-  window.addEventListener('mousemove', e => { if (dragging) setPosition(e.clientX); });
+  window.addEventListener('mousemove', e => { if (dragging) { e.preventDefault(); setPosition(e.clientX); } });
   window.addEventListener('touchmove', e => { if (dragging) setPosition(e.touches[0].clientX); }, { passive: true });
   window.addEventListener('mouseup', () => { dragging = false; });
   window.addEventListener('touchend', () => { dragging = false; });
-
-  // Ensure before-image width stays correct on resize / visibility change
-  new ResizeObserver(() => { syncWidth(); }).observe(slider);
 }
