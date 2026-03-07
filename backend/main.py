@@ -168,6 +168,7 @@ def _nst_worker(
     learning_rate: float,
     style_bytes_2: bytes | None = None,
     style_mix_ratio: float = 0.5,
+    mask_bytes: bytes | None = None,
 ):
     job = jobs[job_id]
     job["status"] = "processing"
@@ -199,6 +200,7 @@ def _nst_worker(
             progress_callback=progress_callback,
             style_bytes_2=style_bytes_2,
             style_mix_ratio=style_mix_ratio,
+            mask_bytes=mask_bytes,
         )
         out_path = OUTPUT_DIR / f"{job_id}.jpg"
         out_path.write_bytes(result_bytes)
@@ -257,6 +259,7 @@ async def start_transfer(
     style_image_2: Optional[UploadFile] = File(None),
     style_preset_2: Optional[str] = Form(None),
     style_mix_ratio: float = Form(0.5),
+    mask_image: Optional[UploadFile] = File(None),
 ):
     # Validate
     if style_image is None and style_preset is None:
@@ -287,6 +290,13 @@ async def start_transfer(
         if style_path_2 and style_path_2.exists():
             style_bytes_2 = style_path_2.read_bytes()
 
+    # ── Optional region mask (regional styling) ──────────────────────────
+    mask_bytes: bytes | None = None
+    if mask_image is not None:
+        raw = await mask_image.read()
+        if len(raw) > 0:
+            mask_bytes = raw
+
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
         "id": job_id,
@@ -305,6 +315,7 @@ async def start_transfer(
         style_weight, content_weight, tv_weight,
         num_steps, learning_rate,
         style_bytes_2, style_mix_ratio,
+        mask_bytes,
     )
 
     return JSONResponse({"job_id": job_id, "status": "queued"})

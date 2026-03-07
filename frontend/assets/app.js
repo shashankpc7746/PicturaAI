@@ -19,6 +19,13 @@ let styleMixEnabled = false;
 let styleFile2 = null;
 let selectedPreset2 = null;
 
+// ── Mask painting state ──────────────────────────────────────────
+let maskMode = false;
+let maskBrushType = 'draw';   // 'draw' or 'erase'
+let maskBrushSize = 30;
+let maskPainting = false;
+let maskHasContent = false;   // whether user painted anything
+
 // ── Navbar scroll effect ─────────────────────────────────────────
 window.addEventListener('scroll', () => {
   document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
@@ -155,6 +162,9 @@ function handleContentFile(file) {
   const reader = new FileReader();
   reader.onload = e => { document.getElementById('compareContent').src = e.target.result; };
   reader.readAsDataURL(file);
+  // Show mask toolbar and reset mask
+  document.getElementById('maskToolbar').classList.remove('hidden');
+  resetMaskCanvas();
 }
 
 function handleStyleFile(file) {
@@ -255,6 +265,11 @@ function clearImage(type, e) {
   if (type === 'content') {
     contentFile = null;
     resetUploadZone('contentPreview', 'contentPlaceholder', 'contentClear', 'contentInput');
+    // Hide mask UI
+    if (maskMode) toggleMaskMode();
+    document.getElementById('maskToolbar').classList.add('hidden');
+    document.getElementById('maskCanvas').classList.add('hidden');
+    maskHasContent = false;
   } else if (type === 'style2') {
     styleFile2 = null;
     resetUploadZone('styleCustomPreview2', 'stylePlaceholder2', 'styleClear2', 'styleCustomInput2');
@@ -321,6 +336,12 @@ async function startTransfer() {
     if (selectedPreset2) form.append('style_preset_2', selectedPreset2);
     const mixRatio = parseFloat(document.getElementById('mixRatio').value) / 100;
     form.append('style_mix_ratio', mixRatio.toString());
+  }
+
+  // Regional Styling — optional mask
+  if (maskHasContent) {
+    const maskBlob = getMaskBlob();
+    if (maskBlob) form.append('mask_image', maskBlob, 'mask.png');
   }
 
   try {
@@ -513,6 +534,12 @@ function resetStudio() {
   styleFile2 = null;
   selectedPreset2 = null;
 
+  // Reset mask
+  if (maskMode) toggleMaskMode();
+  document.getElementById('maskToolbar').classList.add('hidden');
+  document.getElementById('maskCanvas').classList.add('hidden');
+  maskHasContent = false;
+
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent = '0%';
   document.getElementById('progressStep').textContent = 'Step 0 / 0';
@@ -562,3 +589,143 @@ function initBASlider() {
   window.addEventListener('mouseup', () => { dragging = false; });
   window.addEventListener('touchend', () => { dragging = false; });
 }
+
+// ── Mask Painting (Regional Styling) ─────────────────────────────
+function resetMaskCanvas() {
+  const canvas = document.getElementById('maskCanvas');
+  const preview = document.getElementById('contentPreview');
+  // Size canvas to match the displayed preview image
+  canvas.width = preview.naturalWidth || 400;
+  canvas.height = preview.naturalHeight || 400;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  maskHasContent = false;
+  canvas.classList.add('hidden');
+  canvas.classList.remove('active');
+}
+
+function toggleMaskMode() {
+  maskMode = !maskMode;
+  const canvas = document.getElementById('maskCanvas');
+  const btn = document.getElementById('maskToggleBtn');
+  const controls = document.getElementById('maskControls');
+  const hint = document.getElementById('maskHint');
+
+  btn.classList.toggle('active', maskMode);
+  if (maskMode) {
+    // Size canvas to the preview element's display size for proper coordinate mapping
+    const preview = document.getElementById('contentPreview');
+    canvas.width = preview.naturalWidth || 400;
+    canvas.height = preview.naturalHeight || 400;
+    canvas.classList.remove('hidden');
+    canvas.classList.add('active');
+    controls.classList.remove('hidden');
+    hint.style.display = '';
+    setMaskBrush('draw');
+  } else {
+    canvas.classList.remove('active');
+    controls.classList.add('hidden');
+    hint.style.display = 'none';
+    // Keep canvas visible if user painted on it (so they see the overlay)
+    if (!maskHasContent) canvas.classList.add('hidden');
+  }
+}
+
+function setMaskBrush(type) {
+  maskBrushType = type;
+  document.getElementById('brushDraw').classList.toggle('active', type === 'draw');
+  document.getElementById('brushErase').classList.toggle('active', type === 'erase');
+}
+
+function updateBrushSize(val) {
+  maskBrushSize = parseInt(val);
+  document.getElementById('brushSizeVal').textContent = val;
+}
+
+function fillMask() {
+  const canvas = document.getElementById('maskCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(34, 197, 94, 0.45)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  maskHasContent = true;
+}
+
+function clearMask() {
+  const canvas = document.getElementById('maskCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  maskHasContent = false;
+}
+
+function getMaskBlob() {
+  // Convert the painted mask canvas to a binary (white = style, black = original) PNG
+  const src = document.getElementById('maskCanvas');
+  const w = src.width, h = src.height;
+  const srcCtx = src.getContext('2d');
+  const data = srcCtx.getImageData(0, 0, w, h);
+
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const oCtx = out.getContext('2d');
+  const oData = oCtx.createImageData(w, h);
+
+  for (let i = 0; i < data.data.length; i += 4) {
+    // Any painted pixel (alpha > 0) becomes white (style), else black (original)
+    const val = data.data[i + 3] > 10 ? 255 : 0;
+    oData.data[i] = val;
+    oData.data[i + 1] = val;
+    oData.data[i + 2] = val;
+    oData.data[i + 3] = 255;
+  }
+  oCtx.putImageData(oData, 0, 0);
+
+  // Synchronous conversion to blob — use toBlob workaround via dataURL
+  const dataURL = out.toDataURL('image/png');
+  const bin = atob(dataURL.split(',')[1]);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: 'image/png' });
+}
+
+// ── Mask canvas drawing events ───────────────────────────────────
+(function initMaskEvents() {
+  const canvas = document.getElementById('maskCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
+  }
+
+  function paint(e) {
+    if (!maskPainting || !maskMode) return;
+    const { x, y } = getPos(e);
+    const scaleFactor = canvas.width / canvas.getBoundingClientRect().width;
+    const r = maskBrushSize * scaleFactor / 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    if (maskBrushType === 'draw') {
+      ctx.fillStyle = 'rgba(34, 197, 94, 0.45)';
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fill();
+    } else {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    if (maskBrushType === 'draw') maskHasContent = true;
+  }
+
+  canvas.addEventListener('mousedown', e => { e.preventDefault(); maskPainting = true; paint(e); });
+  canvas.addEventListener('touchstart', e => { maskPainting = true; paint(e); }, { passive: true });
+  canvas.addEventListener('mousemove', paint);
+  canvas.addEventListener('touchmove', paint, { passive: true });
+  window.addEventListener('mouseup', () => { maskPainting = false; });
+  window.addEventListener('touchend', () => { maskPainting = false; });
+})();

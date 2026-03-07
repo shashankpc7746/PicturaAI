@@ -204,6 +204,7 @@ def run_nst(
     progress_callback: Optional[Callable[[int, int, float, bytes], None]] = None,
     style_bytes_2: Optional[bytes] = None,
     style_mix_ratio: float = 0.5,
+    mask_bytes: Optional[bytes] = None,
 ) -> bytes:
     """
     Run Neural Style Transfer using the pre-trained Magenta model.
@@ -277,6 +278,20 @@ def run_nst(
     #     Strength scales with alpha: more detail injection at higher style
     detail_strength = 0.15 + alpha * 0.30  # 0.15 at 0%, 0.45 at 100%
     blended_tensor = _reinject_details(content_tensor, blended_tensor, strength=detail_strength)
+
+    # 3c. Regional mask: if provided, only apply style where mask is white
+    if mask_bytes is not None:
+        mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
+        # Resize mask to match content tensor spatial dimensions
+        h, w = int(content_tensor.shape[1]), int(content_tensor.shape[2])
+        mask_img = mask_img.resize((w, h), _LANCZOS)
+        # Light Gaussian blur to soften mask edges (avoid harsh boundaries)
+        mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=6))
+        mask_arr = np.array(mask_img, dtype=np.float32) / 255.0
+        mask_tensor = tf.reshape(tf.constant(mask_arr), [1, h, w, 1])
+        blended_tensor = mask_tensor * blended_tensor + (1.0 - mask_tensor) * content_tensor  # type: ignore[operator]
+        blended_tensor = tf.clip_by_value(blended_tensor, 0.0, 1.0)  # type: ignore[assignment]
+        logger.info("Regional mask applied — style restricted to painted areas")
 
     elapsed = time.time() - t0
     logger.info(f"Style transfer + enhancement in {elapsed:.1f}s")
