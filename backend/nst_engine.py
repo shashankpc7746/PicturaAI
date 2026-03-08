@@ -283,7 +283,8 @@ def run_nst(
     if mask_bytes is not None:
         mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
         # Resize mask to match content tensor spatial dimensions
-        h, w = int(content_tensor.shape[1]), int(content_tensor.shape[2])
+        content_shape = tf.shape(content_tensor)  # type: ignore[arg-type]
+        h, w = int(content_shape[1]), int(content_shape[2])
         mask_img = mask_img.resize((w, h), _LANCZOS)
         # Light Gaussian blur to soften mask edges (avoid harsh boundaries)
         mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=6))
@@ -297,12 +298,12 @@ def run_nst(
     logger.info(f"Style transfer + enhancement in {elapsed:.1f}s")
 
     if progress_callback is not None:
-        pil_result = tensor_to_pil(blended_tensor)
+        pil_result = tensor_to_pil(blended_tensor)  # type: ignore[arg-type]
         preview_bytes = pil_to_bytes(pil_result, quality=75)
         progress_callback(3, total_steps, 0.0, preview_bytes)
 
     # ── Phase 4: Final output with sharpening ───────────────────────────────
-    pil_result = tensor_to_pil(blended_tensor)
+    pil_result = tensor_to_pil(blended_tensor)  # type: ignore[arg-type]
 
     # Adaptive unsharp mask: sharpen more at higher style intensity
     sharp_pct = int(40 + alpha * 50)  # 40% at low style → 90% at full style

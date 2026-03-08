@@ -1424,7 +1424,6 @@ a {
   height: 100%;
   object-fit: cover;
   -webkit-user-drag: none;
-  user-drag: none;
   pointer-events: none;
 }
 
@@ -1503,7 +1502,6 @@ a {
 .result-image-wrap img,
 .ba-slider img {
   -webkit-user-drag: none;
-  user-drag: none;
 }
 
 .result-image-wrap img {
