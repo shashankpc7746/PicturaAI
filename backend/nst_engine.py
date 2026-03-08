@@ -283,8 +283,8 @@ def run_nst(
     if mask_bytes is not None:
         mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
         # Resize mask to match content tensor spatial dimensions
-        content_shape = tf.shape(content_tensor)  # type: ignore[arg-type]
-        h, w = int(content_shape[1]), int(content_shape[2])
+        _ct_np = np.array(content_tensor)  # (1, H, W, 3)
+        h, w = _ct_np.shape[1], _ct_np.shape[2]
         mask_img = mask_img.resize((w, h), _LANCZOS)
         # Light Gaussian blur to soften mask edges (avoid harsh boundaries)
         mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=6))
