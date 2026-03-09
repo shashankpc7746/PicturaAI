@@ -378,6 +378,17 @@
               </div>
             </div>
             <div class="result-meta" id="resultMeta"></div>
+
+            <!-- Generation History -->
+            <div class="history-strip" id="historyStrip" style="display:none">
+              <div class="history-header">
+                <span class="history-label">🕘 History <span class="history-count" id="historyCount">0</span></span>
+                <button class="btn btn-ghost btn-xs" id="historyClearBtn" onclick="clearHistory()">Clear</button>
+              </div>
+              <div class="history-scroll" id="historyScroll">
+                <!-- Thumbnails injected by JS -->
+              </div>
+            </div>
           </div>
 
           <!-- Error state -->
