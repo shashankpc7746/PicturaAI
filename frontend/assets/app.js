@@ -629,6 +629,7 @@ function loadHistoryItem(idx) {
   if (!entry) return;
   activeHistoryIdx = idx;
   resultB64 = entry.b64;
+  currentJobId = entry.id;
   const imgSrc = `data:image/jpeg;base64,${entry.b64}`;
   document.getElementById('resultImage').src = imgSrc;
   document.getElementById('compareResult').src = imgSrc;
