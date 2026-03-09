@@ -26,6 +26,11 @@ let maskBrushSize = 30;
 let maskPainting = false;
 let maskHasContent = false;   // whether user painted anything
 
+// ── Generation History ───────────────────────────────────────────
+const MAX_HISTORY = 10;
+let generationHistory = [];   // [{id, b64, style, timestamp}]
+let activeHistoryIdx = -1;
+
 // ── Navbar scroll effect ─────────────────────────────────────────
 window.addEventListener('scroll', () => {
   document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
@@ -456,6 +461,7 @@ function onDone(msg) {
   const btn = document.getElementById('generateBtn');
   btn.disabled = false;
   btn.querySelector('.btn-text').textContent = 'Regenerate Artwork';
+  addToHistory(resultB64, currentJobId);
   toast('🎨 PicturaAI — your masterpiece is ready!', 'success');
 }
 
@@ -564,6 +570,93 @@ function toast(msg, type = 'info') {
   t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
   document.getElementById('toastContainer').appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(110%)'; t.style.transition = 'all 0.4s'; setTimeout(() => t.remove(), 400); }, 4000);
+}
+
+// ── Generation History ────────────────────────────────────────────
+function addToHistory(b64, jobId) {
+  const styleName = selectedPreset
+    ? document.querySelector(`#preset-${selectedPreset} .preset-caption`)?.textContent || selectedPreset
+    : 'Custom';
+  const entry = {
+    id: jobId || Date.now().toString(),
+    b64,
+    style: styleName,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+  generationHistory.unshift(entry);
+  if (generationHistory.length > MAX_HISTORY) generationHistory.pop();
+  activeHistoryIdx = 0;
+  renderHistory();
+}
+
+function renderHistory() {
+  const strip = document.getElementById('historyStrip');
+  const scroll = document.getElementById('historyScroll');
+  const countEl = document.getElementById('historyCount');
+  if (!strip || !scroll) return;
+
+  if (generationHistory.length === 0) {
+    strip.style.display = 'none';
+    return;
+  }
+  strip.style.display = 'block';
+  countEl.textContent = generationHistory.length;
+
+  scroll.innerHTML = '';
+  generationHistory.forEach((entry, i) => {
+    const card = document.createElement('div');
+    card.className = 'history-card' + (i === activeHistoryIdx ? ' active' : '');
+    card.title = `${entry.style} · ${entry.timestamp}`;
+    card.innerHTML = `
+      <img src="data:image/jpeg;base64,${entry.b64}" alt="History ${i + 1}" draggable="false" />
+      <span class="history-card-num">${i + 1}</span>
+      <button class="history-card-del" title="Remove">✕</button>
+    `;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.history-card-del')) return;
+      loadHistoryItem(i);
+    });
+    card.querySelector('.history-card-del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteHistoryItem(i);
+    });
+    scroll.appendChild(card);
+  });
+}
+
+function loadHistoryItem(idx) {
+  const entry = generationHistory[idx];
+  if (!entry) return;
+  activeHistoryIdx = idx;
+  resultB64 = entry.b64;
+  const imgSrc = `data:image/jpeg;base64,${entry.b64}`;
+  document.getElementById('resultImage').src = imgSrc;
+  document.getElementById('compareResult').src = imgSrc;
+  document.getElementById('resultMeta').textContent = `${entry.style} · ${entry.timestamp} · PicturaAI`;
+
+  // Reset BA slider
+  const baImgBefore = document.querySelector('.ba-img-before');
+  const baHandle = document.getElementById('baHandle');
+  if (baImgBefore) baImgBefore.style.clipPath = 'inset(0 50% 0 0)';
+  if (baHandle) baHandle.style.left = '50%';
+
+  renderHistory();
+}
+
+function deleteHistoryItem(idx) {
+  generationHistory.splice(idx, 1);
+  if (activeHistoryIdx === idx) activeHistoryIdx = Math.min(0, generationHistory.length - 1);
+  else if (activeHistoryIdx > idx) activeHistoryIdx--;
+  renderHistory();
+  if (generationHistory.length === 0) {
+    document.getElementById('historyStrip').style.display = 'none';
+  }
+}
+
+function clearHistory() {
+  generationHistory = [];
+  activeHistoryIdx = -1;
+  renderHistory();
 }
 
 // ── Before / After Comparison Slider ─────────────────────────────
