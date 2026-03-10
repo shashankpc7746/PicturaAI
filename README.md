@@ -29,6 +29,10 @@ PicturaAI transforms your everyday photos into stunning artwork by blending them
 - **Instant results** — single forward-pass model, no iterative optimisation
 - **13 built-in art styles** — Van Gogh, Hokusai, Picasso, Munch, and more
 - **Custom style upload** — use any painting or texture as a style source
+- **Before/After comparison** — draggable split-view slider to compare original vs. stylized
+- **Style Mixing** — blend two styles with an adjustable ratio (e.g. 70% Van Gogh + 30% Picasso)
+- **Regional Styling** — paint a brush mask to control where the style applies
+- **Generation History** — scrollable thumbnail strip of your last 10 results, click to reload any
 - **Real-time WebSocket progress** — watch your artwork being created live
 - **Detail-preserving pipeline** — luminance-preserving blend, high-frequency reinjection, adaptive sharpening
 - **One-click download** — save your masterpiece as a high-quality JPEG
