@@ -202,7 +202,7 @@ PicturaAI/
 | `GET` | `/` | Redirect to studio |
 | `GET` | `/app` | Serve frontend SPA |
 | `GET` | `/api/styles` | List all style presets with thumbnails |
-| `POST` | `/api/transfer` | Start NST job → returns `job_id` |
+| `POST` | `/api/transfer` | Start NST job → returns `job_id` (supports `mask_image`, `style_image_2`, `style_preset_2`, `style_mix_ratio`) |
 | `GET` | `/api/jobs/{id}` | Poll job status, progress, preview |
 | `GET` | `/api/result/{id}` | Download final JPEG |
 | `DELETE` | `/api/jobs/{id}` | Cancel & cleanup job |
@@ -253,6 +253,13 @@ docker run -p 8000:8000 picturaai
 ---
 
 ## Changelog
+
+### v1.2 — Creative Tools
+- Before/After comparison slider — draggable split-view over the result
+- Style Mixing — blend two styles with an adjustable ratio slider
+- Regional Styling — brush mask to control where the style applies
+- Generation History — scrollable strip of last 10 results with reload, delete, and clear
+- Download from history items
 
 ### v1.1 — Quality & Polish
 - Raised content resolution from 512px to 768px
