@@ -119,7 +119,7 @@ On first run, the Magenta model (~100 MB) downloads from TF Hub and caches local
 PicturaAI/
 ├── backend/
 │   ├── main.py              # FastAPI routes, WebSocket, job manager
-│   ├── nst_engine.py         # NST pipeline (Magenta model + quality enhancements)
+│   ├── nst_engine.py         # NST pipeline (Magenta model + quality enhancements + style mixing + regional mask)
 │   ├── requirements.txt      # Python dependencies
 │   ├── uploads/              # Temp uploaded images (auto-created, git-ignored)
 │   └── outputs/              # Generated results (auto-created, git-ignored)
@@ -127,7 +127,7 @@ PicturaAI/
 ├── frontend/
 │   ├── index.html            # Main SPA — hero, studio, gallery, footer
 │   └── assets/
-│       ├── app.js            # Upload logic, WS client, progress UI
+│       ├── app.js            # Upload, WS client, progress, history, BA slider
 │       ├── style.css         # Dark glassmorphism design system
 │       ├── logo.png          # Brand logo
 │       └── favicon.ico       # Browser favicon
@@ -150,11 +150,13 @@ PicturaAI/
 
 ```
 ┌────────────┐     ┌────────────┐     ┌──────────────────────────────────────┐
-│   Content   │     │    Style    │     │          NST Pipeline                │
-│   Image     │────▶│   Image     │────▶│  1. Preprocess (resize, normalise)  │
-│  (your pic) │     │ (painting)  │     │  2. Stylize (Magenta forward pass)  │
-└────────────┘     └────────────┘     │  3. Luminance-preserving blend      │
-                                       │  4. Detail reinjection + sharpening │
+│   Content   │     │   Style(s)  │     │          NST Pipeline                │
+│   Image     │────▶│  1 or 2     │────▶│  1. Preprocess (resize, normalise)  │
+│  (your pic) │     │ + opt mask  │     │  2. Stylize (Magenta forward pass)  │
+└────────────┘     └────────────┘     │  3. Style mix (if 2 styles)        │
+                                       │  4. Regional mask blend             │
+                                       │  5. Luminance-preserving blend      │
+                                       │  6. Detail reinjection + sharpening │
                                        └──────────────┬───────────────────────┘
                                                        │
                                                        ▼
