@@ -48,7 +48,7 @@ from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
 from fastapi.responses import FileResponse, JSONResponse  # pyre-ignore[21]
 from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
 
-from nst_engine import run_nst, pil_to_bytes  # pyre-ignore[21]
+from nst_engine import run_nst, pil_to_bytes, run_interpolation_gif, color_palette_transfer  # pyre-ignore[21]
 from PIL import Image  # pyre-ignore[21]
 import io
 
@@ -353,6 +353,116 @@ async def cancel_job(job_id: str):
     if result_path:
         Path(result_path).unlink(missing_ok=True)
     return {"message": "Job removed"}
+
+
+# ── Style Interpolation Animation (GIF) ───────────────────────────────────────
+
+def _interpolation_worker(
+    job_id: str,
+    content_bytes: bytes,
+    style_bytes: bytes,
+    num_frames: int,
+    frame_duration_ms: int,
+):
+    job = jobs[job_id]
+    job["status"] = "processing"
+    job["started_at"] = time.time()
+
+    def progress_callback(step: int, total: int, loss: float, img_bytes: bytes):
+        pct = round(step / total * 100)
+        job["progress"] = pct
+        _sync_broadcast(job_id, {"type": "progress", "step": step, "total": total, "percent": pct})
+
+    try:
+        gif_bytes = run_interpolation_gif(
+            content_bytes, style_bytes,
+            num_frames=num_frames,
+            frame_duration_ms=frame_duration_ms,
+            progress_callback=progress_callback,
+        )
+        out_path = OUTPUT_DIR / f"{job_id}.gif"
+        out_path.write_bytes(gif_bytes)
+
+        result_b64 = base64.b64encode(gif_bytes).decode()
+        job["status"] = "done"
+        job["result_path"] = str(out_path)
+        job["result"] = result_b64
+        job["result_type"] = "gif"
+        job["progress"] = 100
+        job["finished_at"] = time.time()
+        _sync_broadcast(job_id, {"type": "done", "percent": 100, "result": result_b64, "result_type": "gif"})
+    except Exception as e:
+        logger.exception(f"Interpolation job {job_id} failed")
+        job["status"] = "error"
+        job["error"] = str(e)
+        _sync_broadcast(job_id, {"type": "error", "message": str(e)})
+
+
+@app.post("/api/interpolate")
+async def start_interpolation(
+    content_image: UploadFile = File(...),
+    style_image: Optional[UploadFile] = File(None),
+    style_preset: Optional[str] = Form(None),
+    num_frames: int = Form(10),
+    frame_duration: int = Form(200),
+):
+    if style_image is None and style_preset is None:
+        raise HTTPException(400, "Provide either style_image or style_preset")
+
+    num_frames = max(5, min(num_frames, 20))
+    frame_duration = max(50, min(frame_duration, 500))
+
+    content_bytes = await content_image.read()
+
+    if style_image is not None:
+        style_bytes = await style_image.read()
+    else:
+        assert style_preset is not None
+        style_path = get_style_path(style_preset)
+        if not style_path or not style_path.exists():
+            raise HTTPException(404, f"Style preset '{style_preset}' not found")
+        style_bytes = style_path.read_bytes()
+
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {
+        "id": job_id, "status": "queued", "progress": 0,
+        "created_at": time.time(), "result_type": "gif",
+    }
+    ws_clients[job_id] = []
+
+    executor.submit(_interpolation_worker, job_id, content_bytes, style_bytes, num_frames, frame_duration)  # type: ignore[arg-type]
+
+    return JSONResponse({"job_id": job_id, "status": "queued"})
+
+
+# ── Color Palette Transfer ─────────────────────────────────────────────────────
+
+@app.post("/api/palette-transfer")
+async def palette_transfer(
+    content_image: UploadFile = File(...),
+    style_image: Optional[UploadFile] = File(None),
+    style_preset: Optional[str] = Form(None),
+    strength: float = Form(1.0),
+):
+    if style_image is None and style_preset is None:
+        raise HTTPException(400, "Provide either style_image or style_preset")
+
+    strength = max(0.0, min(1.0, strength))
+    content_bytes = await content_image.read()
+
+    if style_image is not None:
+        style_bytes = await style_image.read()
+    else:
+        assert style_preset is not None
+        style_path = get_style_path(style_preset)
+        if not style_path or not style_path.exists():
+            raise HTTPException(404, f"Style preset '{style_preset}' not found")
+        style_bytes = style_path.read_bytes()
+
+    result_bytes = color_palette_transfer(content_bytes, style_bytes, strength=strength)
+    result_b64 = base64.b64encode(result_bytes).decode()
+
+    return JSONResponse({"result": result_b64})
 
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
