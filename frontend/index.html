@@ -293,6 +293,18 @@
               </div>
             </div>
 
+            <!-- Color Palette Transfer toggle -->
+            <div class="palette-toggle-wrap">
+              <label class="palette-toggle" id="paletteToggle">
+                <input type="checkbox" id="paletteMode" onchange="togglePaletteMode(this.checked)" />
+                <span class="palette-toggle-track">
+                  <span class="palette-toggle-thumb"></span>
+                </span>
+                <span class="palette-toggle-label">🎨 Color Palette Only</span>
+              </label>
+              <p class="palette-hint" id="paletteHint" style="display:none">Transfers only the colour palette — no texture or style changes.</p>
+            </div>
+
             <button class="btn btn-primary btn-generate" id="generateBtn" onclick="startTransfer()">
               <span class="btn-icon">✦</span>
               <span class="btn-text">Generate Artwork</span>
@@ -309,6 +321,9 @@
             <div class="output-actions" id="outputActions" style="display:none">
               <button class="btn btn-ghost btn-sm" onclick="downloadResult()">
                 ⬇ Download
+              </button>
+              <button class="btn btn-ghost btn-sm" id="animateBtn" onclick="startInterpolation()">
+                🎞 Animation
               </button>
               <button class="btn btn-ghost btn-sm" onclick="resetStudio()">
                 ↺ Reset

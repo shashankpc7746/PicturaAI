@@ -31,6 +31,9 @@ const MAX_HISTORY = 10;
 let generationHistory = [];   // [{id, b64, style, timestamp}]
 let activeHistoryIdx = -1;
 
+// ── Color Palette Transfer mode ──────────────────────────────────
+let paletteModeActive = false;
+
 // ── Navbar scroll effect ─────────────────────────────────────────
 window.addEventListener('scroll', () => {
   document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
@@ -292,10 +295,19 @@ function resetUploadZone(previewId, placeholderId, clearId, inputId) {
   document.getElementById(inputId).value = '';
 }
 
+// ── Color Palette Transfer toggle ────────────────────────────────
+function togglePaletteMode(on) {
+  paletteModeActive = on;
+  document.getElementById('paletteHint').style.display = on ? 'block' : 'none';
+}
+
 // ── Start Transfer ───────────────────────────────────────────────
 async function startTransfer() {
   if (!contentFile) { toast('Please upload a content image first', 'error'); return; }
   if (!selectedPreset && !styleFile) { toast('Please pick a style preset or upload one', 'error'); return; }
+
+  // Route to palette transfer endpoint if toggle is on
+  if (paletteModeActive) { startPaletteTransfer(); return; }
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
@@ -507,6 +519,94 @@ function showError(msg) {
   toast(msg, 'error');
 }
 
+// ── Color Palette Transfer ───────────────────────────────────────
+async function startPaletteTransfer() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.querySelector('.btn-text').textContent = 'Transferring palette…';
+
+  const form = new FormData();
+  form.append('content_image', contentFile);
+  if (styleFile) form.append('style_image', styleFile);
+  if (selectedPreset) form.append('style_preset', selectedPreset);
+  const strength = parseFloat(document.getElementById('styleWeight').value) / 100;
+  form.append('strength', strength.toString());
+
+  try {
+    const res = await fetch(`${API}/api/palette-transfer`, { method: 'POST', body: form });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    const data = await res.json();
+    resultB64 = data.result;
+    currentJobId = null;
+    const imgSrc = `data:image/jpeg;base64,${resultB64}`;
+    document.getElementById('resultImage').src = imgSrc;
+    document.getElementById('compareResult').src = imgSrc;
+    document.getElementById('resultMeta').textContent = 'Color Palette Transfer · PicturaAI';
+    setOutputState('result');
+    document.getElementById('outputActions').style.display = 'flex';
+    document.getElementById('resultCompare').style.display = 'block';
+    const baImgBefore = document.querySelector('.ba-img-before');
+    const baHandle = document.getElementById('baHandle');
+    if (baImgBefore) baImgBefore.style.clipPath = 'inset(0 50% 0 0)';
+    if (baHandle) baHandle.style.left = '50%';
+    addToHistory(resultB64, 'palette_' + Date.now());
+    toast('🎨 Color palette transferred!', 'success');
+  } catch (err) {
+    showError(err.message || 'Palette transfer failed');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.btn-text').textContent = 'Generate Artwork';
+  }
+}
+
+// ── Style Interpolation Animation (GIF) ──────────────────────────
+async function startInterpolation() {
+  if (!contentFile) { toast('Upload a content image first', 'error'); return; }
+  if (!selectedPreset && !styleFile) { toast('Pick a style first', 'error'); return; }
+
+  const animBtn = document.getElementById('animateBtn');
+  animBtn.disabled = true;
+  animBtn.textContent = '⏳ Generating…';
+
+  const form = new FormData();
+  form.append('content_image', contentFile);
+  if (styleFile) form.append('style_image', styleFile);
+  if (selectedPreset) form.append('style_preset', selectedPreset);
+  form.append('num_frames', '10');
+  form.append('frame_duration', '180');
+
+  try {
+    const res = await fetch(`${API}/api/interpolate`, { method: 'POST', body: form });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    const data = await res.json();
+    const jobId = data.job_id;
+
+    // Poll until done
+    let result = null;
+    for (let i = 0; i < 120; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const poll = await fetch(`${API}/api/jobs/${jobId}`);
+      const job = await poll.json();
+      if (job.status === 'done') { result = job; break; }
+      if (job.status === 'error') throw new Error(job.error || 'Animation failed');
+      animBtn.textContent = `⏳ ${job.progress || 0}%`;
+    }
+    if (!result) throw new Error('Animation timed out');
+
+    // Download the GIF
+    const a = document.createElement('a');
+    a.href = `data:image/gif;base64,${result.result}`;
+    a.download = `pictura_animation_${jobId.substr(0, 8)}.gif`;
+    a.click();
+    toast('🎞️ Animation GIF downloaded!', 'success');
+  } catch (err) {
+    toast(err.message || 'Animation failed', 'error');
+  } finally {
+    animBtn.disabled = false;
+    animBtn.textContent = '🎞 Animation';
+  }
+}
+
 // ── Download ─────────────────────────────────────────────────────
 function downloadResult() {
   if (currentJobId) {
@@ -545,6 +645,12 @@ function resetStudio() {
   document.getElementById('maskToolbar').classList.add('hidden');
   document.getElementById('maskCanvas').classList.add('hidden');
   maskHasContent = false;
+
+  // Reset palette mode
+  paletteModeActive = false;
+  const paletteCheckbox = document.getElementById('paletteMode');
+  if (paletteCheckbox) paletteCheckbox.checked = false;
+  document.getElementById('paletteHint').style.display = 'none';
 
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent = '0%';

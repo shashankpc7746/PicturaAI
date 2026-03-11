@@ -1052,6 +1052,67 @@ a {
   transform: scale(1.25);
 }
 
+/* ── Color Palette Transfer toggle ──────────────────────────────── */
+.palette-toggle-wrap {
+  margin: 12px 0 16px;
+}
+
+.palette-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.palette-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.palette-toggle-track {
+  position: relative;
+  width: 38px;
+  height: 20px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid var(--border);
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.palette-toggle input:checked ~ .palette-toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.palette-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+
+.palette-toggle input:checked ~ .palette-toggle-track .palette-toggle-thumb {
+  transform: translateX(18px);
+}
+
+.palette-toggle-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.02em;
+}
+
+.palette-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 6px 0 0 48px;
+}
+
 /* ── Generate button ────────────────────────────────────────────── */
 .btn-generate {
   width: 100%;
