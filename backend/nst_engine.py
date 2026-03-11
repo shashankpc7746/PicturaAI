@@ -316,3 +316,192 @@ def run_nst(
 
     logger.info(f"Total pipeline: {time.time() - t0:.1f}s | output: {len(result_bytes)/1024:.0f} KB")
     return result_bytes
+
+
+# ── Style Interpolation Animation (GIF) ───────────────────────────────────────
+
+def run_interpolation_gif(
+    content_bytes: bytes,
+    style_bytes: bytes,
+    num_frames: int = 10,
+    frame_duration_ms: int = 200,
+    progress_callback: Optional[Callable[[int, int, float, bytes], None]] = None,
+) -> bytes:
+    """
+    Generate an animated GIF that sweeps style intensity from 0% to 100%.
+
+    Args:
+        content_bytes:      Raw bytes of the content image.
+        style_bytes:        Raw bytes of the style image.
+        num_frames:         Number of frames in the animation (5–20).
+        frame_duration_ms:  Duration per frame in milliseconds.
+        progress_callback:  Called with (step, total, 0.0, preview_bytes).
+
+    Returns:
+        GIF bytes of the animation.
+    """
+    num_frames = max(5, min(num_frames, 20))
+    model = StyleTransferModel.get()
+    t0 = time.time()
+
+    # Preprocess once (reuse for all frames)
+    content_tensor = load_and_preprocess(content_bytes, max_dim=512)  # lower res for speed
+    style_tensor = load_and_preprocess(style_bytes, target_size=(STYLE_IMG_SIZE, STYLE_IMG_SIZE))
+    style_tensor = tf.nn.avg_pool(style_tensor, ksize=[3, 3], strides=[1, 1], padding="SAME")
+
+    logger.info("Running style transfer for interpolation frames …")
+    stylized_tensor = model.stylize(content_tensor, style_tensor)
+    content_shape = tf.shape(content_tensor)[1:3]  # type: ignore[index]
+    stylized_tensor = tf.image.resize(stylized_tensor, content_shape)
+
+    total_steps = num_frames + 1  # +1 for preprocessing
+    if progress_callback is not None:
+        progress_callback(1, total_steps, 0.0, b"")
+
+    # Generate frames at different alpha levels
+    frames: list[Image.Image] = []
+    alphas = [i / (num_frames - 1) for i in range(num_frames)]
+
+    for idx, alpha in enumerate(alphas):
+        blended = _luminance_preserving_blend(content_tensor, stylized_tensor, alpha)
+        detail_strength = 0.15 + alpha * 0.30
+        blended = _reinject_details(content_tensor, blended, strength=detail_strength)
+        frame_pil = tensor_to_pil(blended)  # type: ignore[arg-type]
+        sharp_pct = int(40 + alpha * 50)
+        frame_pil = _unsharp_mask(frame_pil, radius=1.2, percent=sharp_pct, threshold=2)
+        frames.append(frame_pil.convert("RGB"))
+
+        if progress_callback is not None:
+            progress_callback(idx + 2, total_steps, 0.0, pil_to_bytes(frame_pil, quality=50))
+
+    # Append reverse frames for a smooth loop (excluding first and last to avoid stutter)
+    frames_loop = frames + frames[-2:0:-1]
+
+    # Encode as GIF
+    buf = io.BytesIO()
+    frames_loop[0].save(
+        buf, format="GIF", save_all=True,
+        append_images=frames_loop[1:],
+        duration=frame_duration_ms, loop=0,
+        optimize=True,
+    )
+    gif_bytes = buf.getvalue()
+
+    if progress_callback is not None:
+        progress_callback(total_steps, total_steps, 0.0, gif_bytes)
+
+    logger.info(f"Interpolation GIF: {num_frames} frames, {len(gif_bytes)/1024:.0f} KB, {time.time()-t0:.1f}s")
+    return gif_bytes
+
+
+# ── Color Palette Transfer (LAB histogram matching) ────────────────────────────
+
+def color_palette_transfer(
+    content_bytes: bytes,
+    style_bytes: bytes,
+    strength: float = 1.0,
+) -> bytes:
+    """
+    Transfer only the colour palette of the style image onto the content,
+    without changing texture or structure. Uses LAB colour space histogram
+    matching — no neural network needed.
+
+    Args:
+        content_bytes: Raw bytes of the content image.
+        style_bytes:   Raw bytes of the style image.
+        strength:      Blend strength 0.0 (no change) to 1.0 (full palette transfer).
+
+    Returns:
+        JPEG bytes of the colour-transferred image.
+    """
+    strength = max(0.0, min(1.0, strength))
+    t0 = time.time()
+
+    content_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
+    style_img = Image.open(io.BytesIO(style_bytes)).convert("RGB")
+
+    content_arr = np.array(content_img, dtype=np.float32)
+    style_arr = np.array(style_img, dtype=np.float32)
+
+    # Convert RGB → LAB (approximate via linear transform)
+    content_lab = _rgb_to_lab(content_arr)
+    style_lab = _rgb_to_lab(style_arr)
+
+    # Match each LAB channel's mean and std
+    result_lab = np.empty_like(content_lab)
+    for ch in range(3):
+        c_mean, c_std = content_lab[:, :, ch].mean(), content_lab[:, :, ch].std() + 1e-6
+        s_mean, s_std = style_lab[:, :, ch].mean(), style_lab[:, :, ch].std() + 1e-6
+        transferred = (content_lab[:, :, ch] - c_mean) * (s_std / c_std) + s_mean
+        # Blend with original based on strength
+        result_lab[:, :, ch] = (1.0 - strength) * content_lab[:, :, ch] + strength * transferred
+
+    # Convert LAB → RGB
+    result_arr = _lab_to_rgb(result_lab)
+    result_arr = np.clip(result_arr, 0, 255).astype(np.uint8)
+
+    result_img = Image.fromarray(result_arr)
+    result_bytes = pil_to_bytes(result_img, quality=95)
+
+    logger.info(f"Color palette transfer: {strength*100:.0f}% strength, {len(result_bytes)/1024:.0f} KB, {time.time()-t0:.2f}s")
+    return result_bytes
+
+
+def _rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
+    """Convert RGB (0–255 float) to approximate LAB colour space."""
+    # Normalize to 0–1
+    rgb_norm = rgb / 255.0
+
+    # Linearize sRGB
+    mask = rgb_norm > 0.04045
+    rgb_lin = np.where(mask, ((rgb_norm + 0.055) / 1.055) ** 2.4, rgb_norm / 12.92)
+
+    # RGB → XYZ (D65 illuminant)
+    r, g, b = rgb_lin[:, :, 0], rgb_lin[:, :, 1], rgb_lin[:, :, 2]
+    x = r * 0.4124564 + g * 0.3575761 + b * 0.1804375
+    y = r * 0.2126729 + g * 0.7151522 + b * 0.0721750
+    z = r * 0.0193339 + g * 0.1191920 + b * 0.9503041
+
+    # Normalize by D65 white point
+    x /= 0.95047
+    z /= 1.08883
+
+    # XYZ → LAB
+    def f(t: np.ndarray) -> np.ndarray:
+        delta = 6.0 / 29.0
+        return np.where(t > delta**3, np.cbrt(t), t / (3 * delta**2) + 4.0 / 29.0)
+
+    fx, fy, fz = f(x), f(y), f(z)
+    L = 116.0 * fy - 16.0
+    a = 500.0 * (fx - fy)
+    b_ch = 200.0 * (fy - fz)
+
+    return np.stack([L, a, b_ch], axis=-1)
+
+
+def _lab_to_rgb(lab: np.ndarray) -> np.ndarray:
+    """Convert LAB colour space back to RGB (0–255 float)."""
+    L, a, b_ch = lab[:, :, 0], lab[:, :, 1], lab[:, :, 2]
+
+    # LAB → XYZ
+    fy = (L + 16.0) / 116.0
+    fx = a / 500.0 + fy
+    fz = fy - b_ch / 200.0
+
+    delta = 6.0 / 29.0
+    x = np.where(fx > delta, fx**3, 3 * delta**2 * (fx - 4.0 / 29.0)) * 0.95047
+    y = np.where(fy > delta, fy**3, 3 * delta**2 * (fy - 4.0 / 29.0))
+    z = np.where(fz > delta, fz**3, 3 * delta**2 * (fz - 4.0 / 29.0)) * 1.08883
+
+    # XYZ → linear RGB
+    r_lin = x * 3.2404542 + y * -1.5371385 + z * -0.4985314
+    g_lin = x * -0.9692660 + y * 1.8760108 + z * 0.0415560
+    b_lin = x * 0.0556434 + y * -0.2040259 + z * 1.0572252
+
+    # Gamma encode
+    rgb_lin = np.stack([r_lin, g_lin, b_lin], axis=-1)
+    rgb_lin = np.clip(rgb_lin, 0, 1)
+    mask = rgb_lin > 0.0031308
+    rgb = np.where(mask, 1.055 * (rgb_lin ** (1.0 / 2.4)) - 0.055, 12.92 * rgb_lin)
+
+    return rgb * 255.0
