@@ -33,6 +33,8 @@ PicturaAI transforms your everyday photos into stunning artwork by blending them
 - **Style Mixing** — blend two styles with an adjustable ratio (e.g. 70% Van Gogh + 30% Picasso)
 - **Regional Styling** — paint a brush mask to control where the style applies
 - **Generation History** — scrollable thumbnail strip of your last 10 results, click to reload any
+- **Style Interpolation Animation** — generate a looping GIF that sweeps style intensity 0% → 100%
+- **Color Palette Transfer** — transfer only the colour palette without changing texture (LAB histogram matching)
 - **Real-time WebSocket progress** — watch your artwork being created live
 - **Detail-preserving pipeline** — luminance-preserving blend, high-frequency reinjection, adaptive sharpening
 - **One-click download** — save your masterpiece as a high-quality JPEG
@@ -208,6 +210,8 @@ PicturaAI/
 | `GET` | `/api/jobs/{id}` | Poll job status, progress, preview |
 | `GET` | `/api/result/{id}` | Download final JPEG |
 | `DELETE` | `/api/jobs/{id}` | Cancel & cleanup job |
+| `POST` | `/api/interpolate` | Generate style interpolation GIF (params: `num_frames`, `frame_duration`) |
+| `POST` | `/api/palette-transfer` | Color palette transfer only (param: `strength`) |
 | `WS` | `/ws/{job_id}` | Real-time progress stream |
 | `GET` | `/docs` | Interactive Swagger UI |
 
@@ -255,6 +259,11 @@ docker run -p 8000:8000 picturaai
 ---
 
 ## Changelog
+
+### v1.3 — Animation & Palette
+- Style Interpolation Animation — generate a looping GIF sweeping style intensity 0% → 100%
+- Color Palette Transfer Mode — toggle that transfers only colour using LAB histogram matching
+- Two new API endpoints: `/api/interpolate` and `/api/palette-transfer`
 
 ### v1.2 — Creative Tools
 - Before/After comparison slider — draggable split-view over the result
