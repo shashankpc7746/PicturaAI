@@ -400,6 +400,8 @@ def color_palette_transfer(
     content_bytes: bytes,
     style_bytes: bytes,
     strength: float = 1.0,
+    style_bytes_2: Optional[bytes] = None,
+    style_mix_ratio: float = 0.5,
 ) -> bytes:
     """
     Transfer only the colour palette of the style image onto the content,
@@ -407,14 +409,17 @@ def color_palette_transfer(
     matching — no neural network needed.
 
     Args:
-        content_bytes: Raw bytes of the content image.
-        style_bytes:   Raw bytes of the style image.
-        strength:      Blend strength 0.0 (no change) to 1.0 (full palette transfer).
+        content_bytes:   Raw bytes of the content image.
+        style_bytes:     Raw bytes of the style image.
+        strength:        Blend strength 0.0 (no change) to 1.0 (full palette transfer).
+        style_bytes_2:   Optional raw bytes of a second style image (style mixing).
+        style_mix_ratio: Ratio for mixing two styles (0 = all style 1, 1 = all style 2).
 
     Returns:
         JPEG bytes of the colour-transferred image.
     """
     strength = max(0.0, min(1.0, strength))
+    style_mix_ratio = max(0.0, min(1.0, style_mix_ratio))
     t0 = time.time()
 
     content_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
@@ -427,11 +432,25 @@ def color_palette_transfer(
     content_lab = _rgb_to_lab(content_arr)
     style_lab = _rgb_to_lab(style_arr)
 
+    # If second style provided, blend LAB stats from both styles
+    if style_bytes_2 is not None:
+        style_img_2 = Image.open(io.BytesIO(style_bytes_2)).convert("RGB")
+        style_arr_2 = np.array(style_img_2, dtype=np.float32)
+        style_lab_2 = _rgb_to_lab(style_arr_2)
+
     # Match each LAB channel's mean and std
     result_lab = np.empty_like(content_lab)
     for ch in range(3):
         c_mean, c_std = content_lab[:, :, ch].mean(), content_lab[:, :, ch].std() + 1e-6
         s_mean, s_std = style_lab[:, :, ch].mean(), style_lab[:, :, ch].std() + 1e-6
+
+        if style_bytes_2 is not None:
+            s2_mean = style_lab_2[:, :, ch].mean()
+            s2_std = style_lab_2[:, :, ch].std() + 1e-6
+            # Blend the target stats from both styles
+            s_mean = (1.0 - style_mix_ratio) * s_mean + style_mix_ratio * s2_mean
+            s_std = (1.0 - style_mix_ratio) * s_std + style_mix_ratio * s2_std
+
         transferred = (content_lab[:, :, ch] - c_mean) * (s_std / c_std) + s_mean
         # Blend with original based on strength
         result_lab[:, :, ch] = (1.0 - strength) * content_lab[:, :, ch] + strength * transferred

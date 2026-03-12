@@ -443,6 +443,9 @@ async def palette_transfer(
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
     strength: float = Form(1.0),
+    style_image_2: Optional[UploadFile] = File(None),
+    style_preset_2: Optional[str] = Form(None),
+    style_mix_ratio: float = Form(0.5),
 ):
     if style_image is None and style_preset is None:
         raise HTTPException(400, "Provide either style_image or style_preset")
@@ -459,7 +462,21 @@ async def palette_transfer(
             raise HTTPException(404, f"Style preset '{style_preset}' not found")
         style_bytes = style_path.read_bytes()
 
-    result_bytes = color_palette_transfer(content_bytes, style_bytes, strength=strength)
+    # ── Optional second style (style mixing) ─────────────────────────────
+    style_bytes_2: bytes | None = None
+    if style_image_2 is not None:
+        raw = await style_image_2.read()
+        if len(raw) > 0:
+            style_bytes_2 = raw
+    elif style_preset_2 is not None:
+        style_path_2 = get_style_path(style_preset_2)
+        if style_path_2 and style_path_2.exists():
+            style_bytes_2 = style_path_2.read_bytes()
+
+    result_bytes = color_palette_transfer(
+        content_bytes, style_bytes, strength=strength,
+        style_bytes_2=style_bytes_2, style_mix_ratio=style_mix_ratio,
+    )
     result_b64 = base64.b64encode(result_bytes).decode()
 
     return JSONResponse({"result": result_b64})
