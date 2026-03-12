@@ -532,6 +532,14 @@ async function startPaletteTransfer() {
   const strength = parseFloat(document.getElementById('styleWeight').value) / 100;
   form.append('strength', strength.toString());
 
+  // Style Mixing — optional second style
+  if (styleMixEnabled) {
+    if (styleFile2) form.append('style_image_2', styleFile2);
+    if (selectedPreset2) form.append('style_preset_2', selectedPreset2);
+    const mixRatio = parseFloat(document.getElementById('mixRatio').value) / 100;
+    form.append('style_mix_ratio', mixRatio.toString());
+  }
+
   try {
     const res = await fetch(`${API}/api/palette-transfer`, { method: 'POST', body: form });
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
