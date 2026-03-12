@@ -938,28 +938,7 @@ a {
   line-height: 1.4;
 }
 
-.preset-grid-sm {
-  grid-template-columns: repeat(4, 1fr);
-  max-height: 190px;
-  gap: 6px;
-}
 
-.preset-grid-sm .preset-card {
-  height: 56px;
-}
-
-.preset-grid-sm .preset-caption {
-  font-size: 7px;
-  padding: 10px 3px 3px;
-}
-
-.preset-grid-sm .preset-check {
-  width: 14px;
-  height: 14px;
-  font-size: 8px;
-  top: 3px;
-  right: 3px;
-}
 
 /* ── Controls ───────────────────────────────────────────────────── */
 .controls-grid {
