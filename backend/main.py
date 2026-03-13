@@ -26,6 +26,7 @@ import asyncio
 import base64
 import json
 import logging
+import re
 import shutil
 import time
 import uuid
@@ -129,10 +130,68 @@ STYLE_PRESETS = {
     "paris":               {"file": "paris.jpg",               "name": "Paris",               "artist": "Photography",  "description": "Parisian street atmosphere"},
 }
 
+STYLE_TEXT_TAGS: Dict[str, set[str]] = {
+    "starry_night": {"starry", "night", "swirl", "swirling", "van", "gogh", "impressionist", "postimpressionist", "cosmic", "dreamy", "sky"},
+    "the_scream": {"scream", "expressionist", "dramatic", "anguish", "munch", "emotional", "intense"},
+    "great_wave": {"wave", "ocean", "sea", "japanese", "hokusai", "ukiyoe", "water", "coast", "kanagawa"},
+    "la_muse": {"cubist", "cubism", "picasso", "geometric", "fragments", "portrait", "modern"},
+    "rain_princess": {"rain", "rainy", "street", "lights", "reflection", "afremov", "city", "evening"},
+    "udnie": {"abstract", "artdeco", "deco", "dynamic", "picabia", "energetic", "surreal"},
+    "the_shipwreck": {"ship", "shipwreck", "storm", "sea", "turner", "dramatic", "oil", "seascape"},
+    "aquarelle": {"watercolor", "watercolour", "soft", "wash", "pastel", "aquarelle", "delicate"},
+    "chinese_style": {"ink", "brush", "chinese", "traditional", "minimal", "monochrome", "calligraphy"},
+    "space": {"space", "galaxy", "nebula", "cosmic", "sci", "fi", "stars", "universe", "futuristic"},
+    "hampson": {"illustration", "graphic", "bold", "comic", "linework", "hampson"},
+    "mountain": {"mountain", "nature", "landscape", "forest", "rocks", "earthy", "outdoor"},
+    "paris": {"paris", "street", "city", "romantic", "european", "photography", "urban"},
+}
+
 def get_style_path(style_key: str) -> Optional[Path]:
     if style_key not in STYLE_PRESETS:
         return None
     return STYLES_DIR / STYLE_PRESETS[style_key]["file"]
+
+
+def resolve_style_from_text(prompt: str) -> Optional[str]:
+    """Map free-text style prompt to the best matching built-in style preset."""
+    text = prompt.strip().lower()
+    if not text:
+        return None
+
+    tokens = [t for t in re.findall(r"[a-z0-9]+", text) if len(t) > 1]
+    if not tokens:
+        return None
+
+    best_key: Optional[str] = None
+    best_score = 0
+
+    for key, info in STYLE_PRESETS.items():
+        searchable = " ".join([
+            key.replace("_", " "),
+            str(info.get("name", "")).lower(),
+            str(info.get("artist", "")).lower(),
+            str(info.get("description", "")).lower(),
+        ])
+        tags = STYLE_TEXT_TAGS.get(key, set())
+
+        score = 0
+        for token in tokens:
+            if token in tags:
+                score += 4
+            if token in searchable:
+                score += 2
+
+        if key.replace("_", " ") in text:
+            score += 4
+
+        if score > best_score:
+            best_score = score
+            best_key = key
+
+    # If nothing matches, avoid surprising random picks.
+    if best_score <= 0:
+        return None
+    return best_key
 
 # ── Helper: broadcast via WS ───────────────────────────────────────────────────
 async def _broadcast(job_id: str, payload: dict):
@@ -251,6 +310,7 @@ async def start_transfer(
     content_image: UploadFile = File(...),
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
+    text_prompt: Optional[str] = Form(None),
     style_weight: float = Form(1e-2),
     content_weight: float = Form(1e4),
     tv_weight: float = Form(30.0),
@@ -262,8 +322,15 @@ async def start_transfer(
     mask_image: Optional[UploadFile] = File(None),
 ):
     # Validate
+    resolved_style_key: Optional[str] = None
     if style_image is None and style_preset is None:
-        raise HTTPException(400, "Provide either style_image or style_preset")
+        if text_prompt and text_prompt.strip():
+            resolved_style_key = resolve_style_from_text(text_prompt)
+            if resolved_style_key is None:
+                raise HTTPException(400, "No matching style found for the provided text_prompt")
+            style_preset = resolved_style_key
+        else:
+            raise HTTPException(400, "Provide style_image, style_preset, or text_prompt")
 
     num_steps = max(50, min(num_steps, 1000))
 
@@ -318,7 +385,12 @@ async def start_transfer(
         mask_bytes,
     )
 
-    return JSONResponse({"job_id": job_id, "status": "queued"})
+    return JSONResponse({
+        "job_id": job_id,
+        "status": "queued",
+        "resolved_style_key": resolved_style_key,
+        "resolved_style_name": STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None,
+    })
 
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
@@ -442,13 +514,21 @@ async def palette_transfer(
     content_image: UploadFile = File(...),
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
+    text_prompt: Optional[str] = Form(None),
     strength: float = Form(1.0),
     style_image_2: Optional[UploadFile] = File(None),
     style_preset_2: Optional[str] = Form(None),
     style_mix_ratio: float = Form(0.5),
 ):
+    resolved_style_key: Optional[str] = None
     if style_image is None and style_preset is None:
-        raise HTTPException(400, "Provide either style_image or style_preset")
+        if text_prompt and text_prompt.strip():
+            resolved_style_key = resolve_style_from_text(text_prompt)
+            if resolved_style_key is None:
+                raise HTTPException(400, "No matching style found for the provided text_prompt")
+            style_preset = resolved_style_key
+        else:
+            raise HTTPException(400, "Provide style_image, style_preset, or text_prompt")
 
     strength = max(0.0, min(1.0, strength))
     content_bytes = await content_image.read()
@@ -479,7 +559,11 @@ async def palette_transfer(
     )
     result_b64 = base64.b64encode(result_bytes).decode()
 
-    return JSONResponse({"result": result_b64})
+    return JSONResponse({
+        "result": result_b64,
+        "resolved_style_key": resolved_style_key,
+        "resolved_style_name": STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None,
+    })
 
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
