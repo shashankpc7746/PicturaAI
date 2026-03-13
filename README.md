@@ -35,6 +35,7 @@ PicturaAI transforms your everyday photos into stunning artwork by blending them
 - **Generation History** — scrollable thumbnail strip of your last 10 results, click to reload any
 - **Style Interpolation Animation** — generate a looping GIF that sweeps style intensity 0% → 100%
 - **Color Palette Transfer** — transfer only the colour palette without changing texture (LAB histogram matching)
+- **Text-to-Style Prompting** — describe a style in words (e.g. "watercolor portrait") and auto-match the best built-in preset
 - **Real-time WebSocket progress** — watch your artwork being created live
 - **Detail-preserving pipeline** — luminance-preserving blend, high-frequency reinjection, adaptive sharpening
 - **One-click download** — save your masterpiece as a high-quality JPEG
@@ -206,12 +207,12 @@ PicturaAI/
 | `GET` | `/` | Redirect to studio |
 | `GET` | `/app` | Serve frontend SPA |
 | `GET` | `/api/styles` | List all style presets with thumbnails |
-| `POST` | `/api/transfer` | Start NST job → returns `job_id` (supports `mask_image`, `style_image_2`, `style_preset_2`, `style_mix_ratio`) |
+| `POST` | `/api/transfer` | Start NST job → returns `job_id` (supports `mask_image`, `style_image_2`, `style_preset_2`, `style_mix_ratio`, `text_prompt`) |
 | `GET` | `/api/jobs/{id}` | Poll job status, progress, preview |
 | `GET` | `/api/result/{id}` | Download final JPEG |
 | `DELETE` | `/api/jobs/{id}` | Cancel & cleanup job |
 | `POST` | `/api/interpolate` | Generate style interpolation GIF (params: `num_frames`, `frame_duration`) |
-| `POST` | `/api/palette-transfer` | Color palette transfer only (param: `strength`) |
+| `POST` | `/api/palette-transfer` | Color palette transfer only (params: `strength`, `text_prompt`) |
 | `WS` | `/ws/{job_id}` | Real-time progress stream |
 | `GET` | `/docs` | Interactive Swagger UI |
 
@@ -221,6 +222,15 @@ PicturaAI/
 curl -X POST http://localhost:8000/api/transfer \
   -F "content_image=@photo.jpg" \
   -F "style_preset=starry_night" \
+  -F "style_weight=0.75"
+```
+
+### Example: Text-to-Style transfer (no preset selection)
+
+```bash
+curl -X POST http://localhost:8000/api/transfer \
+  -F "content_image=@photo.jpg" \
+  -F "text_prompt=impressionist night sky with swirling strokes" \
   -F "style_weight=0.75"
 ```
 
@@ -259,6 +269,13 @@ docker run -p 8000:8000 picturaai
 ---
 
 ## Changelog
+
+### v1.4 - Text-to-Style
+- Added Text-to-Style prompt input in the studio UI
+- Added backend prompt matcher that maps text descriptions to the closest built-in preset
+- `POST /api/transfer` now accepts `text_prompt` as an alternative to `style_preset` or `style_image`
+- `POST /api/palette-transfer` also supports `text_prompt`
+- Frontend now shows a confirmation toast with the matched style name
 
 ### v1.3 — Animation & Palette
 - Style Interpolation Animation — generate a looping GIF sweeping style intensity 0% → 100%
