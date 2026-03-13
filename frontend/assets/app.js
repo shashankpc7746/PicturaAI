@@ -301,10 +301,18 @@ function togglePaletteMode(on) {
   document.getElementById('paletteHint').style.display = on ? 'block' : 'none';
 }
 
+function getTextStylePrompt() {
+  return (document.getElementById('textStylePrompt')?.value || '').trim();
+}
+
 // ── Start Transfer ───────────────────────────────────────────────
 async function startTransfer() {
   if (!contentFile) { toast('Please upload a content image first', 'error'); return; }
-  if (!selectedPreset && !styleFile) { toast('Please pick a style preset or upload one', 'error'); return; }
+  const textPrompt = getTextStylePrompt();
+  if (!selectedPreset && !styleFile && !textPrompt) {
+    toast('Pick a style, upload one, or describe one using Text-to-Style', 'error');
+    return;
+  }
 
   // Route to palette transfer endpoint if toggle is on
   if (paletteModeActive) { startPaletteTransfer(); return; }
@@ -339,6 +347,7 @@ async function startTransfer() {
   form.append('content_image', contentFile);
   if (styleFile) form.append('style_image', styleFile);
   if (selectedPreset) form.append('style_preset', selectedPreset);
+  if (textPrompt) form.append('text_prompt', textPrompt);
   // Style intensity slider sends 0-100, convert to 0.0-1.0 alpha
   const styleIntensity = parseFloat(document.getElementById('styleWeight').value) / 100;
   form.append('style_weight', styleIntensity.toString());
@@ -366,6 +375,9 @@ async function startTransfer() {
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
     const data = await res.json();
     currentJobId = data.job_id;
+    if (data.resolved_style_name) {
+      toast(`Text-to-Style matched: ${data.resolved_style_name}`, 'info');
+    }
     toast('Job started! Streaming progress…', 'success');
     btn.querySelector('.btn-text').textContent = 'Processing…';
     connectWS(currentJobId);
@@ -521,6 +533,12 @@ function showError(msg) {
 
 // ── Color Palette Transfer ───────────────────────────────────────
 async function startPaletteTransfer() {
+  const textPrompt = getTextStylePrompt();
+  if (!selectedPreset && !styleFile && !textPrompt) {
+    toast('Pick a style, upload one, or describe one using Text-to-Style', 'error');
+    return;
+  }
+
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
   btn.querySelector('.btn-text').textContent = 'Transferring palette…';
@@ -529,6 +547,7 @@ async function startPaletteTransfer() {
   form.append('content_image', contentFile);
   if (styleFile) form.append('style_image', styleFile);
   if (selectedPreset) form.append('style_preset', selectedPreset);
+  if (textPrompt) form.append('text_prompt', textPrompt);
   const strength = parseFloat(document.getElementById('styleWeight').value) / 100;
   form.append('strength', strength.toString());
 
@@ -544,6 +563,9 @@ async function startPaletteTransfer() {
     const res = await fetch(`${API}/api/palette-transfer`, { method: 'POST', body: form });
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
     const data = await res.json();
+    if (data.resolved_style_name) {
+      toast(`Text-to-Style matched: ${data.resolved_style_name}`, 'info');
+    }
     resultB64 = data.result;
     currentJobId = null;
     const imgSrc = `data:image/jpeg;base64,${resultB64}`;
@@ -659,6 +681,8 @@ function resetStudio() {
   const paletteCheckbox = document.getElementById('paletteMode');
   if (paletteCheckbox) paletteCheckbox.checked = false;
   document.getElementById('paletteHint').style.display = 'none';
+  const textStylePrompt = document.getElementById('textStylePrompt');
+  if (textStylePrompt) textStylePrompt.value = '';
 
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressPct').textContent = '0%';
