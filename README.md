@@ -1,57 +1,150 @@
-# PicturaAI — Neural Style Transfer Studio
+# PicturaAI
 
 <div align="center">
   <img src="frontend/assets/logo.png" alt="PicturaAI Logo" width="120" />
   <h1>PicturaAI</h1>
-  <p><strong><em>Pictura</em> — Latin for "a painting."</strong><br/>
-  Instant AI-powered Neural Style Transfer. Upload a photo, choose a masterpiece, get art.</p>
-
-  <br/>
+  <p><strong>Neural Style Transfer Studio for turning photos into artwork.</strong></p>
+  <p>Pictura means a painting. Upload a photo, choose or describe a style, and generate stylized artwork in a single flow.</p>
 
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
-  <img src="https://img.shields.io/badge/TensorFlow-2.16+-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" />
   <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white" />
-  <img src="https://img.shields.io/badge/License-MIT-A855F7?style=for-the-badge" />
-
-  <br/><br/>
-
-  <img src="images/generated images/Style-transfer-image.jpeg" alt="Demo — Style Transfer Output" width="640" style="border-radius:12px;" />
+  <img src="https://img.shields.io/badge/TensorFlow-2.x-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" />
+  <img src="https://img.shields.io/badge/Frontend-Vanilla%20JS-222222?style=for-the-badge&logo=javascript&logoColor=F7DF1E" />
 </div>
 
 ---
 
-## What Is PicturaAI?
+## Overview
 
-PicturaAI transforms your everyday photos into stunning artwork by blending them with the brushstrokes, colours, and textures of famous paintings — powered by Google Magenta's pre-trained Neural Style Transfer model.
+PicturaAI is a full-stack Neural Style Transfer application built around Google Magenta's arbitrary image stylization model. It combines a FastAPI backend, a vanilla HTML/CSS/JavaScript frontend, and a quality-focused post-processing pipeline to produce stylized images quickly while preserving the structure of the original photo.
 
-**Key highlights:**
-
-- **Instant results** — single forward-pass model, no iterative optimisation
-- **13 built-in art styles** — Van Gogh, Hokusai, Picasso, Munch, and more
-- **Custom style upload** — use any painting or texture as a style source
-- **Before/After comparison** — draggable split-view slider to compare original vs. stylized
-- **Style Mixing** — blend two styles with an adjustable ratio (e.g. 70% Van Gogh + 30% Picasso)
-- **Regional Styling** — paint a brush mask to control where the style applies
-- **Generation History** — scrollable thumbnail strip of your last 10 results, click to reload any
-- **Style Interpolation Animation** — generate a looping GIF that sweeps style intensity 0% → 100%
-- **Color Palette Transfer** — transfer only the colour palette without changing texture (LAB histogram matching)
-- **Text-to-Style Prompting** — describe a style in words (e.g. "watercolor portrait") and auto-match the best built-in preset
-- **Real-time WebSocket progress** — watch your artwork being created live
-- **Detail-preserving pipeline** — luminance-preserving blend, high-frequency reinjection, adaptive sharpening
-- **One-click download** — save your masterpiece as a high-quality JPEG
-- **Dynamic regeneration** — change style or intensity without re-uploading
+The project is designed as a complete interactive studio rather than a simple model demo. Users can upload custom style images, mix two styles, paint regional masks, transfer only the color palette, generate interpolation GIFs, revisit previous generations, and describe a style through text.
 
 ---
 
-## Tech Stack
+## What PicturaAI Can Do
 
-| Layer | Technology |
-|-------|-----------|
-| **AI Model** | [Google Magenta Arbitrary Style Transfer v1-256](https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2) via TF Hub |
-| **Backend** | Python 3.10 · FastAPI · Uvicorn · TensorFlow 2.x · Pillow |
-| **Frontend** | Vanilla HTML / CSS / JavaScript (zero frameworks) |
-| **Real-time** | WebSocket streaming with automatic REST polling fallback |
-| **Design** | Dark glassmorphism UI with CSS animations |
+- Generate stylized artwork from a content photo and one selected style.
+- Use 13 built-in presets drawn from iconic visual styles.
+- Accept custom uploaded style images.
+- Blend two styles with an adjustable mix ratio.
+- Paint a regional mask so style is applied only where needed.
+- Transfer only the color palette while keeping structure and texture intact.
+- Create looping style interpolation GIFs.
+- Store recent results in a generation history strip.
+- Compare original and result using a before/after slider.
+- Resolve text prompts like "watercolor portrait" or "cosmic night sky" to the closest built-in preset.
+- Stream live progress updates through WebSockets with polling fallback.
+- Download the final image directly from the UI.
+
+---
+
+## Feature Breakdown
+
+### 1. Core Style Transfer
+
+The main pipeline uses Magenta's arbitrary image stylization model for fast forward-pass inference. This keeps generation responsive while still producing visually rich results.
+
+### 2. Style Mixing
+
+Users can pick a second style and control the ratio between style A and style B. This enables composite outputs such as mixing Van Gogh-like motion with Picasso-style geometry.
+
+### 3. Regional Styling
+
+The app supports mask painting over the content image. Styled regions follow the mask while untouched regions preserve the original content. This is useful for selective edits such as stylizing only the background, sky, clothing, or foreground subject.
+
+### 4. Color Palette Transfer
+
+Palette-only mode transfers color characteristics from the selected style into the content image without applying full texture stylization. This uses LAB-space mean and standard deviation matching for fast, model-free color adaptation.
+
+### 5. Text-to-Style
+
+Users can type a style prompt directly in the studio. The backend resolves that prompt to the closest matching preset using keyword scoring over preset names, artists, descriptions, and style tags. This gives the user a natural-language entry point without requiring a separate text-to-image model.
+
+### 6. Style Interpolation Animation
+
+PicturaAI can generate a looping GIF that sweeps style intensity from low to high and back again. This is useful for demos, social sharing, and visually comparing how stylization evolves across the same image.
+
+### 7. Generation History
+
+Recent generations are stored in a lightweight gallery strip so users can jump back to earlier results, compare variants, and re-download outputs without re-running the model.
+
+---
+
+## Built-In Styles
+
+| Style | Artist / Source | Visual Character |
+|---|---|---|
+| Starry Night | Van Gogh | Swirling, energetic night-sky motion |
+| The Scream | Munch | Expressive and dramatic curves |
+| The Great Wave | Hokusai | Strong wave forms and Japanese print texture |
+| La Muse | Picasso | Cubist, fragmented geometry |
+| Rain Princess | Afremov | Reflective rainy streets and warm color |
+| Udnie | Picabia | Abstract, dynamic motion |
+| The Shipwreck | Turner | Stormy seascape energy |
+| Aquarelle | Unknown | Soft watercolor wash |
+| Chinese Ink | Traditional | Brushwork and ink minimalism |
+| Space | Digital | Cosmic glow and nebula textures |
+| Hampson | Illustration | Bold graphic stylization |
+| Mountain | Nature | Rugged earthy landscape feel |
+| Paris | Photography | Urban street atmosphere |
+
+---
+
+## Architecture
+
+### Backend
+
+- FastAPI application serving REST endpoints and WebSocket updates.
+- Thread pool execution for TensorFlow work.
+- Built-in style preset registry with thumbnail generation.
+- Prompt-to-style resolver for text-driven preset selection.
+- Palette transfer and interpolation endpoints in addition to the main NST pipeline.
+
+### Frontend
+
+- Single-page interface built with vanilla HTML, CSS, and JavaScript.
+- Studio workflow for content upload, style selection, prompt entry, mask painting, generation, comparison, history, and download.
+- WebSocket client for progress streaming with automatic polling fallback.
+
+### Model and Image Pipeline
+
+- Google Magenta Arbitrary Style Transfer via TensorFlow Hub.
+- Content and style preprocessing.
+- Optional second-style blending.
+- Optional regional mask compositing.
+- Luminance-preserving blend and detail reinjection.
+- Final sharpening and JPEG export.
+
+---
+
+## Project Structure
+
+```text
+PicturaAI/
+├── backend/
+│   ├── main.py
+│   ├── nst_engine.py
+│   ├── requirements.txt
+│   ├── uploads/
+│   └── outputs/
+├── frontend/
+│   ├── index.html
+│   └── assets/
+│       ├── app.js
+│       ├── style.css
+│       ├── logo.png
+│       └── favicon.ico
+├── images/
+│   ├── content_image/
+│   ├── generated images/
+│   └── style_image/
+├── NST_Manual.ipynb
+├── Dockerfile
+├── run.py
+├── start_server.bat
+└── README.md
+```
 
 ---
 
@@ -59,164 +152,105 @@ PicturaAI transforms your everyday photos into stunning artwork by blending them
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **4 GB RAM** minimum (8 GB recommended)
-- Stable internet for first run (model download ~100 MB, cached thereafter)
+- Python 3.10 or newer
+- 4 GB RAM minimum
+- Internet connection for first model download
 
-### 1. Clone the repository
+### Clone the repository
 
 ```bash
 git clone https://github.com/shashankpc7746/PicturaAI.git
 cd PicturaAI
 ```
 
-### 2. Create a virtual environment
+### Create a virtual environment
 
 ```bash
 python -m venv venv
 ```
 
-### 3. Install dependencies
+### Install dependencies
+
+Windows:
 
 ```bash
-# Windows
 .\venv\Scripts\pip install -r backend\requirements.txt
+```
 
-# macOS / Linux
+macOS / Linux:
+
+```bash
 venv/bin/pip install -r backend/requirements.txt
 ```
 
-> TensorFlow (~600 MB) will download on the first install. Be patient!
+### Start the app
 
-### 4. Start the server
+Windows helper:
 
-**Option A — One-click (Windows):**
-```
+```bash
 start_server.bat
 ```
 
-**Option B — Python launcher:**
+Python launcher:
+
 ```bash
 python run.py
 ```
 
-**Option C — Uvicorn directly:**
+Direct backend run:
+
 ```bash
 cd backend
 ../venv/Scripts/python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-### 5. Open the studio
+### Open in browser
 
-```
+```text
 http://localhost:8000/app
 ```
 
-On first run, the Magenta model (~100 MB) downloads from TF Hub and caches locally. Subsequent launches load instantly.
+The first run downloads the TensorFlow Hub model and caches it locally.
 
 ---
 
-## Project Structure
+## Studio Workflow
 
-```
-PicturaAI/
-├── backend/
-│   ├── main.py              # FastAPI routes, WebSocket, job manager
-│   ├── nst_engine.py         # NST pipeline (Magenta model + quality enhancements + style mixing + regional mask)
-│   ├── requirements.txt      # Python dependencies
-│   ├── uploads/              # Temp uploaded images (auto-created, git-ignored)
-│   └── outputs/              # Generated results (auto-created, git-ignored)
-│
-├── frontend/
-│   ├── index.html            # Main SPA — hero, studio, gallery, footer
-│   └── assets/
-│       ├── app.js            # Upload, WS client, progress, history, BA slider
-│       ├── style.css         # Dark glassmorphism design system
-│       ├── logo.png          # Brand logo
-│       └── favicon.ico       # Browser favicon
-│
-├── images/
-│   ├── content_image/        # Sample content photos
-│   ├── style_image/          # 13 built-in art style images
-│   └── generated images/     # Sample outputs
-│
-├── run.py                    # Python server launcher
-├── start_server.bat          # Windows batch launcher
-├── Dockerfile                # Container build
-├── NST_Manual.ipynb          # Original Jupyter prototype
-└── README.md
-```
-
----
-
-## How It Works
-
-```
-┌────────────┐     ┌────────────┐     ┌──────────────────────────────────────┐
-│   Content   │     │   Style(s)  │     │          NST Pipeline                │
-│   Image     │────▶│  1 or 2     │────▶│  1. Preprocess (resize, normalise)  │
-│  (your pic) │     │ + opt mask  │     │  2. Stylize (Magenta forward pass)  │
-└────────────┘     └────────────┘     │  3. Style mix (if 2 styles)        │
-                                       │  4. Regional mask blend             │
-                                       │  5. Luminance-preserving blend      │
-                                       │  6. Detail reinjection + sharpening │
-                                       └──────────────┬───────────────────────┘
-                                                       │
-                                                       ▼
-                                              ┌────────────────┐
-                                              │  Your Artwork   │
-                                              │  (JPEG output)  │
-                                              └────────────────┘
-```
-
-### Quality Enhancement Pipeline (v1.1)
-
-1. **Higher resolution** — content images processed at up to 768px (raised from 512px)
-2. **Luminance-preserving blend** — keeps content structure and edges sharp even at 100% style intensity
-3. **High-frequency detail reinjection** — extracts fine textures from the original and adds them back to the styled result
-4. **Adaptive unsharp mask** — final edge crispness that scales with style intensity
-
----
-
-## Available Art Styles
-
-| # | Style | Artist | Character |
-|---|-------|--------|-----------|
-| 1 | Starry Night | Van Gogh | Swirling cosmic energy |
-| 2 | The Scream | Munch | Anguished expressionist curves |
-| 3 | The Great Wave | Hokusai | Bold Japanese woodblock |
-| 4 | La Muse | Picasso | Cubist fragments |
-| 5 | Rain Princess | Afremov | Rainy street in warm colour |
-| 6 | Udnie | Picabia | Abstract art-deco swirls |
-| 7 | The Shipwreck | Turner | Dramatic seascape |
-| 8 | Aquarelle | — | Soft watercolour washes |
-| 9 | Chinese Ink | Traditional | Delicate ink brush strokes |
-| 10 | Space | Digital | Nebulae and cosmic textures |
-| 11 | Hampson | Hampson | Bold illustrative style |
-| 12 | Mountain | Nature | Rugged mountain textures |
-| 13 | Paris | Photography | Parisian street atmosphere |
-
-> **Custom styles:** Switch to the "Upload Custom" tab and use any image as a style source.
+1. Upload a content image.
+2. Choose a preset, upload a custom style, or enter a text prompt.
+3. Optionally enable style mixing, palette transfer, or mask painting.
+4. Generate the result and watch live progress.
+5. Compare, download, animate, or revisit the output from history.
 
 ---
 
 ## API Reference
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Redirect to studio |
-| `GET` | `/app` | Serve frontend SPA |
-| `GET` | `/api/styles` | List all style presets with thumbnails |
-| `POST` | `/api/transfer` | Start NST job → returns `job_id` (supports `mask_image`, `style_image_2`, `style_preset_2`, `style_mix_ratio`, `text_prompt`) |
-| `GET` | `/api/jobs/{id}` | Poll job status, progress, preview |
-| `GET` | `/api/result/{id}` | Download final JPEG |
-| `DELETE` | `/api/jobs/{id}` | Cancel & cleanup job |
-| `POST` | `/api/interpolate` | Generate style interpolation GIF (params: `num_frames`, `frame_duration`) |
-| `POST` | `/api/palette-transfer` | Color palette transfer only (params: `strength`, `text_prompt`) |
-| `WS` | `/ws/{job_id}` | Real-time progress stream |
-| `GET` | `/docs` | Interactive Swagger UI |
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | / | Serves the main entry page |
+| GET | /app | Serves the frontend studio |
+| GET | /api/styles | Returns built-in styles with metadata and thumbnails |
+| POST | /api/transfer | Starts a style transfer job |
+| GET | /api/jobs/{job_id} | Returns job status, progress, and preview |
+| GET | /api/result/{job_id} | Downloads a completed JPEG result |
+| DELETE | /api/jobs/{job_id} | Removes a job and its result |
+| POST | /api/interpolate | Generates an interpolation GIF |
+| POST | /api/palette-transfer | Performs palette-only transfer |
+| WS | /ws/{job_id} | Streams live progress for a running job |
+| GET | /docs | Swagger UI |
 
-### Example: Start a transfer
+### Main transfer inputs
+
+- `content_image`
+- `style_image` or `style_preset` or `text_prompt`
+- `style_weight`
+- `style_image_2`
+- `style_preset_2`
+- `style_mix_ratio`
+- `mask_image`
+
+### Example: preset-based transfer
 
 ```bash
 curl -X POST http://localhost:8000/api/transfer \
@@ -225,25 +259,52 @@ curl -X POST http://localhost:8000/api/transfer \
   -F "style_weight=0.75"
 ```
 
-### Example: Text-to-Style transfer (no preset selection)
+### Example: text-to-style transfer
 
 ```bash
 curl -X POST http://localhost:8000/api/transfer \
   -F "content_image=@photo.jpg" \
-  -F "text_prompt=impressionist night sky with swirling strokes" \
+  -F "text_prompt=watercolor portrait with soft pastel tones" \
   -F "style_weight=0.75"
 ```
+
+### Example: palette-only transfer
+
+```bash
+curl -X POST http://localhost:8000/api/palette-transfer \
+  -F "content_image=@photo.jpg" \
+  -F "text_prompt=cosmic blue nebula" \
+  -F "strength=0.85"
+```
+
+---
+
+## Quality Pipeline
+
+PicturaAI does more than run a raw model pass. The image pipeline is tuned to keep the result visually sharp and readable.
+
+1. Content is resized for efficient inference.
+2. Style is applied through Magenta's arbitrary style transfer model.
+3. Optional style mixing combines style statistics from two style sources.
+4. Optional regional mask blending limits where style appears.
+5. Luminance is preserved to protect subject structure.
+6. Fine details are reintroduced from the original content image.
+7. Final sharpening improves output crispness.
 
 ---
 
 ## Development
 
+### Run with auto-reload
+
 ```bash
-# Run with hot reload
 cd backend
 ../venv/Scripts/python -m uvicorn main:app --reload
+```
 
-# Auto-generated API docs
+### View API docs
+
+```text
 http://localhost:8000/docs
 ```
 
@@ -258,59 +319,54 @@ docker build -t picturaai .
 docker run -p 8000:8000 picturaai
 ```
 
-### Cloud (Render / Railway / Fly.io)
+### Generic cloud deployment
 
-1. Push to GitHub
-2. Connect the repo to your cloud platform
-3. Set build command: `pip install -r backend/requirements.txt`
-4. Set start command: `cd backend && python main.py`
-5. Expose port `8000`
+1. Push the repository to GitHub.
+2. Connect the repository to your hosting platform.
+3. Set the build command to install backend requirements.
+4. Set the start command to run the backend server.
+5. Expose port 8000.
 
 ---
 
 ## Changelog
 
-### v1.4 - Text-to-Style
-- Added Text-to-Style prompt input in the studio UI
-- Added backend prompt matcher that maps text descriptions to the closest built-in preset
-- `POST /api/transfer` now accepts `text_prompt` as an alternative to `style_preset` or `style_image`
-- `POST /api/palette-transfer` also supports `text_prompt`
-- Frontend now shows a confirmation toast with the matched style name
+### v1.5
 
-### v1.3 — Animation & Palette
-- Style Interpolation Animation — generate a looping GIF sweeping style intensity 0% → 100%
-- Color Palette Transfer Mode — toggle that transfers only colour using LAB histogram matching
-- Two new API endpoints: `/api/interpolate` and `/api/palette-transfer`
+- Cleaned and expanded project documentation.
+- Documented Text-to-Style as a first-class feature.
+- Clarified architecture, workflow, API usage, and deployment.
 
-### v1.2 — Creative Tools
-- Before/After comparison slider — draggable split-view over the result
-- Style Mixing — blend two styles with an adjustable ratio slider
-- Regional Styling — brush mask to control where the style applies
-- Generation History — scrollable strip of last 10 results with reload, delete, and clear
-- Download from history items
+### v1.4
 
-### v1.1 — Quality & Polish
-- Raised content resolution from 512px to 768px
-- Luminance-preserving style blending
-- High-frequency detail reinjection
-- Adaptive unsharp mask post-processing
-- 4-phase progress pipeline with real-time labels
-- Suppressed all TensorFlow warnings
-- Modern FastAPI lifespan handler
-- Redesigned footer with tech pills
-- SVG favicon
+- Added Text-to-Style prompt input in the studio.
+- Added backend prompt matcher for built-in style presets.
+- Added `text_prompt` support to transfer and palette APIs.
 
-### v1.0 — Initial Release
-- Full-stack Neural Style Transfer studio
-- 13 built-in art styles + custom upload
-- Real-time WebSocket progress with preview
-- One-click download
-- Dynamic regeneration
-- Dark glassmorphism UI
-- FastAPI backend with job queue
+### v1.3
+
+- Added style interpolation animation.
+- Added color palette transfer mode.
+
+### v1.2
+
+- Added before/after slider.
+- Added style mixing.
+- Added regional styling.
+- Added generation history.
+
+### v1.1
+
+- Improved output quality and sharpness.
+- Raised processing resolution.
+- Improved progress pipeline and UI polish.
+
+### v1.0
+
+- Initial full-stack release.
 
 ---
 
 ## License
 
-MIT © 2026 [Shashank](https://github.com/shashankpc7746) · **PicturaAI** — Neural Style Transfer Studio
+MIT © 2026 Shashank
