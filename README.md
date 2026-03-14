@@ -20,6 +20,15 @@ PicturaAI is a full-stack Neural Style Transfer application built around Google 
 
 The project is designed as a complete interactive studio rather than a simple model demo. Users can upload custom style images, mix two styles, paint regional masks, transfer only the color palette, generate interpolation GIFs, revisit previous generations, and describe a style through text.
 
+## At a Glance
+
+| Category | Included |
+|---|---|
+| Transfer modes | Standard NST, palette-only transfer, text-to-style preset matching |
+| Creative controls | Style mixing, regional masking, style intensity |
+| Output tools | Before/after compare, download, animation GIF, history |
+| Runtime UX | Live WebSocket progress, REST fallback, preset gallery |
+
 ---
 
 ## What PicturaAI Can Do
@@ -326,6 +335,15 @@ docker run -p 8000:8000 picturaai
 3. Set the build command to install backend requirements.
 4. Set the start command to run the backend server.
 5. Expose port 8000.
+
+---
+
+## Notes
+
+- Text-to-Style currently maps prompts to the nearest built-in preset. It does not generate a brand-new style image.
+- The first launch is slower because TensorFlow Hub downloads and caches the model.
+- GIF interpolation and high-resolution transfers can take noticeably longer on CPU-only systems.
+- Palette transfer changes color statistics only. It does not copy brush texture or composition.
 
 ---
 
