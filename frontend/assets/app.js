@@ -251,9 +251,9 @@ function handleStyleFile2(file) {
 }
 
 function updateMixRatio(val) {
-  const a = 100 - parseInt(val);
-  const b = parseInt(val);
-  document.getElementById('mixRatioVal').textContent = `${a} / ${b}`;
+  const a = parseInt(val);
+  const b = 100 - parseInt(val);
+  document.getElementById('mixRatioVal').textContent = `A ${a} / B ${b}`;
 }
 
 function showImagePreview(file, previewId, placeholderId, clearId) {
@@ -360,7 +360,7 @@ async function startTransfer() {
   if (styleMixEnabled) {
     if (styleFile2) form.append('style_image_2', styleFile2);
     if (selectedPreset2) form.append('style_preset_2', selectedPreset2);
-    const mixRatio = parseFloat(document.getElementById('mixRatio').value) / 100;
+    const mixRatio = 1 - (parseFloat(document.getElementById('mixRatio').value) / 100);
     form.append('style_mix_ratio', mixRatio.toString());
   }
 
@@ -555,7 +555,7 @@ async function startPaletteTransfer() {
   if (styleMixEnabled) {
     if (styleFile2) form.append('style_image_2', styleFile2);
     if (selectedPreset2) form.append('style_preset_2', selectedPreset2);
-    const mixRatio = parseFloat(document.getElementById('mixRatio').value) / 100;
+    const mixRatio = 1 - (parseFloat(document.getElementById('mixRatio').value) / 100);
     form.append('style_mix_ratio', mixRatio.toString());
   }
 
