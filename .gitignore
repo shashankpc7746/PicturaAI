@@ -16,21 +16,29 @@ env/
 ENV/
 
 # ── Uploaded / generated images (runtime artifacts) ──────────────────────────
-backend/uploads/
-backend/outputs/
+backend/uploads/*
+backend/outputs/*
+!backend/uploads/.gitkeep
+!backend/outputs/.gitkeep
 
 # ── IDE & OS ──────────────────────────────────────────────────────────────────
-.vscode/settings.json
+.vscode/
 .idea/
 *.DS_Store
 Thumbs.db
 desktop.ini
+
+# ── Type checkers (local dev) ─────────────────────────────────────────────────
+pyrightconfig.json
+.pyre_configuration
+.pyre/
 
 # ── Private notes ─────────────────────────────────────────────────────────────
 .roadmap.md
 
 # ── Jupyter ───────────────────────────────────────────────────────────────────
 .ipynb_checkpoints/
+*.ipynb
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log

@@ -1,0 +1,15 @@
+venv/
+.git/
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+backend/uploads/
+backend/outputs/
+*.ipynb
+.ipynb_checkpoints/
+.pyre_configuration
+pyrightconfig.json
+*.log
+.roadmap.md
+README.md
