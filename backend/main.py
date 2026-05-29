@@ -46,7 +46,7 @@ from fastapi import (  # pyre-ignore[21]
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
-from fastapi.responses import FileResponse, JSONResponse  # pyre-ignore[21]
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse  # pyre-ignore[21]
 from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
 
 from nst_engine import run_nst, pil_to_bytes, run_interpolation_gif, color_palette_transfer  # pyre-ignore[21]
@@ -284,7 +284,7 @@ def _nst_worker(
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.get("/")
 async def root():
-    return FileResponse(str(FRONTEND_DIR / "index.html"))
+    return RedirectResponse(url="/app", status_code=301)
 
 @app.get("/api/styles")
 async def list_styles():
