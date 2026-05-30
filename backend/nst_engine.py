@@ -34,8 +34,17 @@ tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
 # ── Memory optimization for constrained environments (Render free tier) ────────
 # Disable GPU (not available on free tier anyway) and limit CPU memory
 tf.config.set_visible_devices([], 'GPU')  # Force CPU-only, skip GPU probing
-# Enable memory growth to avoid pre-allocating all RAM
 os.environ.setdefault("TF_FORCE_GPU_ALLOW_GROWTH", "true")
+# Limit TF thread pools to reduce memory footprint (glibc arena bloat)
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(
+        int(os.environ.get("TF_NUM_INTRAOP_THREADS", "1"))
+    )
+    tf.config.threading.set_inter_op_parallelism_threads(
+        int(os.environ.get("TF_NUM_INTEROP_THREADS", "1"))
+    )
+except Exception:
+    pass
 
 logger = logging.getLogger("nst_engine")
 
@@ -44,7 +53,7 @@ _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defi
 from PIL import ImageFilter  # noqa: E402
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-CONTENT_MAX_DIM = int(os.environ.get("NST_MAX_DIM", "384"))  # 384px for free tier (512MB RAM)
+CONTENT_MAX_DIM = int(os.environ.get("NST_MAX_DIM", "320"))  # 320px for free tier (512MB RAM)
 STYLE_IMG_SIZE  = 256       # Style model expects 256×256 (recommended)
 HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2"
 
@@ -323,6 +332,12 @@ def run_nst(
         progress_callback(total_steps, total_steps, 0.0, result_bytes)
 
     logger.info(f"Total pipeline: {time.time() - t0:.1f}s | output: {len(result_bytes)/1024:.0f} KB")
+
+    # ── Free memory aggressively (constrained environments) ─────────────────
+    del content_tensor, style_tensor, stylized_tensor, blended_tensor, pil_result
+    import gc
+    gc.collect()
+
     return result_bytes
 
 

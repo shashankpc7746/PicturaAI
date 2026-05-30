@@ -1,0 +1,3 @@
+Module: https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2
+Download Time: 2026-05-30 17:41:52.607828
+Downloader Hostname: Shashank (PID:13280)
