@@ -53,7 +53,11 @@ _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defi
 from PIL import ImageFilter  # noqa: E402
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-CONTENT_MAX_DIM = int(os.environ.get("NST_MAX_DIM", "320"))  # 320px for free tier (512MB RAM)
+# Inference runs at INFER_MAX_DIM (memory-bound). Final compositing/output runs at
+# OUTPUT_MAX_DIM (cheap, only affects sharpness/detail — not the neural model peak).
+INFER_MAX_DIM   = int(os.environ.get("NST_MAX_DIM", "320"))     # model input size (memory-critical)
+OUTPUT_MAX_DIM  = int(os.environ.get("NST_OUTPUT_DIM", "512"))  # final output size (sharper, low memory cost)
+CONTENT_MAX_DIM = INFER_MAX_DIM  # backward-compat alias
 STYLE_IMG_SIZE  = 256       # Style model expects 256×256 (recommended)
 HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2"
 
@@ -250,7 +254,7 @@ def run_nst(
     mixing = style_bytes_2 is not None
     logger.info("Preprocessing content & style images%s …", " (mixing 2 styles)" if mixing else "")
     t0 = time.time()
-    content_tensor = load_and_preprocess(content_bytes, max_dim=CONTENT_MAX_DIM)
+    content_tensor = load_and_preprocess(content_bytes, max_dim=INFER_MAX_DIM)
     style_tensor = load_and_preprocess(
         style_bytes,
         target_size=(STYLE_IMG_SIZE, STYLE_IMG_SIZE),
@@ -276,38 +280,46 @@ def run_nst(
     logger.info("Running style transfer (single forward pass) …")
     stylized_tensor = model.stylize(content_tensor, style_tensor)
 
-    # Resize stylized output to match content tensor shape before blending.
-    content_shape = tf.shape(content_tensor)[1:3]  # type: ignore[index]  # [H, W]
-    stylized_tensor = tf.image.resize(stylized_tensor, content_shape)
+    # Free the low-res model inputs now that inference is done (memory peak passed).
+    del content_tensor, style_tensor
+
+    # ── Upscale to OUTPUT resolution for sharper compositing ────────────────
+    # The neural model ran at low res (memory-safe). We now composite at a higher
+    # resolution using the original high-res content, which recovers fine detail
+    # and edges without increasing the (already-passed) inference memory peak.
+    content_hr = load_and_preprocess(content_bytes, max_dim=OUTPUT_MAX_DIM)
+    content_shape = tf.shape(content_hr)[1:3]  # type: ignore[index]  # [H, W]
+    stylized_tensor = tf.image.resize(stylized_tensor, content_shape, method="lanczos3")
+    stylized_tensor = tf.clip_by_value(stylized_tensor, 0.0, 1.0)
 
     if progress_callback is not None:
         pil_preview = tensor_to_pil(stylized_tensor)
         progress_callback(2, total_steps, 0.0, pil_to_bytes(pil_preview, quality=60))
 
-    # ── Phase 3: Detail-preserving blend + enhancement ──────────────────────
+    # ── Phase 3: Detail-preserving blend + enhancement (at output res) ──────
     alpha = max(0.0, min(1.0, style_weight))
     logger.info(f"Blending: {alpha*100:.0f}% style + {(1-alpha)*100:.0f}% content")
 
     # 3a. Luminance-preserving blend keeps content structure sharp
-    blended_tensor = _luminance_preserving_blend(content_tensor, stylized_tensor, alpha)
+    blended_tensor = _luminance_preserving_blend(content_hr, stylized_tensor, alpha)
 
-    # 3b. Re-inject high-frequency content details (edges, textures)
+    # 3b. Re-inject high-frequency content details (edges, textures) from HR content
     #     Strength scales with alpha: more detail injection at higher style
     detail_strength = 0.15 + alpha * 0.30  # 0.15 at 0%, 0.45 at 100%
-    blended_tensor = _reinject_details(content_tensor, blended_tensor, strength=detail_strength)
+    blended_tensor = _reinject_details(content_hr, blended_tensor, strength=detail_strength)
 
     # 3c. Regional mask: if provided, only apply style where mask is white
     if mask_bytes is not None:
         mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
         # Resize mask to match content tensor spatial dimensions
-        _ct_np = np.array(content_tensor)  # (1, H, W, 3)
+        _ct_np = np.array(content_hr)  # (1, H, W, 3)
         h, w = _ct_np.shape[1], _ct_np.shape[2]
         mask_img = mask_img.resize((w, h), _LANCZOS)
         # Light Gaussian blur to soften mask edges (avoid harsh boundaries)
         mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=6))
         mask_arr = np.array(mask_img, dtype=np.float32) / 255.0
         mask_tensor = tf.reshape(tf.constant(mask_arr), [1, h, w, 1])
-        blended_tensor = mask_tensor * blended_tensor + (1.0 - mask_tensor) * content_tensor  # type: ignore[operator]
+        blended_tensor = mask_tensor * blended_tensor + (1.0 - mask_tensor) * content_hr  # type: ignore[operator]
         blended_tensor = tf.clip_by_value(blended_tensor, 0.0, 1.0)  # type: ignore[assignment]
         logger.info("Regional mask applied — style restricted to painted areas")
 
@@ -334,7 +346,7 @@ def run_nst(
     logger.info(f"Total pipeline: {time.time() - t0:.1f}s | output: {len(result_bytes)/1024:.0f} KB")
 
     # ── Free memory aggressively (constrained environments) ─────────────────
-    del content_tensor, style_tensor, stylized_tensor, blended_tensor, pil_result
+    del content_hr, stylized_tensor, blended_tensor, pil_result
     import gc
     gc.collect()
 
