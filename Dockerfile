@@ -36,6 +36,12 @@ USER user
 
 # Render uses PORT env var; default to 8000 for local Docker runs
 ENV PORT=8000
+# ── Memory optimization for constrained environments ──
+ENV MALLOC_ARENA_MAX=2
+ENV OMP_NUM_THREADS=1
+ENV TF_NUM_INTRAOP_THREADS=1
+ENV TF_NUM_INTEROP_THREADS=1
+ENV NST_MAX_DIM=320
 EXPOSE 8000
 
 # Run the FastAPI server

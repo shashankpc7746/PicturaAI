@@ -16,4 +16,13 @@ services:
       - key: TFHUB_CACHE_DIR
         value: "/app/.tfhub_cache"
       - key: NST_MAX_DIM
-        value: "384"
+        value: "320"
+      # ── Memory optimization for 512MB free tier ──
+      - key: MALLOC_ARENA_MAX
+        value: "2"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: TF_NUM_INTRAOP_THREADS
+        value: "1"
+      - key: TF_NUM_INTEROP_THREADS
+        value: "1"
