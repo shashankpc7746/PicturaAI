@@ -13,3 +13,7 @@ services:
         value: "2"
       - key: TF_ENABLE_ONEDNN_OPTS
         value: "0"
+      - key: TFHUB_CACHE_DIR
+        value: "/app/.tfhub_cache"
+      - key: NST_MAX_DIM
+        value: "512"

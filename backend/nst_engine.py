@@ -13,11 +13,13 @@ import logging
 import os
 import time
 import warnings
+from pathlib import Path
 from typing import Callable, Optional
 
 # Suppress non-critical TensorFlow warnings — MUST be set BEFORE importing TF
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = os.environ.get("TF_CPP_MIN_LOG_LEVEL", "2")
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = os.environ.get("TF_ENABLE_ONEDNN_OPTS", "0")
+os.environ.setdefault("TFHUB_CACHE_DIR", str(Path(__file__).parent.parent / ".tfhub_cache"))
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
@@ -36,7 +38,7 @@ _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defi
 from PIL import ImageFilter  # noqa: E402
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-CONTENT_MAX_DIM = 768       # Raised from 512 for sharper output
+CONTENT_MAX_DIM = int(os.environ.get("NST_MAX_DIM", "512"))  # Lower on free tier for memory
 STYLE_IMG_SIZE  = 256       # Style model expects 256×256 (recommended)
 HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2"
 

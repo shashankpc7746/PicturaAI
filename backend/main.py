@@ -283,6 +283,7 @@ def _nst_worker(
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.get("/")
+@app.head("/")
 async def root():
     return RedirectResponse(url="/app", status_code=301)
 
