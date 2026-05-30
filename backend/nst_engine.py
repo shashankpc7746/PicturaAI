@@ -31,6 +31,12 @@ from PIL import Image, __version__ as PIL_VERSION  # pyre-ignore[21]  # noqa: E4
 
 tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
 
+# ── Memory optimization for constrained environments (Render free tier) ────────
+# Disable GPU (not available on free tier anyway) and limit CPU memory
+tf.config.set_visible_devices([], 'GPU')  # Force CPU-only, skip GPU probing
+# Enable memory growth to avoid pre-allocating all RAM
+os.environ.setdefault("TF_FORCE_GPU_ALLOW_GROWTH", "true")
+
 logger = logging.getLogger("nst_engine")
 
 # Pillow 10+ moved LANCZOS to Image.Resampling
@@ -38,7 +44,7 @@ _LANCZOS = getattr(Image, "Resampling", Image).LANCZOS  # type: ignore[attr-defi
 from PIL import ImageFilter  # noqa: E402
 
 # ── Constants ──────────────────────────────────────────────────────────────────
-CONTENT_MAX_DIM = int(os.environ.get("NST_MAX_DIM", "512"))  # Lower on free tier for memory
+CONTENT_MAX_DIM = int(os.environ.get("NST_MAX_DIM", "384"))  # 384px for free tier (512MB RAM)
 STYLE_IMG_SIZE  = 256       # Style model expects 256×256 (recommended)
 HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2"
 

@@ -366,31 +366,52 @@ async def start_transfer(
             mask_bytes = raw
 
     job_id = str(uuid.uuid4())
+
+    # ── Run synchronously to avoid OOM-restart losing job state ──────────
+    # On constrained environments (free tier), the async worker pattern fails
+    # because the process can be killed mid-inference and the job store is lost.
+    resolved_style_name = STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None
+
+    try:
+        loop = asyncio.get_running_loop()
+        result_bytes = await loop.run_in_executor(
+            executor,
+            lambda: run_nst(
+                content_bytes, style_bytes,
+                style_weight=style_weight,
+                content_weight=content_weight,
+                tv_weight=tv_weight,
+                num_steps=num_steps,
+                learning_rate=learning_rate,
+                style_bytes_2=style_bytes_2,
+                style_mix_ratio=style_mix_ratio,
+                mask_bytes=mask_bytes,
+            )
+        )
+    except Exception as e:
+        logger.exception(f"Transfer failed: {e}")
+        raise HTTPException(500, f"Style transfer failed: {str(e)}")
+
+    # Save result
+    out_path = OUTPUT_DIR / f"{job_id}.jpg"
+    out_path.write_bytes(result_bytes)
+    result_b64 = base64.b64encode(result_bytes).decode()
+
+    # Store in jobs dict for download endpoint
     jobs[job_id] = {
         "id": job_id,
-        "status": "queued",
-        "progress": 0,
-        "created_at": time.time(),
-        "style_preset": style_preset,
-        "num_steps": num_steps,
+        "status": "done",
+        "progress": 100,
+        "result_path": str(out_path),
+        "result": result_b64,
     }
-    ws_clients[job_id] = []
-
-    # Run in thread pool (TF not async-friendly)
-    executor.submit(  # type: ignore[arg-type]
-        _nst_worker,
-        job_id, content_bytes, style_bytes,
-        style_weight, content_weight, tv_weight,
-        num_steps, learning_rate,
-        style_bytes_2, style_mix_ratio,
-        mask_bytes,
-    )
 
     return JSONResponse({
         "job_id": job_id,
-        "status": "queued",
+        "status": "done",
+        "result": result_b64,
         "resolved_style_key": resolved_style_key,
-        "resolved_style_name": STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None,
+        "resolved_style_name": resolved_style_name,
     })
 
 @app.get("/api/jobs/{job_id}")
