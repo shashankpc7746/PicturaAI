@@ -77,7 +77,7 @@ for d in (UPLOAD_DIR, OUTPUT_DIR):
 jobs: Dict[str, dict] = {}
 ws_clients: Dict[str, List[WebSocket]] = {}
 
-executor = ThreadPoolExecutor(max_workers=2)
+executor = ThreadPoolExecutor(max_workers=1)
 
 # ── Capture the main event loop at startup ─────────────────────────────────────
 _main_loop: asyncio.AbstractEventLoop | None = None
@@ -392,19 +392,23 @@ async def start_transfer(
         logger.exception(f"Transfer failed: {e}")
         raise HTTPException(500, f"Style transfer failed: {str(e)}")
 
-    # Save result
+    # Save result to disk for the download endpoint
     out_path = OUTPUT_DIR / f"{job_id}.jpg"
     out_path.write_bytes(result_bytes)
     result_b64 = base64.b64encode(result_bytes).decode()
 
-    # Store in jobs dict for download endpoint
+    # Store only lightweight metadata + disk path (NOT the base64) to save memory
     jobs[job_id] = {
         "id": job_id,
         "status": "done",
         "progress": 100,
         "result_path": str(out_path),
-        "result": result_b64,
     }
+
+    # Release the raw bytes before building the response
+    del result_bytes
+    import gc
+    gc.collect()
 
     return JSONResponse({
         "job_id": job_id,
