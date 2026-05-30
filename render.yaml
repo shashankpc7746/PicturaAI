@@ -17,6 +17,8 @@ services:
         value: "/app/.tfhub_cache"
       - key: NST_MAX_DIM
         value: "320"
+      - key: NST_OUTPUT_DIM
+        value: "512"
       # ── Memory optimization for 512MB free tier ──
       - key: MALLOC_ARENA_MAX
         value: "2"
