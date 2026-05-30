@@ -24,6 +24,7 @@ backend/outputs/*
 # ── IDE & OS ──────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
+.kiro/
 *.DS_Store
 Thumbs.db
 desktop.ini
