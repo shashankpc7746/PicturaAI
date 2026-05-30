@@ -54,9 +54,10 @@ from PIL import ImageFilter  # noqa: E402
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 # Inference runs at INFER_MAX_DIM (memory-bound). Final compositing/output runs at
-# OUTPUT_MAX_DIM (cheap, only affects sharpness/detail — not the neural model peak).
+# OUTPUT_MAX_DIM. On the 512MB free tier these must stay equal — compositing at a
+# higher res than inference pushed peak memory over the limit and caused OOM kills.
 INFER_MAX_DIM   = int(os.environ.get("NST_MAX_DIM", "320"))     # model input size (memory-critical)
-OUTPUT_MAX_DIM  = int(os.environ.get("NST_OUTPUT_DIM", "512"))  # final output size (sharper, low memory cost)
+OUTPUT_MAX_DIM  = int(os.environ.get("NST_OUTPUT_DIM", "320"))  # final output size (keep == infer on free tier)
 CONTENT_MAX_DIM = INFER_MAX_DIM  # backward-compat alias
 STYLE_IMG_SIZE  = 256       # Style model expects 256×256 (recommended)
 HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2"
