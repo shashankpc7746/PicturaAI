@@ -16,4 +16,4 @@ services:
       - key: TFHUB_CACHE_DIR
         value: "/app/.tfhub_cache"
       - key: NST_MAX_DIM
-        value: "512"
+        value: "384"

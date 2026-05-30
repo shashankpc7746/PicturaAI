@@ -319,7 +319,7 @@ async function startTransfer() {
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
-  btn.querySelector('.btn-text').textContent = 'Sending to AI…';
+  btn.querySelector('.btn-text').textContent = 'Generating… (may take 10-30s)';
 
   closeWS();
   _doneReceived = false;
@@ -378,9 +378,16 @@ async function startTransfer() {
     if (data.resolved_style_name) {
       toast(`Text-to-Style matched: ${data.resolved_style_name}`, 'info');
     }
-    toast('Job started! Streaming progress…', 'success');
-    btn.querySelector('.btn-text').textContent = 'Processing…';
-    connectWS(currentJobId);
+
+    // Handle synchronous response (result returned directly)
+    if (data.status === 'done' && data.result) {
+      onDone({ result: data.result });
+    } else {
+      // Fallback to async polling/WS for local dev or upgraded plans
+      toast('Job started! Streaming progress…', 'success');
+      btn.querySelector('.btn-text').textContent = 'Processing…';
+      connectWS(currentJobId);
+    }
   } catch (err) {
     showError(err.message);
     btn.disabled = false;
