@@ -15,6 +15,9 @@ env/
 .venv/
 ENV/
 
+# ── TF Hub model cache (downloaded at build/runtime) ─────────────────────────
+.tfhub_cache/
+
 # ── Uploaded / generated images (runtime artifacts) ──────────────────────────
 backend/uploads/*
 backend/outputs/*
