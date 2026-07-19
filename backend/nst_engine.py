@@ -294,7 +294,7 @@ def run_nst(
     stylized_tensor = tf.clip_by_value(stylized_tensor, 0.0, 1.0)
 
     if progress_callback is not None:
-        pil_preview = tensor_to_pil(stylized_tensor)
+        pil_preview = tensor_to_pil(stylized_tensor)  # type: ignore[arg-type]
         progress_callback(2, total_steps, 0.0, pil_to_bytes(pil_preview, quality=60))
 
     # ── Phase 3: Detail-preserving blend + enhancement (at output res) ──────
@@ -302,7 +302,7 @@ def run_nst(
     logger.info(f"Blending: {alpha*100:.0f}% style + {(1-alpha)*100:.0f}% content")
 
     # 3a. Luminance-preserving blend keeps content structure sharp
-    blended_tensor = _luminance_preserving_blend(content_hr, stylized_tensor, alpha)
+    blended_tensor = _luminance_preserving_blend(content_hr, stylized_tensor, alpha)  # type: ignore[arg-type]
 
     # 3b. Re-inject high-frequency content details (edges, textures) from HR content
     #     Strength scales with alpha: more detail injection at higher style
@@ -380,8 +380,9 @@ def run_interpolation_gif(
     model = StyleTransferModel.get()
     t0 = time.time()
 
-    # Preprocess once (reuse for all frames)
-    content_tensor = load_and_preprocess(content_bytes, max_dim=512)  # lower res for speed
+    # Preprocess once (reuse for all frames). Must stay at the inference cap —
+    # 512px here exceeded the free-tier memory limit (same OOM as compositing).
+    content_tensor = load_and_preprocess(content_bytes, max_dim=INFER_MAX_DIM)
     style_tensor = load_and_preprocess(style_bytes, target_size=(STYLE_IMG_SIZE, STYLE_IMG_SIZE))
     style_tensor = tf.nn.avg_pool(style_tensor, ksize=[3, 3], strides=[1, 1], padding="SAME")
 
@@ -458,8 +459,21 @@ def color_palette_transfer(
     style_mix_ratio = max(0.0, min(1.0, style_mix_ratio))
     t0 = time.time()
 
-    content_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
-    style_img = Image.open(io.BytesIO(style_bytes)).convert("RGB")
+    # Cap working resolution: several float32 copies are held at once, so an
+    # uncapped multi-megapixel upload would exhaust memory on the free tier.
+    palette_max_dim = int(os.environ.get("NST_PALETTE_MAX_DIM", "1024"))
+
+    def _open_capped(raw: bytes, max_dim: int) -> Image.Image:
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        w, h = img.size
+        scale = max_dim / max(w, h)
+        if scale < 1.0:
+            img = img.resize((int(w * scale), int(h * scale)), _LANCZOS)
+        return img
+
+    content_img = _open_capped(content_bytes, palette_max_dim)
+    # Style images only contribute per-channel statistics — 512px is plenty.
+    style_img = _open_capped(style_bytes, 512)
 
     content_arr = np.array(content_img, dtype=np.float32)
     style_arr = np.array(style_img, dtype=np.float32)
@@ -470,7 +484,7 @@ def color_palette_transfer(
 
     # If second style provided, blend LAB stats from both styles
     if style_bytes_2 is not None:
-        style_img_2 = Image.open(io.BytesIO(style_bytes_2)).convert("RGB")
+        style_img_2 = _open_capped(style_bytes_2, 512)
         style_arr_2 = np.array(style_img_2, dtype=np.float32)
         style_lab_2 = _rgb_to_lab(style_arr_2)
 

@@ -36,6 +36,8 @@ USER user
 
 # Render uses PORT env var; default to 8000 for local Docker runs
 ENV PORT=8000
+# Stream logs immediately (no stdout buffering)
+ENV PYTHONUNBUFFERED=1
 # ── Memory optimization for constrained environments ──
 ENV MALLOC_ARENA_MAX=2
 ENV OMP_NUM_THREADS=1
