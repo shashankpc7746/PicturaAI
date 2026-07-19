@@ -177,6 +177,7 @@ function handleContentFile(file) {
 
 function handleStyleFile(file) {
   if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('Image too large (max 10MB)', 'error'); return; }
   styleFile = file;
   clearPresetSelection();
   showImagePreview(file, 'styleCustomPreview', 'stylePlaceholder', 'styleClear');
@@ -245,6 +246,7 @@ function clearPresetSelection2() {
 
 function handleStyleFile2(file) {
   if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('Image too large (max 10MB)', 'error'); return; }
   styleFile2 = file;
   clearPresetSelection2();
   showImagePreview(file, 'styleCustomPreview2', 'stylePlaceholder2', 'styleClear2');
@@ -372,7 +374,7 @@ async function startTransfer() {
 
   try {
     const res = await fetch(`${API}/api/transfer`, { method: 'POST', body: form });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Server error'); }
     const data = await res.json();
     currentJobId = data.job_id;
     if (data.resolved_style_name) {
@@ -502,8 +504,15 @@ function onWsError(msg) {
 }
 
 // ── Poll fallback (if WS fails) ──────────────────────────────────
-async function pollFallback(jobId) {
+const MAX_POLL_ATTEMPTS = 90;   // ~3 minutes before giving up
+
+async function pollFallback(jobId, attempt = 0) {
   _polling = true;
+  if (jobId !== currentJobId && attempt > 0) return;  // job was reset/replaced
+  if (attempt >= MAX_POLL_ATTEMPTS) {
+    showError('The job is taking too long. Please try again.');
+    return;
+  }
   try {
     const res = await fetch(`${API}/api/jobs/${jobId}`);
     const data = await res.json();
@@ -513,10 +522,10 @@ async function pollFallback(jobId) {
       showError(data.error);
     } else {
       onProgress({ percent: data.progress || 0, preview: data.preview });
-      setTimeout(() => pollFallback(jobId), 2000);
+      setTimeout(() => pollFallback(jobId, attempt + 1), 2000);
     }
   } catch (e) {
-    setTimeout(() => pollFallback(jobId), 3000);
+    setTimeout(() => pollFallback(jobId, attempt + 1), 3000);
   }
 }
 
@@ -568,7 +577,7 @@ async function startPaletteTransfer() {
 
   try {
     const res = await fetch(`${API}/api/palette-transfer`, { method: 'POST', body: form });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Server error'); }
     const data = await res.json();
     if (data.resolved_style_name) {
       toast(`Text-to-Style matched: ${data.resolved_style_name}`, 'info');
@@ -614,7 +623,7 @@ async function startInterpolation() {
 
   try {
     const res = await fetch(`${API}/api/interpolate`, { method: 'POST', body: form });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Server error'); }
     const data = await res.json();
     const jobId = data.job_id;
 
@@ -712,7 +721,12 @@ function toast(msg, type = 'info') {
   const icons = { success: '✅', error: '❌', info: 'ℹ️' };
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
-  t.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
+  // textContent (not innerHTML): msg can contain server-supplied error text
+  const iconSpan = document.createElement('span');
+  iconSpan.textContent = icons[type];
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = msg;
+  t.append(iconSpan, msgSpan);
   document.getElementById('toastContainer').appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(110%)'; t.style.transition = 'all 0.4s'; setTimeout(() => t.remove(), 400); }, 4000);
 }
