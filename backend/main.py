@@ -41,10 +41,14 @@ from fastapi import (  # pyre-ignore[21]
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
 )
+from slowapi import Limiter, _rate_limit_exceeded_handler  # pyre-ignore[21]
+from slowapi.errors import RateLimitExceeded  # pyre-ignore[21]
+from slowapi.util import get_remote_address  # pyre-ignore[21]
 from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse  # pyre-ignore[21]
 from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
@@ -73,11 +77,96 @@ FRONTEND_DIR = BASE_DIR.parent / "frontend"
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
+# ── Upload limits & validation ─────────────────────────────────────────────────
+MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "10"))
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+# Reject decompression bombs: PIL raises DecompressionBombError above 2× this cap.
+Image.MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", str(64_000_000)))
+
+
+async def read_image_upload(upload: Optional[UploadFile], field: str) -> Optional[bytes]:
+    """Read an uploaded file with a size cap and verify it is a decodable image.
+
+    Returns None if the upload is absent or empty. Raises HTTPException on
+    oversized or invalid files.
+    """
+    if upload is None:
+        return None
+    data = bytearray()
+    while True:
+        chunk = await upload.read(1024 * 1024)
+        if not chunk:
+            break
+        data.extend(chunk)
+        if len(data) > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, f"{field} exceeds the {MAX_UPLOAD_MB} MB upload limit")
+    if not data:
+        return None
+    raw = bytes(data)
+    try:
+        with Image.open(io.BytesIO(raw)) as img:
+            img.verify()
+    except Exception:
+        raise HTTPException(400, f"{field} is not a valid image file")
+    return raw
+
 # ── In-memory job store ────────────────────────────────────────────────────────
 jobs: Dict[str, dict] = {}
 ws_clients: Dict[str, List[WebSocket]] = {}
 
 executor = ThreadPoolExecutor(max_workers=1)
+
+# ── Concurrency guard ──────────────────────────────────────────────────────────
+# The single worker thread processes one heavy TF job at a time; cap how many
+# more may wait in line so a request flood can't pile bytes up in memory.
+MAX_PENDING_JOBS = int(os.environ.get("MAX_PENDING_JOBS", "3"))
+_inflight_jobs = 0
+
+
+def _acquire_job_slot():
+    """Raise 429 if the processing queue is full. Call from the event loop only."""
+    global _inflight_jobs
+    if _inflight_jobs >= MAX_PENDING_JOBS:
+        raise HTTPException(429, "Server is busy processing other images. Please try again in a moment.")
+    _inflight_jobs += 1
+
+
+def _release_job_slot():
+    global _inflight_jobs
+    _inflight_jobs = max(0, _inflight_jobs - 1)
+
+# ── Job / output cleanup ───────────────────────────────────────────────────────
+JOB_TTL_SECONDS = int(os.environ.get("JOB_TTL_SECONDS", "3600"))
+
+
+def _cleanup_expired_jobs() -> None:
+    cutoff = time.time() - JOB_TTL_SECONDS
+    for job_id in list(jobs):
+        job = jobs.get(job_id) or {}
+        ts = job.get("finished_at") or job.get("created_at") or job.get("started_at")
+        if ts and ts < cutoff and job.get("status") in ("done", "error"):
+            jobs.pop(job_id, None)
+            ws_clients.pop(job_id, None)
+            result_path = job.get("result_path")
+            if result_path:
+                Path(result_path).unlink(missing_ok=True)
+    # Remove orphaned result files (e.g. left over from a previous process).
+    # Only touch generated formats so files like .gitkeep survive.
+    try:
+        for f in OUTPUT_DIR.iterdir():
+            if f.is_file() and f.suffix in (".jpg", ".gif") and f.stat().st_mtime < cutoff:
+                f.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+async def _cleanup_loop():
+    while True:
+        await asyncio.sleep(600)
+        try:
+            _cleanup_expired_jobs()
+        except Exception:
+            logger.exception("Job cleanup pass failed")
 
 # ── Capture the main event loop at startup ─────────────────────────────────────
 _main_loop: asyncio.AbstractEventLoop | None = None
@@ -88,27 +177,54 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _main_loop
     _main_loop = asyncio.get_running_loop()
     logger.info("Event loop captured for thread-safe WS broadcasting.")
+    _cleanup_expired_jobs()
+    cleanup_task = asyncio.create_task(_cleanup_loop())
     port = int(os.environ.get("PORT", 8000))
     logger.info(f"\n\n    🎨 PicturaAI is running!\n    ➜  Frontend:  http://localhost:{port}/app\n    ➜  API docs:  http://localhost:{port}/docs\n")
     yield
-    # Shutdown: clean up executor
+    # Shutdown: clean up background task and executor
+    cleanup_task.cancel()
     executor.shutdown(wait=False)
 
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="PicturaAI — Neural Style Transfer",
     description="Instant Neural Style Transfer powered by Google Magenta's pre-trained model. *Pictura* — Latin for 'a painting'.",
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
+# ── Per-IP rate limiting ───────────────────────────────────────────────────────
+# Complements the queue guard: the guard caps total server load, these limits
+# stop a single client from hogging all the slots. Requires proxy headers to be
+# trusted (see uvicorn.run below) so the real client IP is seen behind Render.
+RATE_LIMIT_TRANSFER    = os.environ.get("RATE_LIMIT_TRANSFER", "10/minute")
+RATE_LIMIT_INTERPOLATE = os.environ.get("RATE_LIMIT_INTERPOLATE", "3/minute")
+RATE_LIMIT_PALETTE     = os.environ.get("RATE_LIMIT_PALETTE", "20/minute")
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS: origins configurable via env (comma-separated). Wildcard origins must not
+# be combined with credentials, so credentials stay off (the API uses no cookies).
+_allowed_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=_allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def _security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
 
 # Serve frontend static files
 app.mount("/app", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
@@ -215,99 +331,42 @@ def _sync_broadcast(job_id: str, payload: dict):
     except Exception:
         pass
 
-# ── Worker ─────────────────────────────────────────────────────────────────────
-def _nst_worker(
-    job_id: str,
-    content_bytes: bytes,
-    style_bytes: bytes,
-    style_weight: float,
-    content_weight: float,
-    tv_weight: float,
-    num_steps: int,
-    learning_rate: float,
-    style_bytes_2: bytes | None = None,
-    style_mix_ratio: float = 0.5,
-    mask_bytes: bytes | None = None,
-):
-    job = jobs[job_id]
-    job["status"] = "processing"
-    job["started_at"] = time.time()
-
-    def progress_callback(step: int, total: int, loss: float, img_bytes: bytes):
-        pct = round(step / total * 100)
-        preview_b64 = base64.b64encode(img_bytes).decode()
-        job["progress"] = pct
-        job["loss"] = loss
-        job["preview"] = preview_b64
-        _sync_broadcast(job_id, {
-            "type": "progress",
-            "step": step,
-            "total": total,
-            "percent": pct,
-            "loss": loss,
-            "preview": preview_b64,
-        })
-
-    try:
-        result_bytes = run_nst(
-            content_bytes, style_bytes,
-            style_weight=style_weight,
-            content_weight=content_weight,
-            tv_weight=tv_weight,
-            num_steps=num_steps,
-            learning_rate=learning_rate,
-            progress_callback=progress_callback,
-            style_bytes_2=style_bytes_2,
-            style_mix_ratio=style_mix_ratio,
-            mask_bytes=mask_bytes,
-        )
-        out_path = OUTPUT_DIR / f"{job_id}.jpg"
-        out_path.write_bytes(result_bytes)
-
-        result_b64 = base64.b64encode(result_bytes).decode()
-        job["status"] = "done"
-        job["result_path"] = str(out_path)
-        job["result"] = result_b64
-        job["progress"] = 100
-        job["finished_at"] = time.time()
-        _sync_broadcast(job_id, {
-            "type": "done",
-            "percent": 100,
-            "result": result_b64,
-        })
-    except Exception as e:
-        logger.exception(f"Job {job_id} failed")
-        job["status"] = "error"
-        job["error"] = str(e)
-        _sync_broadcast(job_id, {"type": "error", "message": str(e)})
-
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.get("/")
 @app.head("/")
 async def root():
     return RedirectResponse(url="/app", status_code=301)
 
+_styles_cache: Optional[List[dict]] = None
+
 @app.get("/api/styles")
 async def list_styles():
-    result = []
-    for key, info in STYLE_PRESETS.items():
-        style_path = get_style_path(key)
-        thumbnail_b64 = None
-        if style_path and style_path.exists():
-            img = Image.open(style_path).convert("RGB")
-            img.thumbnail((200, 200), _LANCZOS)
-            thumbnail_b64 = base64.b64encode(pil_to_bytes(img, quality=70)).decode()
-        result.append({
-            "key": key,
-            "name": info["name"],
-            "artist": info["artist"],
-            "description": info["description"],
-            "thumbnail": thumbnail_b64,
-        })
-    return JSONResponse(result)
+    # Presets are static — build the thumbnail list once and reuse it
+    # (this endpoint doubles as the health check, so it is called often).
+    global _styles_cache
+    if _styles_cache is None:
+        result = []
+        for key, info in STYLE_PRESETS.items():
+            style_path = get_style_path(key)
+            thumbnail_b64 = None
+            if style_path and style_path.exists():
+                img = Image.open(style_path).convert("RGB")
+                img.thumbnail((200, 200), _LANCZOS)
+                thumbnail_b64 = base64.b64encode(pil_to_bytes(img, quality=70)).decode()
+            result.append({
+                "key": key,
+                "name": info["name"],
+                "artist": info["artist"],
+                "description": info["description"],
+                "thumbnail": thumbnail_b64,
+            })
+        _styles_cache = result
+    return JSONResponse(_styles_cache)
 
 @app.post("/api/transfer")
+@limiter.limit(RATE_LIMIT_TRANSFER)
 async def start_transfer(
+    request: Request,
     content_image: UploadFile = File(...),
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
@@ -335,35 +394,27 @@ async def start_transfer(
 
     num_steps = max(50, min(num_steps, 1000))
 
-    content_bytes = await content_image.read()
+    content_bytes = await read_image_upload(content_image, "content_image")
+    if content_bytes is None:
+        raise HTTPException(400, "content_image is empty")
 
-    if style_image is not None:
-        style_bytes = await style_image.read()
-    else:
+    style_bytes = await read_image_upload(style_image, "style_image")
+    if style_bytes is None:
         assert style_preset is not None  # already validated above (style_image is None ⇒ style_preset must exist)
         style_path = get_style_path(style_preset)
         if not style_path or not style_path.exists():
             raise HTTPException(404, f"Style preset '{style_preset}' not found")
-        assert style_path is not None  # narrowed: HTTPException raised if None
         style_bytes = style_path.read_bytes()
 
     # ── Optional second style (style mixing) ─────────────────────────────
-    style_bytes_2: bytes | None = None
-    if style_image_2 is not None:
-        raw = await style_image_2.read()
-        if len(raw) > 0:
-            style_bytes_2 = raw
-    elif style_preset_2 is not None:
+    style_bytes_2 = await read_image_upload(style_image_2, "style_image_2")
+    if style_bytes_2 is None and style_preset_2 is not None:
         style_path_2 = get_style_path(style_preset_2)
         if style_path_2 and style_path_2.exists():
             style_bytes_2 = style_path_2.read_bytes()
 
     # ── Optional region mask (regional styling) ──────────────────────────
-    mask_bytes: bytes | None = None
-    if mask_image is not None:
-        raw = await mask_image.read()
-        if len(raw) > 0:
-            mask_bytes = raw
+    mask_bytes = await read_image_upload(mask_image, "mask_image")
 
     job_id = str(uuid.uuid4())
 
@@ -372,6 +423,7 @@ async def start_transfer(
     # because the process can be killed mid-inference and the job store is lost.
     resolved_style_name = STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None
 
+    _acquire_job_slot()
     try:
         loop = asyncio.get_running_loop()
         result_bytes = await loop.run_in_executor(
@@ -388,9 +440,11 @@ async def start_transfer(
                 mask_bytes=mask_bytes,
             )
         )
-    except Exception as e:
-        logger.exception(f"Transfer failed: {e}")
-        raise HTTPException(500, f"Style transfer failed: {str(e)}")
+    except Exception:
+        logger.exception("Transfer failed")
+        raise HTTPException(500, "Style transfer failed. Please try again with a different image.")
+    finally:
+        _release_job_slot()
 
     # Save result to disk for the download endpoint
     out_path = OUTPUT_DIR / f"{job_id}.jpg"
@@ -403,6 +457,8 @@ async def start_transfer(
         "status": "done",
         "progress": 100,
         "result_path": str(out_path),
+        "created_at": time.time(),
+        "finished_at": time.time(),
     }
 
     # Release the raw bytes before building the response
@@ -489,15 +545,20 @@ def _interpolation_worker(
         job["progress"] = 100
         job["finished_at"] = time.time()
         _sync_broadcast(job_id, {"type": "done", "percent": 100, "result": result_b64, "result_type": "gif"})
-    except Exception as e:
+    except Exception:
         logger.exception(f"Interpolation job {job_id} failed")
         job["status"] = "error"
-        job["error"] = str(e)
-        _sync_broadcast(job_id, {"type": "error", "message": str(e)})
+        job["error"] = "Animation generation failed. Please try again."
+        job["finished_at"] = time.time()
+        _sync_broadcast(job_id, {"type": "error", "message": job["error"]})
+    finally:
+        _release_job_slot()
 
 
 @app.post("/api/interpolate")
+@limiter.limit(RATE_LIMIT_INTERPOLATE)
 async def start_interpolation(
+    request: Request,
     content_image: UploadFile = File(...),
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
@@ -510,17 +571,19 @@ async def start_interpolation(
     num_frames = max(5, min(num_frames, 20))
     frame_duration = max(50, min(frame_duration, 500))
 
-    content_bytes = await content_image.read()
+    content_bytes = await read_image_upload(content_image, "content_image")
+    if content_bytes is None:
+        raise HTTPException(400, "content_image is empty")
 
-    if style_image is not None:
-        style_bytes = await style_image.read()
-    else:
+    style_bytes = await read_image_upload(style_image, "style_image")
+    if style_bytes is None:
         assert style_preset is not None
         style_path = get_style_path(style_preset)
         if not style_path or not style_path.exists():
             raise HTTPException(404, f"Style preset '{style_preset}' not found")
         style_bytes = style_path.read_bytes()
 
+    _acquire_job_slot()
     job_id = str(uuid.uuid4())
     jobs[job_id] = {
         "id": job_id, "status": "queued", "progress": 0,
@@ -528,7 +591,14 @@ async def start_interpolation(
     }
     ws_clients[job_id] = []
 
-    executor.submit(_interpolation_worker, job_id, content_bytes, style_bytes, num_frames, frame_duration)  # type: ignore[arg-type]
+    try:
+        executor.submit(_interpolation_worker, job_id, content_bytes, style_bytes, num_frames, frame_duration)  # type: ignore[arg-type]
+    except Exception:
+        _release_job_slot()
+        jobs.pop(job_id, None)
+        ws_clients.pop(job_id, None)
+        logger.exception("Failed to queue interpolation job")
+        raise HTTPException(500, "Could not start the animation job. Please try again.")
 
     return JSONResponse({"job_id": job_id, "status": "queued"})
 
@@ -536,7 +606,9 @@ async def start_interpolation(
 # ── Color Palette Transfer ─────────────────────────────────────────────────────
 
 @app.post("/api/palette-transfer")
+@limiter.limit(RATE_LIMIT_PALETTE)
 async def palette_transfer(
+    request: Request,
     content_image: UploadFile = File(...),
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
@@ -557,11 +629,13 @@ async def palette_transfer(
             raise HTTPException(400, "Provide style_image, style_preset, or text_prompt")
 
     strength = max(0.0, min(1.0, strength))
-    content_bytes = await content_image.read()
 
-    if style_image is not None:
-        style_bytes = await style_image.read()
-    else:
+    content_bytes = await read_image_upload(content_image, "content_image")
+    if content_bytes is None:
+        raise HTTPException(400, "content_image is empty")
+
+    style_bytes = await read_image_upload(style_image, "style_image")
+    if style_bytes is None:
         assert style_preset is not None
         style_path = get_style_path(style_preset)
         if not style_path or not style_path.exists():
@@ -569,20 +643,29 @@ async def palette_transfer(
         style_bytes = style_path.read_bytes()
 
     # ── Optional second style (style mixing) ─────────────────────────────
-    style_bytes_2: bytes | None = None
-    if style_image_2 is not None:
-        raw = await style_image_2.read()
-        if len(raw) > 0:
-            style_bytes_2 = raw
-    elif style_preset_2 is not None:
+    style_bytes_2 = await read_image_upload(style_image_2, "style_image_2")
+    if style_bytes_2 is None and style_preset_2 is not None:
         style_path_2 = get_style_path(style_preset_2)
         if style_path_2 and style_path_2.exists():
             style_bytes_2 = style_path_2.read_bytes()
 
-    result_bytes = color_palette_transfer(
-        content_bytes, style_bytes, strength=strength,
-        style_bytes_2=style_bytes_2, style_mix_ratio=style_mix_ratio,
-    )
+    # Run the CPU-heavy transfer in the worker thread so it never blocks the
+    # event loop (it previously ran inline in this async handler).
+    _acquire_job_slot()
+    try:
+        loop = asyncio.get_running_loop()
+        result_bytes = await loop.run_in_executor(
+            executor,
+            lambda: color_palette_transfer(
+                content_bytes, style_bytes, strength=strength,
+                style_bytes_2=style_bytes_2, style_mix_ratio=style_mix_ratio,
+            )
+        )
+    except Exception:
+        logger.exception("Palette transfer failed")
+        raise HTTPException(500, "Palette transfer failed. Please try again with a different image.")
+    finally:
+        _release_job_slot()
     result_b64 = base64.b64encode(result_bytes).decode()
 
     return JSONResponse({
@@ -594,6 +677,11 @@ async def palette_transfer(
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):
     await websocket.accept()
+    # Only accept subscriptions for jobs that actually exist — otherwise an
+    # attacker could grow ws_clients unboundedly with random ids.
+    if job_id not in jobs:
+        await websocket.close(code=4404)
+        return
     if job_id not in ws_clients:
         ws_clients[job_id] = []
     ws_clients[job_id].append(websocket)
@@ -620,11 +708,19 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
             await asyncio.sleep(30)
             await websocket.send_text(json.dumps({"type": "ping"}))
     except WebSocketDisconnect:
-        if job_id in ws_clients and websocket in ws_clients[job_id]:
-            ws_clients[job_id].remove(websocket)
+        clients = ws_clients.get(job_id)
+        if clients and websocket in clients:
+            clients.remove(websocket)
+        if clients is not None and not clients:
+            ws_clients.pop(job_id, None)
 
 # ── Entry point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn  # pyre-ignore[21]
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False, log_level="info")
+    # proxy_headers + forwarded_allow_ips: trust X-Forwarded-For from the
+    # hosting platform's proxy (Render) so rate limiting sees real client IPs.
+    uvicorn.run(
+        "main:app", host="0.0.0.0", port=port, reload=False, log_level="info",
+        proxy_headers=True, forwarded_allow_ips="*",
+    )
