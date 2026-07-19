@@ -1,8 +1,9 @@
-fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
-python-multipart>=0.0.9
-tensorflow>=2.16.0
-tensorflow-hub>=0.16.0
-pillow>=10.0.0
-numpy>=1.26.0
-websockets>=12.0
+fastapi==0.134.0
+uvicorn[standard]==0.41.0
+python-multipart==0.0.22
+tensorflow==2.20.0
+tensorflow-hub==0.16.1
+pillow==12.1.1
+numpy==2.2.6
+websockets==16.0
+slowapi==0.1.10
