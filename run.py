@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-PicturaAI Server Launcher
-Activates the venv and starts the FastAPI backend.
+PicturaAI Local Development Launcher
+Activates the venv and starts the FastAPI backend with auto-reload.
+Production runs via Docker (see Dockerfile), which starts main.py directly.
 """
 import subprocess
 import sys
@@ -16,7 +17,7 @@ def main():
     print("""
   ╔════════════════════════════════════════════════════╗
   ║         PicturaAI — Neural Style Transfer           ║
-  ║             v2.0 Production Server                 ║
+  ║          v2.1 Local Dev Server (reload)            ║
   ╚════════════════════════════════════════════════════╝
 
   ► App:      http://localhost:8000/app
