@@ -511,14 +511,16 @@ a {
 
 .studio-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): a bare 1fr track can't shrink below its content's
+     min-content width, which pushed the panels off-screen on phones. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 32px;
   align-items: start;
 }
 
 @media (max-width: 900px) {
   .studio-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1194,9 +1196,16 @@ a {
 
 .output-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+}
+
+.output-actions {
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .output-header h3 {
