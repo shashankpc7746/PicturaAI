@@ -46,3 +46,6 @@ pyrightconfig.json
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
+
+# ── Playwright MCP session artifacts ──────────────────────────────────────────
+.playwright-mcp/
