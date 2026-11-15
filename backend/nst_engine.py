@@ -25,8 +25,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 logging.getLogger("tensorflow").setLevel(logging.ERROR)
 
 import tensorflow as tf  # pyre-ignore[21]  # noqa: E402
-import tensorflow_hub as hub  # pyre-ignore[21]  # noqa: E402
 import numpy as np  # pyre-ignore[21]  # noqa: E402
+
+from model_store import ensure_model  # noqa: E402
 from PIL import Image, ImageOps  # pyre-ignore[21]  # noqa: E402
 
 tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
@@ -206,9 +207,9 @@ class StyleTransferModel:
     _model = None
 
     def __init__(self):
-        logger.info("Loading Magenta Arbitrary Style Transfer model from TF Hub …")
+        logger.info("Loading Magenta Arbitrary Style Transfer model …")
         t0 = time.time()
-        self._model = hub.load(HUB_MODEL_URL)
+        self._model = tf.saved_model.load(str(ensure_model()))
         elapsed = time.time() - t0
         logger.info(f"Model loaded in {elapsed:.1f}s — ready for instant style transfer!")
 
