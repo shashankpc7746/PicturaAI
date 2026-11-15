@@ -756,6 +756,13 @@ function downloadResult() {
   downloadBase64(resultB64, 'image/jpeg', `pictura_${stamp}.jpg`);
 }
 
+// ── Retry after an error ─────────────────────────────────────────
+// Keep the user's photo, style and settings; just run the same request again.
+function retryTransfer() {
+  if (!contentFile) { setOutputState('idle'); return; }
+  startTransfer();
+}
+
 // ── Reset ────────────────────────────────────────────────────────
 function resetStudio() {
   closeWS();
