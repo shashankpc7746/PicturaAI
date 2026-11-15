@@ -30,7 +30,7 @@
   <nav class="navbar" id="navbar">
     <div class="nav-inner">
       <a href="#" class="nav-logo">
-        <img src="assets/logo.png" alt="PicturaAI Logo" class="nav-logo-img" />
+        <img src="assets/logo-96.png" alt="PicturaAI Logo" class="nav-logo-img" width="34" height="34" />
         <span>PicturaAI</span>
       </a>
       <div class="nav-links">
@@ -162,7 +162,9 @@
               <span class="step-badge">1</span>
               <span>Content Image</span>
             </div>
-            <div class="upload-zone" id="contentUploadZone" onclick="document.getElementById('contentInput').click()">
+            <div class="upload-zone" id="contentUploadZone" role="button" tabindex="0"
+              aria-label="Upload your photo (PNG, JPG or WEBP, max 10 MB)"
+              onclick="if (!maskMode) document.getElementById('contentInput').click()">
               <input type="file" id="contentInput" accept="image/*" hidden />
               <div class="upload-placeholder" id="contentPlaceholder">
                 <div class="upload-icon">📷</div>
@@ -171,17 +173,17 @@
               </div>
               <img id="contentPreview" class="upload-preview hidden" alt="Content" />
               <canvas id="maskCanvas" class="mask-canvas hidden"></canvas>
-              <button class="upload-clear hidden" id="contentClear" onclick="clearImage('content', event)">✕</button>
+              <button class="upload-clear hidden" id="contentClear" aria-label="Remove photo" onclick="clearImage('content', event)">✕</button>
             </div>
             <!-- Mask painting toolbar -->
             <div class="mask-toolbar hidden" id="maskToolbar">
-              <button class="mask-tool-btn" id="maskToggleBtn" onclick="toggleMaskMode()" type="button" title="Toggle mask painting">
+              <button class="mask-tool-btn" id="maskToggleBtn" onclick="toggleMaskMode()" type="button" title="Toggle mask painting" aria-pressed="false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
                 <span>Paint Mask</span>
               </button>
               <div class="mask-controls hidden" id="maskControls">
                 <div class="mask-brush-size">
-                  <label>Brush</label>
+                  <label for="brushSize">Brush</label>
                   <input type="range" id="brushSize" min="5" max="80" value="30" class="slider slider-style"
                     oninput="updateBrushSize(this.value)" />
                   <span id="brushSizeVal">30</span>
@@ -222,7 +224,8 @@
             </div>
 
             <!-- Custom upload -->
-            <div id="customPanel" class="upload-zone small" style="display:none"
+            <div id="customPanel" class="upload-zone small" style="display:none" role="button" tabindex="0"
+              aria-label="Upload a painting to use as the style"
               onclick="document.getElementById('styleCustomInput').click()">
               <input type="file" id="styleCustomInput" accept="image/*" hidden />
               <div class="upload-placeholder" id="stylePlaceholder">
@@ -230,7 +233,7 @@
                 <div class="upload-text">Upload any painting as style</div>
               </div>
               <img id="styleCustomPreview" class="upload-preview hidden" alt="Style" />
-              <button class="upload-clear hidden" id="styleClear" onclick="clearImage('style', event)">✕</button>
+              <button class="upload-clear hidden" id="styleClear" aria-label="Remove style image" onclick="clearImage('style', event)">✕</button>
             </div>
 
             <!-- Style Mixing (Optional Second Style) -->
@@ -250,7 +253,8 @@
                   <button class="style-tab" id="tabCustom2" onclick="switchStyleTab2('custom')">Upload Custom</button>
                 </div>
                 <div id="presetPanel2" class="preset-grid" style="display:grid"></div>
-                <div id="customPanel2" class="upload-zone small" style="display:none"
+                <div id="customPanel2" class="upload-zone small" style="display:none" role="button" tabindex="0"
+                  aria-label="Upload a second painting to blend in"
                   onclick="document.getElementById('styleCustomInput2').click()">
                   <input type="file" id="styleCustomInput2" accept="image/*" hidden />
                   <div class="upload-placeholder" id="stylePlaceholder2">
@@ -258,12 +262,12 @@
                     <div class="upload-text">Upload second style image</div>
                   </div>
                   <img id="styleCustomPreview2" class="upload-preview hidden" alt="Style 2" />
-                  <button class="upload-clear hidden" id="styleClear2"
+                  <button class="upload-clear hidden" id="styleClear2" aria-label="Remove second style image"
                     onclick="clearImage('style2', event)">✕</button>
                 </div>
                 <div class="control-item control-item-full" style="margin-top:0.75rem">
                   <div class="control-header">
-                    <label>Mix Ratio</label>
+                    <label for="mixRatio">Mix Ratio</label>
                     <span class="control-value" id="mixRatioVal">A 50 / B 50</span>
                   </div>
                   <input type="range" id="mixRatio" min="0" max="100" step="1" value="50" class="slider slider-style"
@@ -295,7 +299,7 @@
             <div class="controls-grid">
               <div class="control-item control-item-full">
                 <div class="control-header">
-                  <label>Style Intensity</label>
+                  <label for="styleWeight">Style Intensity</label>
                   <span class="control-value" id="styleWeightVal">75%</span>
                 </div>
                 <input type="range" id="styleWeight" min="0" max="100" step="1" value="75" class="slider slider-style"
@@ -381,7 +385,7 @@
             <div class="result-image-wrap">
               <img id="resultImage" class="result-image" alt="Styled Result" draggable="false" />
               <div class="result-badge">✦ Masterpiece Ready</div>
-              <button class="result-download-btn" onclick="downloadResult()" title="Download Image">
+              <button class="result-download-btn" onclick="downloadResult()" title="Download Image" aria-label="Download image">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               </button>
             </div>
@@ -460,7 +464,7 @@
         <!-- Left: Brand -->
         <div class="footer-brand">
           <div class="footer-brand-row">
-            <img src="assets/logo.png" alt="PicturaAI" class="footer-logo-img" />
+            <img src="assets/logo-96.png" alt="PicturaAI" class="footer-logo-img" width="32" height="32" loading="lazy" />
             <span class="footer-name">PicturaAI</span>
           </div>
           <p class="footer-tagline"><em>Pictura</em> — Latin for "a painting."<br/>Your AI-powered art studio.</p>

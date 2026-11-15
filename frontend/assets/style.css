@@ -71,6 +71,17 @@ a {
   color: inherit;
 }
 
+/* Visible keyboard focus everywhere (mouse clicks don't trigger it). */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.upload-zone:focus-visible,
+.preset-card:focus-visible {
+  outline-offset: 2px;
+}
+
 /* ── Typography ─────────────────────────────────────────────────── */
 .gradient-text {
   background: linear-gradient(135deg, var(--accent), var(--cyan), var(--gold));

@@ -34,6 +34,52 @@ let activeHistoryIdx = -1;
 // ── Color Palette Transfer mode ──────────────────────────────────
 let paletteModeActive = false;
 
+// Preset the server picked for a text-to-style prompt (reused by Animation).
+let lastResolvedStyleKey = null;
+
+// ── API helpers ──────────────────────────────────────────────────
+// Turn any failed response into a message a person can act on. Render's
+// proxy answers 502/503 with an HTML page while the free instance wakes up
+// or restarts, so the body is not always JSON.
+const STATUS_MESSAGES = {
+  413: 'That image is too large. Please use one under 10 MB.',
+  429: 'The server is busy with other images. Please wait a moment and try again.',
+  502: 'The server is waking up or restarting. Please try again in about a minute.',
+  503: 'The server is waking up or restarting. Please try again in about a minute.',
+  504: 'The server took too long to answer. Please try again in a moment.',
+};
+
+async function errorFromResponse(res) {
+  let detail = '';
+  try {
+    const body = await res.json();
+    detail = body.detail || body.error || '';
+  } catch (_) { /* HTML or empty body */ }
+  if (typeof detail !== 'string') detail = '';   // FastAPI validation errors are arrays
+  if (res.status === 429 || res.status === 413) return new Error(STATUS_MESSAGES[res.status]);
+  return new Error(detail || STATUS_MESSAGES[res.status] || `Something went wrong on the server (${res.status}). Please try again.`);
+}
+
+async function apiFetch(url, options) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (_) {
+    throw new Error(navigator.onLine === false
+      ? 'You appear to be offline. Check your connection and try again.'
+      : 'Could not reach the server. It may be waking up; please try again in a minute.');
+  }
+  if (!res.ok) throw await errorFromResponse(res);
+  return res.json();
+}
+
+// Keyboard support for non-button elements that act as buttons.
+function activateOnKey(el, handler) {
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(e); }
+  });
+}
+
 // ── Navbar scroll effect ─────────────────────────────────────────
 window.addEventListener('scroll', () => {
   document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 40);
@@ -48,6 +94,9 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('contentInput').addEventListener('change', e => handleContentFile(e.target.files[0]));
   document.getElementById('styleCustomInput').addEventListener('change', e => handleStyleFile(e.target.files[0]));
   document.getElementById('styleCustomInput2').addEventListener('change', e => handleStyleFile2(e.target.files[0]));
+  document.querySelectorAll('.upload-zone[role="button"]').forEach(zone => activateOnKey(zone, () => zone.click()));
+  // Size the mask canvas once per photo, after the preview has its real dimensions.
+  document.getElementById('contentPreview').addEventListener('load', resetMaskCanvas);
   initBASlider();
 });
 
@@ -70,16 +119,35 @@ function switchStyleTab(tab) {
 }
 
 // ── Load styles from API ─────────────────────────────────────────
-async function loadStyles() {
+// The free Render instance sleeps when idle and takes up to a minute to wake,
+// so keep retrying with backoff instead of giving up after one attempt.
+const STYLE_RETRY_DELAYS = [2000, 4000, 6000, 8000, 10000, 15000, 15000, 15000];
+
+async function loadStyles(attempt = 0) {
   try {
-    const res = await fetch(`${API}/api/styles`);
-    const styles = await res.json();
+    const styles = await apiFetch(`${API}/api/styles`);
     renderPresets(styles);
     renderPresets2(styles);
     renderGallery(styles);
   } catch (e) {
-    document.getElementById('presetPanel').innerHTML =
-      '<div class="preset-loading"><span>⚠ Could not load styles. Is the server running?</span></div>';
+    const panel = document.getElementById('presetPanel');
+    const retrying = attempt < STYLE_RETRY_DELAYS.length;
+    panel.innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'preset-loading';
+    box.setAttribute('role', 'status');
+    if (retrying) {
+      const spin = document.createElement('div');
+      spin.className = 'spinner';
+      box.appendChild(spin);
+    }
+    const msg = document.createElement('span');
+    msg.textContent = retrying
+      ? 'Waking up the server… this can take up to a minute.'
+      : 'Could not load styles. Please refresh the page.';
+    box.appendChild(msg);
+    panel.appendChild(box);
+    if (retrying) setTimeout(() => loadStyles(attempt + 1), STYLE_RETRY_DELAYS[attempt]);
   }
 }
 
@@ -90,6 +158,11 @@ function renderPresets(styles) {
     const card = document.createElement('div');
     card.className = 'preset-card';
     card.id = `preset-${s.key}`;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-pressed', 'false');
+    card.setAttribute('aria-label', `${s.name} by ${s.artist}`);
+    activateOnKey(card, () => selectPreset(s.key, card));
     card.innerHTML = `
       ${s.thumbnail
         ? `<img src="data:image/jpeg;base64,${s.thumbnail}" alt="${s.name}" loading="lazy" />`
@@ -126,13 +199,17 @@ function renderGallery(styles) {
 function selectPreset(key, el) {
   clearPresetSelection();
   el.classList.add('active');
+  el.setAttribute('aria-pressed', 'true');
   selectedPreset = key;
   styleFile = null;
   toast(`Style selected: ${el.querySelector('.preset-caption').textContent}`, 'info');
 }
 
 function clearPresetSelection() {
-  document.querySelectorAll('.preset-card.active').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#presetPanel .preset-card.active').forEach(el => {
+    el.classList.remove('active');
+    el.setAttribute('aria-pressed', 'false');
+  });
   selectedPreset = null;
 }
 
@@ -170,9 +247,8 @@ function handleContentFile(file) {
   const reader = new FileReader();
   reader.onload = e => { document.getElementById('compareContent').src = e.target.result; };
   reader.readAsDataURL(file);
-  // Show mask toolbar and reset mask
+  // Show mask toolbar; the canvas is re-sized when the new preview loads.
   document.getElementById('maskToolbar').classList.remove('hidden');
-  resetMaskCanvas();
 }
 
 function handleStyleFile(file) {
@@ -218,6 +294,11 @@ function renderPresets2(styles) {
     const card = document.createElement('div');
     card.className = 'preset-card';
     card.id = `preset2-${s.key}`;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-pressed', 'false');
+    card.setAttribute('aria-label', `Second style: ${s.name} by ${s.artist}`);
+    activateOnKey(card, () => selectPreset2(s.key, card));
     card.innerHTML = `
       ${s.thumbnail
         ? `<img src="data:image/jpeg;base64,${s.thumbnail}" alt="${s.name}" loading="lazy" />`
@@ -234,13 +315,17 @@ function renderPresets2(styles) {
 function selectPreset2(key, el) {
   clearPresetSelection2();
   el.classList.add('active');
+  el.setAttribute('aria-pressed', 'true');
   selectedPreset2 = key;
   styleFile2 = null;
   toast(`Second style: ${el.querySelector('.preset-caption').textContent}`, 'info');
 }
 
 function clearPresetSelection2() {
-  document.querySelectorAll('#presetPanel2 .preset-card.active').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#presetPanel2 .preset-card.active').forEach(el => {
+    el.classList.remove('active');
+    el.setAttribute('aria-pressed', 'false');
+  });
   selectedPreset2 = null;
 }
 
@@ -322,6 +407,7 @@ async function startTransfer() {
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
   btn.querySelector('.btn-text').textContent = 'Generating… (may take 10-30s)';
+  lastResolvedStyleKey = null;
 
   closeWS();
   _doneReceived = false;
@@ -373,10 +459,9 @@ async function startTransfer() {
   }
 
   try {
-    const res = await fetch(`${API}/api/transfer`, { method: 'POST', body: form });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Server error'); }
-    const data = await res.json();
+    const data = await apiFetch(`${API}/api/transfer`, { method: 'POST', body: form });
     currentJobId = data.job_id;
+    lastResolvedStyleKey = data.resolved_style_key || null;
     if (data.resolved_style_name) {
       toast(`Text-to-Style matched: ${data.resolved_style_name}`, 'info');
     }
@@ -514,8 +599,7 @@ async function pollFallback(jobId, attempt = 0) {
     return;
   }
   try {
-    const res = await fetch(`${API}/api/jobs/${jobId}`);
-    const data = await res.json();
+    const data = await apiFetch(`${API}/api/jobs/${jobId}`);
     if (data.status === 'done') {
       onDone({ result: data.result });
     } else if (data.status === 'error') {
@@ -575,10 +659,10 @@ async function startPaletteTransfer() {
     form.append('style_mix_ratio', mixRatio.toString());
   }
 
+  lastResolvedStyleKey = null;
   try {
-    const res = await fetch(`${API}/api/palette-transfer`, { method: 'POST', body: form });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Server error'); }
-    const data = await res.json();
+    const data = await apiFetch(`${API}/api/palette-transfer`, { method: 'POST', body: form });
+    lastResolvedStyleKey = data.resolved_style_key || null;
     if (data.resolved_style_name) {
       toast(`Text-to-Style matched: ${data.resolved_style_name}`, 'info');
     }
@@ -608,7 +692,9 @@ async function startPaletteTransfer() {
 // ── Style Interpolation Animation (GIF) ──────────────────────────
 async function startInterpolation() {
   if (!contentFile) { toast('Upload a content image first', 'error'); return; }
-  if (!selectedPreset && !styleFile) { toast('Pick a style first', 'error'); return; }
+  // A text prompt resolves to a preset on the server; reuse it here.
+  const preset = selectedPreset || (styleFile ? null : lastResolvedStyleKey);
+  if (!preset && !styleFile) { toast('Pick a style first', 'error'); return; }
 
   const animBtn = document.getElementById('animateBtn');
   animBtn.disabled = true;
@@ -617,33 +703,26 @@ async function startInterpolation() {
   const form = new FormData();
   form.append('content_image', contentFile);
   if (styleFile) form.append('style_image', styleFile);
-  if (selectedPreset) form.append('style_preset', selectedPreset);
+  if (preset) form.append('style_preset', preset);
   form.append('num_frames', '10');
   form.append('frame_duration', '180');
 
   try {
-    const res = await fetch(`${API}/api/interpolate`, { method: 'POST', body: form });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || e.error || 'Server error'); }
-    const data = await res.json();
+    const data = await apiFetch(`${API}/api/interpolate`, { method: 'POST', body: form });
     const jobId = data.job_id;
 
     // Poll until done
     let result = null;
     for (let i = 0; i < 120; i++) {
       await new Promise(r => setTimeout(r, 2000));
-      const poll = await fetch(`${API}/api/jobs/${jobId}`);
-      const job = await poll.json();
+      const job = await apiFetch(`${API}/api/jobs/${jobId}`);
       if (job.status === 'done') { result = job; break; }
       if (job.status === 'error') throw new Error(job.error || 'Animation failed');
       animBtn.textContent = `⏳ ${job.progress || 0}%`;
     }
-    if (!result) throw new Error('Animation timed out');
+    if (!result || !result.result) throw new Error('Animation timed out');
 
-    // Download the GIF
-    const a = document.createElement('a');
-    a.href = `data:image/gif;base64,${result.result}`;
-    a.download = `pictura_animation_${jobId.substr(0, 8)}.gif`;
-    a.click();
+    downloadBase64(result.result, 'image/gif', `pictura_animation_${jobId.slice(0, 8)}.gif`);
     toast('🎞️ Animation GIF downloaded!', 'success');
   } catch (err) {
     toast(err.message || 'Animation failed', 'error');
@@ -654,19 +733,27 @@ async function startInterpolation() {
 }
 
 // ── Download ─────────────────────────────────────────────────────
+// Always save the bytes the browser already holds. Server-side results expire
+// (and vanish whenever the free instance restarts), and palette or history
+// items never had a server job id at all.
+function downloadBase64(b64, mime, filename) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 function downloadResult() {
-  if (currentJobId) {
-    const a = document.createElement('a');
-    a.href = `${API}/api/result/${currentJobId}`;
-    a.download = `pictura_${currentJobId.substr(0, 8)}.jpg`;
-    a.click();
-    toast('Downloading your artwork…', 'info');
-  } else if (resultB64) {
-    const a = document.createElement('a');
-    a.href = `data:image/jpeg;base64,${resultB64}`;
-    a.download = 'pictura_result.jpg';
-    a.click();
-  }
+  if (!resultB64) { toast('Generate an artwork first', 'error'); return; }
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+  downloadBase64(resultB64, 'image/jpeg', `pictura_${stamp}.jpg`);
 }
 
 // ── Reset ────────────────────────────────────────────────────────
@@ -674,6 +761,7 @@ function resetStudio() {
   closeWS();
   currentJobId = null;
   resultB64 = null;
+  lastResolvedStyleKey = null;
 
   resetUploadZone('contentPreview', 'contentPlaceholder', 'contentClear', 'contentInput');
   resetUploadZone('styleCustomPreview', 'stylePlaceholder', 'styleClear', 'styleCustomInput');
@@ -845,6 +933,7 @@ function initBASlider() {
 
 // ── Mask Painting (Regional Styling) ─────────────────────────────
 function resetMaskCanvas() {
+  if (maskMode) toggleMaskMode();
   const canvas = document.getElementById('maskCanvas');
   const preview = document.getElementById('contentPreview');
   // Size canvas to match the displayed preview image
@@ -865,11 +954,10 @@ function toggleMaskMode() {
   const hint = document.getElementById('maskHint');
 
   btn.classList.toggle('active', maskMode);
+  btn.setAttribute('aria-pressed', String(maskMode));
   if (maskMode) {
-    // Size canvas to the preview element's display size for proper coordinate mapping
-    const preview = document.getElementById('contentPreview');
-    canvas.width = preview.naturalWidth || 400;
-    canvas.height = preview.naturalHeight || 400;
+    // The canvas is sized in resetMaskCanvas() when the photo loads. Never
+    // assign width/height here: that clears whatever was already painted.
     canvas.classList.remove('hidden');
     canvas.classList.add('active');
     controls.classList.remove('hidden');
