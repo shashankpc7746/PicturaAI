@@ -27,7 +27,7 @@ logging.getLogger("tensorflow").setLevel(logging.ERROR)
 import tensorflow as tf  # pyre-ignore[21]  # noqa: E402
 import tensorflow_hub as hub  # pyre-ignore[21]  # noqa: E402
 import numpy as np  # pyre-ignore[21]  # noqa: E402
-from PIL import Image, __version__ as PIL_VERSION  # pyre-ignore[21]  # noqa: E402
+from PIL import Image, ImageOps  # pyre-ignore[21]  # noqa: E402
 
 tf.get_logger().setLevel("ERROR")  # suppress TF Python-level warnings
 
@@ -64,6 +64,36 @@ HUB_MODEL_URL = "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1
 
 # ── Image utilities ────────────────────────────────────────────────────────────
 
+def open_image(
+    image_bytes: bytes,
+    max_dim: Optional[int] = None,
+    min_size: Optional[tuple] = None,
+) -> Image.Image:
+    """Decode uploaded bytes into an upright RGB image, cheaply.
+
+    * EXIF orientation is applied, so phone photos match what the browser shows.
+    * JPEGs are decoded at a reduced DCT scale (``Image.draft``) when only a small
+      image is needed. A 49 MP photo then costs a few MB instead of ~375 MB,
+      which matters on the 512 MB free tier.
+
+    max_dim:  longest side of the returned image (only ever downscales).
+    min_size: (w, h) the caller will resize to itself; the decode is kept at
+              least this large in both dimensions, and no thumbnailing happens.
+    """
+    img = Image.open(io.BytesIO(image_bytes))
+    request = min_size or ((max_dim, max_dim) if max_dim else None)
+    if request is not None:
+        # Orientation 5-8 swaps axes; asking for a square box keeps both sides safe.
+        side = max(request)
+        img.draft("RGB", (side, side))
+    img = ImageOps.exif_transpose(img)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    if max_dim and not min_size:
+        img.thumbnail((max_dim, max_dim), _LANCZOS)
+    return img
+
+
 def load_and_preprocess(
     image_bytes: bytes,
     target_size: Optional[tuple] = None,
@@ -75,15 +105,11 @@ def load_and_preprocess(
     If target_size is given (H, W), resize to exactly that.
     Otherwise, resize preserving aspect ratio so the longest side ≤ max_dim.
     """
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-
     if target_size:
+        img = open_image(image_bytes, min_size=(target_size[1], target_size[0]))
         img = img.resize((target_size[1], target_size[0]), _LANCZOS)
     else:
-        w, h = img.size
-        scale = max_dim / max(h, w)
-        if scale < 1.0:  # only downscale, never upscale
-            img = img.resize((int(w * scale), int(h * scale)), _LANCZOS)
+        img = open_image(image_bytes, max_dim=max_dim)
 
     arr = np.array(img, dtype=np.float32) / 255.0
     return tf.expand_dims(tf.constant(arr), axis=0)
@@ -281,14 +307,19 @@ def run_nst(
     logger.info("Running style transfer (single forward pass) …")
     stylized_tensor = model.stylize(content_tensor, style_tensor)
 
-    # Free the low-res model inputs now that inference is done (memory peak passed).
-    del content_tensor, style_tensor
-
     # ── Upscale to OUTPUT resolution for sharper compositing ────────────────
     # The neural model ran at low res (memory-safe). We now composite at a higher
     # resolution using the original high-res content, which recovers fine detail
     # and edges without increasing the (already-passed) inference memory peak.
-    content_hr = load_and_preprocess(content_bytes, max_dim=OUTPUT_MAX_DIM)
+    # When both sizes are equal (the free-tier default) reuse the decoded tensor
+    # instead of decoding the upload a second time.
+    if OUTPUT_MAX_DIM == INFER_MAX_DIM:
+        content_hr = content_tensor
+    else:
+        content_hr = load_and_preprocess(content_bytes, max_dim=OUTPUT_MAX_DIM)
+
+    # Drop the model-input references now that inference is done.
+    del content_tensor, style_tensor
     content_shape = tf.shape(content_hr)[1:3]  # type: ignore[index]  # [H, W]
     stylized_tensor = tf.image.resize(stylized_tensor, content_shape, method="lanczos3")
     stylized_tensor = tf.clip_by_value(stylized_tensor, 0.0, 1.0)
@@ -463,17 +494,9 @@ def color_palette_transfer(
     # uncapped multi-megapixel upload would exhaust memory on the free tier.
     palette_max_dim = int(os.environ.get("NST_PALETTE_MAX_DIM", "1024"))
 
-    def _open_capped(raw: bytes, max_dim: int) -> Image.Image:
-        img = Image.open(io.BytesIO(raw)).convert("RGB")
-        w, h = img.size
-        scale = max_dim / max(w, h)
-        if scale < 1.0:
-            img = img.resize((int(w * scale), int(h * scale)), _LANCZOS)
-        return img
-
-    content_img = _open_capped(content_bytes, palette_max_dim)
+    content_img = open_image(content_bytes, max_dim=palette_max_dim)
     # Style images only contribute per-channel statistics — 512px is plenty.
-    style_img = _open_capped(style_bytes, 512)
+    style_img = open_image(style_bytes, max_dim=512)
 
     content_arr = np.array(content_img, dtype=np.float32)
     style_arr = np.array(style_img, dtype=np.float32)
@@ -484,7 +507,7 @@ def color_palette_transfer(
 
     # If second style provided, blend LAB stats from both styles
     if style_bytes_2 is not None:
-        style_img_2 = _open_capped(style_bytes_2, 512)
+        style_img_2 = open_image(style_bytes_2, max_dim=512)
         style_arr_2 = np.array(style_img_2, dtype=np.float32)
         style_lab_2 = _rgb_to_lab(style_arr_2)
 
