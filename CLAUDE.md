@@ -67,6 +67,7 @@ Hub model (~90 MB) into `.tfhub_cache/` (gitignored).
 | `MAX_PENDING_JOBS` | Queue size before 429 (3) |
 | `JOB_TTL_SECONDS` | How long finished jobs/outputs are kept (3600) |
 | `RATE_LIMIT_TRANSFER` / `RATE_LIMIT_INTERPOLATE` / `RATE_LIMIT_PALETTE` | slowapi limit strings |
+| `CLIENT_IP_HEADER` | Header holding the real visitor IP for rate limiting (`cf-connecting-ip` on Render; leave empty elsewhere) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins (default `*`; no credentials) |
 | `TFHUB_CACHE_DIR` | Model cache location |
 | `TF_CPP_MIN_LOG_LEVEL`, `TF_ENABLE_ONEDNN_OPTS`, `TF_NUM_INTRAOP_THREADS`, `TF_NUM_INTEROP_THREADS`, `OMP_NUM_THREADS`, `MALLOC_ARENA_MAX` | TF logging and memory tuning for the free tier |
