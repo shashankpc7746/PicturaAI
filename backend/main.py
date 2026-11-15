@@ -241,6 +241,11 @@ async def _security_headers(request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # The HTML references versioned assets (style.css?v=N); make browsers
+    # revalidate it so a deploy is picked up instead of a heuristically cached page.
+    path = request.url.path
+    if path.startswith("/app") and (path.endswith("/") or path.endswith(".html") or path == "/app"):
+        response.headers.setdefault("Cache-Control", "no-cache")
     return response
 
 # Serve frontend static files

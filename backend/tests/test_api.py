@@ -42,6 +42,11 @@ def _palette(client, headers=None):
     )
 
 
+def test_html_is_revalidated_but_assets_are_not_forced(client):
+    assert client.get("/app/").headers.get("cache-control") == "no-cache"
+    assert "cache-control" not in client.get("/app/assets/app.js").headers
+
+
 def test_favicon_served_at_root(client):
     r = client.get("/favicon.ico")
     assert r.status_code == 200 and r.headers["content-type"] == "image/x-icon"
