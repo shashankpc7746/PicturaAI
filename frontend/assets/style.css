@@ -25,7 +25,8 @@
 
   --text: #f1f5f9;
   --text-2: #94a3b8;
-  --text-3: #475569;
+  --text-3: #808ba0;
+  /* ≥ 4.5:1 on every background in this theme (WCAG AA) */
 
   --radius: 16px;
   --radius-sm: 8px;
