@@ -497,14 +497,25 @@ async def start_transfer(
         "resolved_style_name": resolved_style_name,
     })
 
+def _job_result_b64(job: dict) -> Optional[str]:
+    """Read a finished job's output from disk (results are not kept in memory)."""
+    path = job.get("result_path")
+    if job.get("status") != "done" or not path:
+        return None
+    try:
+        return base64.b64encode(Path(path).read_bytes()).decode()
+    except OSError:
+        return None
+
+
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
     job = jobs.get(job_id)
     if not job:
         raise HTTPException(404, "Job not found")
-    resp = {k: v for k, v in job.items() if k not in ("result", "preview")}
+    resp = {k: v for k, v in job.items() if k not in ("result", "preview", "result_path")}
     if job.get("status") == "done":
-        resp["result"] = job.get("result")
+        resp["result"] = _job_result_b64(job)
     resp["preview"] = job.get("preview")
     return JSONResponse(resp)
 
@@ -561,9 +572,9 @@ def _interpolation_worker(
         out_path.write_bytes(gif_bytes)
 
         result_b64 = base64.b64encode(gif_bytes).decode()
+        del gif_bytes
         job["status"] = "done"
         job["result_path"] = str(out_path)
-        job["result"] = result_b64
         job["result_type"] = "gif"
         job["progress"] = 100
         job["finished_at"] = time.time()
@@ -713,7 +724,8 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
     # Send current state immediately on connect
     if job.get("status") == "done":
         await websocket.send_text(json.dumps({
-            "type": "done", "percent": 100, "result": job.get("result")
+            "type": "done", "percent": 100, "result": _job_result_b64(job),
+            "result_type": job.get("result_type"),
         }))
     elif job.get("status") == "error":
         await websocket.send_text(json.dumps({
