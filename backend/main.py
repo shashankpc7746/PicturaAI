@@ -354,6 +354,12 @@ def _sync_broadcast(job_id: str, payload: dict):
 async def root():
     return RedirectResponse(url="/app", status_code=301)
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    # Browsers request this path regardless of <link rel="icon">.
+    return FileResponse(FRONTEND_DIR / "assets" / "favicon.ico", media_type="image/x-icon")
+
 _styles_cache: Optional[List[dict]] = None
 
 @app.get("/api/styles")
