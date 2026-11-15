@@ -13,3 +13,9 @@ pyrightconfig.json
 *.log
 .roadmap.md
 README.md
+.venv*/
+venv*/
+.tfhub_cache/
+.playwright-mcp/
+docs/
+backend/tests/
