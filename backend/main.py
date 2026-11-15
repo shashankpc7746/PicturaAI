@@ -202,7 +202,24 @@ RATE_LIMIT_TRANSFER    = os.environ.get("RATE_LIMIT_TRANSFER", "10/minute")
 RATE_LIMIT_INTERPOLATE = os.environ.get("RATE_LIMIT_INTERPOLATE", "3/minute")
 RATE_LIMIT_PALETTE     = os.environ.get("RATE_LIMIT_PALETTE", "20/minute")
 
-limiter = Limiter(key_func=get_remote_address)
+# Which request header carries the real visitor IP. Render sits behind
+# Cloudflare, which *overwrites* CF-Connecting-IP with the connecting address,
+# whereas X-Forwarded-For is only appended to — its first entry is whatever the
+# client sent, so keying on it lets anyone dodge the limits. Leave this empty
+# on hosts without such a proxy (a client could forge the header there).
+CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip().lower()
+
+
+def client_ip(request: Request) -> str:
+    """Rate-limit key: trusted proxy header if configured, else the socket peer."""
+    if CLIENT_IP_HEADER:
+        value = request.headers.get(CLIENT_IP_HEADER, "").split(",")[0].strip()
+        if value:
+            return value
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=client_ip)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

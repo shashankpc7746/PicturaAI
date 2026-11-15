@@ -19,6 +19,9 @@ services:
         value: "320"
       - key: NST_OUTPUT_DIM
         value: "320"
+      # Real visitor IP for rate limiting (Cloudflare fronts Render and overwrites it)
+      - key: CLIENT_IP_HEADER
+        value: "cf-connecting-ip"
       # ── Memory optimization for 512MB free tier ──
       - key: MALLOC_ARENA_MAX
         value: "2"
