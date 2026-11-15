@@ -82,6 +82,26 @@ a {
   outline-offset: 2px;
 }
 
+/* While painting a mask, touch strokes must paint instead of scrolling the page. */
+.mask-canvas.active {
+  touch-action: none;
+}
+
+/* Respect the OS "reduce motion" setting: stop decorative loops and smooth scrolling. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ── Typography ─────────────────────────────────────────────────── */
 .gradient-text {
   background: linear-gradient(135deg, var(--accent), var(--cyan), var(--gold));
