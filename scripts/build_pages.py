@@ -332,6 +332,7 @@ def render(page: Page, site: str) -> str:
           <span class="wordmark__text">Pictura<span class="wordmark__ai">AI</span></span>
         </span>
         <p>Pictura is Latin for a painting.</p>
+        <p class="site-footer__maker">Made by <span class="site-footer__name">Shashank Gupta</span></p>
       </div>
       <ul class="site-footer__links" role="list">
 {footer_links(page.current)}

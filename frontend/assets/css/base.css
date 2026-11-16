@@ -325,6 +325,8 @@ p { max-width: var(--measure); }
   gap: var(--s-5);
 }
 .site-footer__brand p { margin-top: var(--s-2); }
+.site-footer__brand .site-footer__maker { margin-top: var(--s-3); font-size: var(--fs-small); color: var(--linen-muted); }
+.site-footer__name { color: var(--linen); font-weight: 600; }
 .site-footer__links {
   display: flex;
   flex-wrap: wrap;
