@@ -119,8 +119,8 @@ class SiteConfig:
         return _join([
             ("default-src", ["'self'"]),
             ("script-src", script),
-            ("style-src", ["'self'", "https://fonts.googleapis.com"]),
-            ("font-src", ["'self'", "https://fonts.gstatic.com"]),
+            ("style-src", ["'self'"]),
+            ("font-src", ["'self'"]),
             ("img-src", ["'self'", "data:", "blob:"]),
             ("media-src", ["'self'", "blob:"]),
             ("connect-src", connect),

@@ -125,8 +125,8 @@ def test_app_csp_and_headers(client):
     assert MEDIAPIPE_CDN == "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/"
     assert "'unsafe-inline'" not in " ".join(sum(csp.values(), []))
     assert "'unsafe-eval'" not in csp["script-src"]
-    assert csp["style-src"] == ["'self'", "https://fonts.googleapis.com"]
-    assert csp["font-src"] == ["'self'", "https://fonts.gstatic.com"]
+    assert csp["style-src"] == ["'self'"]
+    assert csp["font-src"] == ["'self'"]  # fonts are self-hosted
     assert csp["img-src"] == ["'self'", "data:", "blob:"]
     assert csp["media-src"] == ["'self'", "blob:"]
     assert csp["connect-src"] == ["'self'", MEDIAPIPE_CDN]

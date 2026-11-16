@@ -144,9 +144,8 @@ Every response carries `X-Content-Type-Options`, `X-Frame-Options: DENY`,
 and a CSP: `script-src` and `connect-src` allow `'self'` plus only the pinned
 MediaPipe path `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/`
 (`MEDIAPIPE_VERSION` in `site_config.py`, kept equal to `MP_VERSION` in
-`segment.js` by a test), `script-src` adds `'wasm-unsafe-eval'`; `style-src` and
-`font-src` add Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`) while the
-pages still link them; no `unsafe-inline` or `unsafe-eval`; `/docs` and `/redoc`
+`segment.js` by a test), `script-src` adds `'wasm-unsafe-eval'`; styles and fonts are
+`'self'` only (fonts are self-hosted under `frontend/assets/fonts/`); no `unsafe-inline` or `unsafe-eval`; `/docs` and `/redoc`
 get a relaxed policy. HSTS
 is added only when the request is HTTPS (`X-Forwarded-Proto: https`). Redirects
 that point at the request's own origin (the trailing-slash redirects of `/app`,
