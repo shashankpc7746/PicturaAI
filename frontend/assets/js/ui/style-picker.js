@@ -1,5 +1,5 @@
 // Style column: Gallery / Your painting / Describe it, plus "Mix with a second style".
-import { $, $$, h, icon, rovingRadios, checkRadio, paintRange } from '../core/dom.js';
+import { $, $$, h, icon, announce, rovingRadios, checkRadio, paintRange } from '../core/dom.js';
 import { store } from '../core/store.js';
 import { artistLine, matchStyleLocally } from '../services/styles-data.js';
 import { describeStyle, base64ToBlob } from '../services/api.js';
@@ -129,10 +129,12 @@ function initCustom() {
   const hintText = hint.textContent;
   let url = null;
 
+  // The hint is not a live region (it would also read the reset text on Remove),
+  // so results are announced through #sr-status.
   async function use(file) {
     const reason = checkFile(file);
     hint.classList.toggle('is-error', !!reason);
-    if (reason) { hint.textContent = reason; return; }
+    if (reason) { hint.textContent = reason; announce(reason); return; }
     try {
       const { img, url: u } = await loadImageFile(file);
       if (url) URL.revokeObjectURL(url);
@@ -146,10 +148,12 @@ function initCustom() {
       hint.classList.remove('is-error');
       $('#custom-upload-text').textContent = 'Use a different painting';
       remove.hidden = false;
-      store.set({ style: { source: 'custom', title: 'Your painting', name: file.name, canvas: toCanvas(img, 512) } });
+      store.set({ style: { source: 'custom', title: 'Your painting', name: file.name, canvas: toCanvas(img, 512, { background: '#fff' }) } });
+      announce('Painting added. Paint it to use it.');
     } catch (e) {
       hint.textContent = e.message;
       hint.classList.add('is-error');
+      announce(e.message);
     }
   }
 
@@ -168,9 +172,27 @@ function initCustom() {
     if (store.get().style?.source === 'custom') store.set({ style: null });
     $('#custom-upload').focus();
   });
-  tile.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); tile.classList.add('is-dragover'); });
-  tile.addEventListener('dragleave', () => tile.classList.remove('is-dragover'));
+  // Only file drags light the tile, and moving over the tile's own children
+  // (text, buttons) must not switch the highlight off and on.
+  const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
+  tile.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    tile.classList.add('is-dragover');
+  });
+  tile.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    tile.classList.add('is-dragover');
+  });
+  tile.addEventListener('dragleave', (e) => {
+    if (e.relatedTarget && tile.contains(e.relatedTarget)) return;
+    tile.classList.remove('is-dragover');
+  });
   tile.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
     e.preventDefault();
     e.stopPropagation();
     tile.classList.remove('is-dragover');
@@ -199,6 +221,7 @@ function initDescribe() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
   });
 
+  let swatchUrl = null;   // blob: URL of the last generated swatch, revoked when replaced
   function show({ title, text, src = null, error = false }) {
     box.hidden = false;
     box.classList.toggle('is-error', error);
@@ -206,22 +229,40 @@ function initDescribe() {
     textEl.textContent = text;
     img.hidden = !src;
     if (src) img.src = src; else img.removeAttribute('src');
+    if (swatchUrl && swatchUrl !== src) { URL.revokeObjectURL(swatchUrl); swatchUrl = null; }
   }
 
-  function useMatch(s, message) {
-    store.set({ style: presetStyle(s) });
-    show({ title: `Closest classic style: ${s.title}`, text: message, src: s.thumb });
+  // The title already names the style, so the second line says who painted it
+  // instead of repeating it.
+  const selectedLine = (s) => {
+    const who = artistLine(s);
+    return `${who ? `${who}. ` : ''}It is selected. Paint it to see it on your photo.`;
+  };
+  // A late answer must not replace a painting the person picked meanwhile.
+  const pickedMeanwhile = 'You picked another painting meanwhile, so that one stays selected.';
+
+  function useMatch(s, message, select = true) {
+    if (select) store.set({ style: presetStyle(s) });
+    show({ title: `Closest classic style: ${s.title}`, text: select ? message : pickedMeanwhile, src: s.thumb });
   }
 
+  let busy = false;
+  let reqSeq = 0;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (busy) return;
     const prompt = input.value.replace(/\s+/g, ' ').trim();
     if (!prompt) {
       show({ title: 'Add a few words first', text: 'For example: soft watercolour of a misty harbour.', error: true });
       input.focus();
       return;
     }
-    submit.disabled = true;
+    // aria-disabled, not disabled: a disabled button drops keyboard focus to <body>.
+    busy = true;
+    const req = ++reqSeq;
+    const before = store.get().style;
+    const stillCurrent = () => req === reqSeq && store.get().style === before;
+    submit.setAttribute('aria-disabled', 'true');
     submit.textContent = generates ? 'Creating style' : 'Finding a style';
     submit.classList.add('is-busy');
     box.setAttribute('aria-busy', 'true');
@@ -232,11 +273,20 @@ function initDescribe() {
         const blob = base64ToBlob(res.image, res.media_type || 'image/jpeg');
         const picture = await blobToImage(blob);
         const url = URL.createObjectURL(blob);
-        store.set({ style: { source: 'generated', title: `"${prompt}"`, prompt, canvas: toCanvas(picture, 512) } });
-        show({ title: 'Style created from your words', text: 'It is selected. Paint it to see it on your photo.', src: url });
+        const select = stillCurrent();
+        if (select) store.set({ style: { source: 'generated', title: `"${prompt}"`, prompt, canvas: toCanvas(picture, 512, { background: '#fff' }) } });
+        show({
+          title: 'Style created from your words',
+          text: select ? 'It is selected. Paint it to see it on your photo.' : `${pickedMeanwhile} Describe it again to use this style.`,
+          src: url,
+        });
+        swatchUrl = url;
       } else if (res.source === 'matched' && res.key) {
         const s = styles.find((x) => x.key === res.key);
-        if (s) useMatch(s, res.message || `We matched the closest classic style: ${s.title}.`);
+        // With a reason other than "not configured", the server's message starts
+        // with why it matched instead of generating; keep that.
+        const explained = res.reason && res.reason !== 'not_configured' && res.message;
+        if (s) useMatch(s, explained || selectedLine(s), stillCurrent());
         else show({ title: res.title || 'Matched a classic style', text: res.message || '' });
       } else {
         throw Object.assign(new Error('unexpected'), { status: 500 });
@@ -248,14 +298,17 @@ function initDescribe() {
       } else {
         const s = matchStyleLocally(styles, prompt);
         if (s) {
-          useMatch(s, "The style generator isn't available right now, so we matched the closest classic style.");
-        } else {
+          useMatch(s, "The style generator isn't available right now, so we matched the closest classic style.", stillCurrent());
+        } else if (stillCurrent()) {
           store.set({ style: { source: 'prompt', title: `"${prompt}"`, prompt } });
-          show({ title: 'Your words are selected', text: "We'll match them to the closest classic style when you paint." });
+          show({ title: 'Your words are selected', text: "We'll try to match them to a classic style when you paint." });
+        } else {
+          show({ title: 'No style matched those words', text: 'Try a painter, a colour or a mood.', error: true });
         }
       }
     } finally {
-      submit.disabled = false;
+      busy = false;
+      submit.removeAttribute('aria-disabled');
       submit.textContent = idleLabel;
       submit.classList.remove('is-busy');
       box.removeAttribute('aria-busy');
