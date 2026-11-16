@@ -4,7 +4,8 @@
 // with software GL), so Cancel and scrolling froze. In the worker the page stays
 // responsive and Cancel answers at once (the worker finishes its current GPU pass
 // and drops the result). Falls back to the in-page engine when the worker cannot
-// start, has no OffscreenCanvas WebGL2 (Safari before 17), or TF.js fails there.
+// start, has no OffscreenCanvas WebGL2 (Safari before 17), or TF.js fails there,
+// unless warmup() is called with { allowInPage: false } (idle prefetch).
 
 import { EngineError } from './errors.js';
 import { deviceSideCap, isMobileLike, localStore, LS_SIDE, LS_FAILED } from './support.js';
@@ -68,8 +69,13 @@ export function createWorkerEngine(options = {}) {
     if (!inPage) {
       if (worker) worker.terminate();
       worker = null;
-      const { createBrowserEngine } = await import('./browser-engine.js');
-      inPage = inPage || createBrowserEngine(options);
+      let mod;
+      try {
+        mod = await import('./browser-engine.js');
+      } catch (e) {
+        throw new EngineError('Could not load the on-device engine.', 'ENGINE_UNAVAILABLE', e);
+      }
+      inPage = inPage || mod.createBrowserEngine(options);
       engine.offMainThread = false;
     }
     return inPage;
@@ -163,29 +169,48 @@ export function createWorkerEngine(options = {}) {
     for (const fn of listeners) { try { fn(p); } catch { /* listener error */ } }
   }
 
-  function warmup(onProgress) {
-    if (inPage) return inPage.warmup(onProgress);
-    if (broken) return Promise.reject(new EngineError('The on-device engine stopped.', 'ENGINE_RESOURCE'));
-    if (ready && warmPromise) {
-      if (onProgress) onProgress({ loaded: 1, total: 1, phase: 'ready' });
-      return warmPromise;
-    }
-    if (onProgress) listeners.add(onProgress);
+  // Starts and warms up the worker, once (shared by every warmup() call).
+  // Resolves true when the worker is ready, false when the in-page engine is needed.
+  function warmWorker() {
     if (!warmPromise) {
       warmPromise = (async () => {
-        if (!(await start())) return (await useInPage()).warmup(emit);
+        if (!(await start())) return false;
         try {
           await call('warmup', {}, { onProgress: emit });
         } catch (e) {
           if (e.code !== 'ENGINE_WORKER') throw e;
-          return (await useInPage()).warmup(emit);
+          return false;
         }
-        return undefined;
-      })()
-        .catch((e) => { warmPromise = null; throw e; })
-        .finally(() => listeners.clear());
+        return true;
+      })();
+      warmPromise.catch(() => { warmPromise = null; });
     }
     return warmPromise;
+  }
+
+  const inPageRefused = () => new EngineError('The on-device engine cannot run off the main thread here.', 'ENGINE_WORKER');
+
+  /**
+   * @param {(p:object)=>void} [onProgress]
+   * @param {{allowInPage?: boolean}} [opts] allowInPage false (for idle prefetch): never
+   *   fall back to the in-page engine, whose shader compiles would freeze the page;
+   *   rejects with code ENGINE_WORKER instead. A later warmup() can still fall back.
+   */
+  function warmup(onProgress, { allowInPage = true } = {}) {
+    if (inPage) return allowInPage ? inPage.warmup(onProgress) : Promise.reject(inPageRefused());
+    if (broken) return Promise.reject(new EngineError('The on-device engine stopped.', 'ENGINE_RESOURCE'));
+    if (ready && warmPromise) {
+      if (onProgress) onProgress({ loaded: 1, total: 1, phase: 'ready' });
+      return warmPromise.then(() => undefined);
+    }
+    if (onProgress) listeners.add(onProgress);
+    return warmWorker()
+      .then(async (ok) => {
+        if (ok) return undefined;
+        if (!allowInPage) throw inPageRefused();
+        return (await useInPage()).warmup(emit);
+      })
+      .finally(() => { if (onProgress) listeners.delete(onProgress); });
   }
 
   // Rejects as soon as `signal` aborts, even if `promise` is still running.
