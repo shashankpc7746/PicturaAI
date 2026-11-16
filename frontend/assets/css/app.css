@@ -354,6 +354,12 @@
 @container stage (max-width: 250px) {
   .frame__tag--painting { top: auto; bottom: var(--s-3); }
 }
+/* Too narrow for even one tag in full ("Your photo" is about 84 px, plus its
+   12 px insets), e.g. a 1:8 photo: no tags rather than "Pain…" or "P…". The
+   compare grip still reads as a slider. */
+@container stage (max-width: 132px) {
+  .frame__tag { display: none; }
+}
 
 /* Generating: linen veil + label card + gilt line along the bottom edge */
 .veil {
@@ -674,10 +680,12 @@
 
 /* ── Style panel ───────────────────────────────────────────────────────── */
 .style-panel {
+  --panel-pad: var(--s-4);
+  --panel-gap: var(--s-4);
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
-  padding: var(--s-4);
+  gap: var(--panel-gap);
+  padding: var(--panel-pad);
   border-radius: var(--r-panel);
   background: var(--wall-deep);
 }
@@ -686,10 +694,12 @@
    "Your painting" / "Describe it" panels and their content spills under "Mix". */
 .style-panel > * { flex-shrink: 0; }
 @media (min-width: 768px) {
-  .style-panel { padding: var(--s-5); }
+  .style-panel { --panel-pad: var(--s-5); }
 }
 @media (min-width: 1024px) {
   .style-panel {
+    /* the fade over content scrolling under the stuck call to action while more is below */
+    --more-fade: var(--s-6);
     position: sticky;
     top: calc(var(--header-h) + var(--s-4));
     align-self: start;
@@ -700,9 +710,9 @@
        "Describe it" tab) the panel scrolls as a whole, and the call to action
        (Paint it / Download) stays stuck to its bottom edge (rule below). */
     overflow-y: auto;
-    /* focus and scrollIntoView land clear of the stuck call to action (at most
-       about 180 px tall, with Download and a reason) and of the top edge */
-    scroll-padding-block: var(--s-3) 12rem;
+    /* Focus and revealInScrollers() land clear of the top edge and of the stuck call
+       to action and its fade. --cta-h is its measured height (style-picker.js). */
+    scroll-padding-block: var(--s-3) calc(var(--cta-h, 12rem) + var(--more-fade));
     scrollbar-width: thin;
     scrollbar-color: var(--linen-muted) transparent;
   }
@@ -717,7 +727,7 @@
 .tabs {
   display: flex;
   border-bottom: 1px solid var(--hairline);
-  margin-top: calc(-1 * var(--s-2));
+  margin-top: calc(var(--s-2) - var(--panel-gap));   /* 8 px under the heading */
 }
 .tabs__tab {
   flex: 1 1 auto;
@@ -767,17 +777,10 @@
     }
   }
   .tab-panel--gallery.is-scrolled-end { -webkit-mask-image: none; mask-image: none; }
-  /* Short laptop screens (1536x690 at 125 %, 1366x625, 1280x585 at 150 %): a lower
-     floor, so that with "Mix" closed the gallery still absorbs the panel's cap and
-     the Mix toggle shows above Paint it. 490 px is the rest of the panel (head,
-     tabs, hint, Mix, Paint it with its reason, gaps) plus the header and margins. */
-  @media (max-height: 760px) {
-    .tab-panel--gallery { min-height: max(6.5rem, min(13rem, 100vh - 490px)); }
-    .tab-panel--gallery { min-height: max(6.5rem, min(13rem, 100dvh - 490px)); }
-  }
   /* Reserve the hang's height before the cards arrive, so Paint it does not jump down */
   .style-grid[aria-busy="true"] { min-height: 100vh; }
 }
+
 /* "14 paintings. Scroll for more." under a gallery that scrolls (style-picker.js
    sets [hidden] when nothing is cut off, and .is-done at the end of the list,
    where it keeps its line so the panel does not jump). */
@@ -785,7 +788,7 @@
   display: flex;
   align-items: center;
   gap: var(--s-1);
-  margin-top: calc(-1 * var(--s-2));
+  margin-top: calc(var(--s-2) - var(--panel-gap));   /* 8 px under the gallery */
   font-size: var(--fs-meta);
   color: var(--linen-muted);
 }
@@ -1062,10 +1065,10 @@
        sides also cover the gallery and the Mix rail, which bleed 8 / 4 px. The
        hairline keeps the content's width. */
     position: sticky;
-    bottom: calc(-1 * var(--s-5));
+    bottom: calc(-1 * var(--panel-pad));
     z-index: 1;
-    margin: 0 calc(-1 * var(--s-2)) calc(-1 * var(--s-5));
-    padding: calc(var(--s-4) + 1px) var(--s-2) var(--s-5);
+    margin: 0 calc(-1 * var(--s-2)) calc(-1 * var(--panel-pad));
+    padding: calc(var(--panel-gap) + 1px) var(--s-2) var(--panel-pad);
     background:
       linear-gradient(var(--hairline), var(--hairline)) top / calc(100% - 2 * var(--s-2)) 1px no-repeat,
       var(--wall-deep);
@@ -1077,15 +1080,114 @@
     left: 0;
     right: 0;
     bottom: 100%;
-    height: var(--s-4);   /* the panel's gap, so nothing fades when nothing scrolls */
+    height: var(--panel-gap);   /* the panel's gap, so nothing fades when nothing scrolls */
     background: linear-gradient(transparent, var(--wall-deep));
     pointer-events: none;
   }
+  /* More is hidden below: a deeper fade (the panel's bottom scroll-padding keeps a
+     focused or revealed control above it) and the "More below" pill on it. */
+  .style-panel.has-more-below .style-panel__cta::before { height: var(--more-fade); }
+  .panel-more {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + var(--s-1));
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+    min-height: 26px;
+    padding: 0 var(--s-2) 0 var(--s-3);
+    border: 1px solid rgba(236, 229, 214, .22);
+    border-radius: var(--r-pill);
+    background: var(--wall-raised);
+    color: var(--linen);
+    font-size: var(--fs-meta);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .6);
+    transform: translateX(-50%);
+    animation: fade-in var(--t-base) var(--ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .panel-more .icon { color: var(--gilt); }
+  @media (hover: hover) {
+    .panel-more:hover { border-color: var(--gilt); color: var(--gilt-bright); }
+  }
+  .panel-more:active { border-color: var(--gilt); background: var(--wall); }
 }
+.panel-more[hidden] { display: none; }
 .btn--paint { width: 100%; min-height: 52px; font-size: 17px; }
 .paint-reason { font-size: var(--fs-meta); color: var(--linen-muted); text-align: center; max-width: none; }
 .paint-reason:empty { display: none; }
 
+/* ── Short desktop screens ─────────────────────────────────────────────────
+   1536x690 (a 1920x1080 laptop at 125 %), 1366x625, 1280x650, 1024x690, 1180x720
+   (iPad landscape): the heading, the tabs, one full row of paintings with titles,
+   "Mix" and Paint it / Download all fit the panel's height cap in every tab. The
+   panel tightens (16 px padding, 12 px gaps), the gallery becomes an even
+   three-column grid of fixed-height thumbnails with one-line titles (the full name
+   is the card's tooltip and accessible name) showing one full row and the top of
+   the next, the "Your painting" and "Describe it" tiles are smaller, and after a
+   painting Download and Paint it share a row. Where even that cannot fit (1280x585
+   at 150 %, 1024x600, 175 % zoom) the panel scrolls as a whole, with the "More
+   below" pill over the stuck buttons. */
+@media (min-width: 1024px) and (max-height: 820px) {
+  .style-panel {
+    --panel-pad: var(--s-4);
+    --panel-gap: var(--s-3);
+    /* Thumbnails shrink with the screen's height, between 76 and 112 px: 530 px is
+       the rest of the panel (heading, tabs, hint, Mix, Paint it with its reason,
+       gaps), the header, the panel's margins and the row's text, plus some slack. */
+    --thumb-h: clamp(76px, calc(100vh - 530px), 112px);
+    --thumb-h: clamp(76px, calc(100dvh - 530px), 112px);
+    /* one card: thumbnail, 8 px, a line of title and a line of artist */
+    --row-h: calc(var(--thumb-h) + var(--s-2) + 36px);
+    --peek: 28px;   /* the next row's top edge, under the "more below" fade */
+  }
+  .tab-panel--gallery {
+    min-height: calc(var(--s-2) + var(--row-h) + var(--peek));
+    /* a focused card lands clear of the fade (revealInScrollers in dom.js) */
+    scroll-padding: var(--s-2) 0 var(--peek);
+  }
+  @supports (animation-timeline: scroll()) {
+    .tab-panel--gallery:not([hidden]) { animation-name: fade-in, gallery-fade-short; }
+  }
+  .style-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+  .style-grid::after { content: none; }
+  .style-card__img { height: var(--thumb-h); aspect-ratio: auto; }
+  .style-card__title, .style-card__meta { -webkit-line-clamp: 1; line-clamp: 1; overflow-wrap: anywhere; }
+  .style-card__title { line-height: 18px; }
+  .style-card__meta { line-height: 18px; }
+  .style-card.is-skeleton .style-card__title { margin-top: 12px; }
+
+  .upload-tile { gap: var(--s-3); padding: var(--s-3); }
+  .upload-tile__preview { width: 72px; height: 72px; }
+  .upload-tile__hint { font-size: var(--fs-meta); }
+  .textarea { height: 68px; min-height: 68px; padding-block: var(--s-2); }
+  .describe-result { margin-top: var(--s-2); padding: var(--s-2) var(--s-3); }
+  .describe-result__img { width: 56px; height: 56px; }
+  .describe-result__title { font-size: var(--fs-small); line-height: 1.4; }
+  .describe-result__text { font-size: var(--fs-meta); line-height: 1.45; }
+  .mix { padding-top: var(--s-1); }
+
+  .btn--paint { min-height: 48px; font-size: var(--fs-body); }
+  /* After a painting: Download and Paint it side by side, the reason under both */
+  .style-panel__cta:has(> #panel-download:not([hidden])) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .style-panel__cta:has(> #panel-download:not([hidden])) .paint-reason { grid-column: 1 / -1; }
+}
+/* A mouse or trackpad does not need 44 px rows; 40 px is still a large target. */
+@media (min-width: 1024px) and (max-height: 820px) and (hover: hover) and (pointer: fine) {
+  .tabs__tab, .mix__toggle { min-height: 40px; }
+}
+@keyframes gallery-fade-short {
+  from, 90% { --gallery-fade: 28px; }
+  to { --gallery-fade: 0px; }
+}
 /* ── Mobile and tablet action bar ──────────────────────────────────────── */
 :root { --bar-h: 76px; }   /* the bar's height above the safe area, plus a little air */
 .action-bar {
@@ -1191,26 +1293,33 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 }
 
 /* ── Toasts ────────────────────────────────────────────────────────────── */
+/* Phones and tablets: just under the sticky header. Above the action bar it sat
+   on the frame's intensity ledge (the slider is right under the picture, so it is
+   usually low on the screen when a result arrives) and on the wall label, for up
+   to 7 s. The top of the screen holds what has scrolled past, and the bar stays
+   free for Paint it / Download. Slides down from the header. */
 .toasts {
+  --toast-dy: -8px;
   position: fixed;
   z-index: 70;
   left: 50%;
-  bottom: calc(88px + env(safe-area-inset-bottom));
+  top: calc(var(--header-h) + var(--s-2));
   display: grid;
   gap: var(--s-2);
   width: min(440px, calc(100vw - 2 * var(--gutter)));
   transform: translateX(-50%);
   pointer-events: none;
 }
+/* Phone held sideways: the header scrolls away (base.css), so from the top edge */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px) {
+  .toasts { top: calc(var(--s-2) + env(safe-area-inset-top)); }
+}
 /* Desktop: centred in the header bar, between the logo and the nav, so a toast
    never covers the frame, the wall label or the sticky style panel's heading
-   (which sits under a top-right toast on laptops). On phones and tablets it sits
-   above the action bar. */
+   (which sits under a top-right toast on laptops). */
 @media (min-width: 1024px) {
   .toasts {
-    --toast-dy: -8px;
     top: calc((var(--header-h) - 48px) / 2);
-    bottom: auto;
     width: min(400px, calc(100vw - 760px));
   }
 }

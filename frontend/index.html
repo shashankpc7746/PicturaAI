@@ -280,6 +280,13 @@
             </div>
 
             <div class="style-panel__cta">
+              <!-- Desktop, while the panel scrolls with more below the stuck buttons
+                   (style-picker.js). A pointer shortcut only: Tab reaches everything
+                   below and the panel scrolls it clear of these buttons. -->
+              <button class="panel-more" type="button" id="panel-more" tabindex="-1" aria-hidden="true" hidden>
+                More below
+                <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#chevron-down"/></svg>
+              </button>
               <!-- Shown once a painting is ready and nothing has changed (desktop), like the phone bar. -->
               <button class="btn btn--primary btn--paint" type="button" id="panel-download" aria-haspopup="menu" aria-expanded="false" aria-controls="download-menu" hidden>
                 <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#download"/></svg>

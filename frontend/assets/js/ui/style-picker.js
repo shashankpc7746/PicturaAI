@@ -1,5 +1,5 @@
 // Style column: Gallery / Your painting / Describe it, plus "Mix with a second style".
-import { $, $$, h, icon, announce, rovingRadios, checkRadio, paintRange } from '../core/dom.js';
+import { $, $$, h, icon, announce, rovingRadios, checkRadio, paintRange, revealInScrollers, prefersReducedMotion } from '../core/dom.js';
 import { store } from '../core/store.js';
 import { artistLine, matchStyleLocally } from '../services/styles-data.js';
 import { describeStyle, base64ToBlob } from '../services/api.js';
@@ -39,13 +39,16 @@ export function renderStatus(kind, onRetry) {
 }
 
 function card(s) {
+  const name = [s.title, artistLine(s)].filter(Boolean).join(', ');
   const el = h('div', {
     class: 'style-card',
     role: 'radio',
     'aria-checked': 'false',
     tabindex: '-1',
     'data-key': s.key,
-    'aria-label': [s.title, artistLine(s)].filter(Boolean).join(', '),
+    'aria-label': name,
+    // Short screens show one line of title and artist: the full text on hover.
+    title: name,
   },
   h('img', {
     class: 'style-card__img',
@@ -231,6 +234,8 @@ function initDescribe() {
     img.hidden = !src;
     if (src) img.src = src; else img.removeAttribute('src');
     if (swatchUrl && swatchUrl !== src) { URL.revokeObjectURL(swatchUrl); swatchUrl = null; }
+    // On a short screen the answer can land under the stuck Paint it button.
+    if (!box.closest('[hidden]')) requestAnimationFrame(() => revealInPanel(box));
   }
 
   // The title already names the style, so the second line says who painted it
@@ -344,6 +349,8 @@ function initMix() {
     toggle.setAttribute('aria-expanded', String(open));
     body.hidden = !open;
     store.set({ mixOpen: open });
+    // The opened rail and slider would otherwise sit below the stuck Paint it button.
+    if (open) requestAnimationFrame(() => revealInPanel(body));
   });
   rovingRadios($('#mix-rail'), '.mix-thumb', (el) => {
     const s = store.get().styles.find((x) => x.key === el.dataset.key);
@@ -395,10 +402,60 @@ function initScrollHint() {
   scheduleHint();
 }
 
+// ── Panel scroll (desktop) ───────────────────────────────────────────────
+// On a desktop the style panel is height-capped. When its content does not fit (a
+// short laptop screen, "Mix" open, a tall "Describe it" answer) it scrolls as a
+// whole, with Paint it / Download stuck to its bottom edge. The stuck block's
+// height (--cta-h) is the panel's bottom scroll-padding, so keyboard focus and
+// revealInPanel() land clear of it; and while content is hidden below it the panel
+// has .has-more-below (a deeper fade) and shows the "More below" pill.
+const panelEl = () => $('#style-panel');
+const panelScrolls = (p) => getComputedStyle(p).overflowY !== 'visible';
+
+/** Scroll the desktop panel just enough to show `el` above Paint it (no-op elsewhere). */
+function revealInPanel(el) {
+  const p = panelEl();
+  if (p && p.contains(el) && panelScrolls(p)) revealInScrollers(el);
+}
+
+function initPanelScroll() {
+  const panel = panelEl();
+  const cta = $('.style-panel__cta');
+  const more = $('#panel-more');
+  if (!panel || !cta || !more) return;
+  let raf = 0;
+  const update = () => {
+    raf = 0;
+    const scrolls = panelScrolls(panel);
+    if (scrolls) panel.style.setProperty('--cta-h', `${Math.ceil(cta.offsetHeight)}px`);
+    const below = scrolls && panel.scrollHeight - panel.clientHeight - panel.scrollTop > 4;
+    panel.classList.toggle('has-more-below', below);
+    more.hidden = !below;
+  };
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(update); };
+  panel.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  if (typeof ResizeObserver === 'function') {
+    // The panel stops growing at its cap, so watch what is inside it too: a tab
+    // switch, Mix opening, an answer or a wrapped line all change what is below.
+    const ro = new ResizeObserver(schedule);
+    ro.observe(panel);
+    for (const child of panel.children) ro.observe(child);
+  }
+  more.addEventListener('click', () => {
+    panel.scrollBy({
+      top: Math.max(80, panel.clientHeight - cta.offsetHeight - 64),
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    });
+  });
+  schedule();
+}
+
 // ── Public ────────────────────────────────────────────────────────────────
 export function initStylePicker() {
   const tabs = initTabs();
   initScrollHint();
+  initPanelScroll();
   rovingRadios(grid(), '.style-card[role="radio"]', (el) => {
     const s = store.get().styles.find((x) => x.key === el.dataset.key);
     if (s) store.set({ style: presetStyle(s) });
