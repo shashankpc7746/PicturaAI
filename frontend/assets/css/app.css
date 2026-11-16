@@ -231,13 +231,13 @@
   box-shadow: 0 0 0 1px rgba(20, 38, 34, .55), 0 0 12px 1px rgba(20, 38, 34, .45);
   transition: width var(--t-fast) var(--ease), margin var(--t-fast) var(--ease);
 }
-/* At 0 % the rule would sit on the picture's edge; hide it there */
-.compare[data-at="start"] .compare__line { opacity: 0; }
-/* The grip: a linen disc with a gilt ring and two arrows, on the rule */
+/* The grip: a linen disc with a gilt ring and two arrows, always centred on the
+   rule. At rest (0 %) rule and grip sit on the picture's left edge, the grip
+   half over the mat, so it reads as a slider mounted on the edge. */
 .compare__handle {
   position: absolute;
   top: 50%;
-  left: clamp(28px, var(--pos, 0%), calc(100% - 28px));
+  left: var(--pos, 0%);
   display: grid;
   place-items: center;
   width: 52px;
@@ -266,6 +266,29 @@
 .compare.is-dragging .compare__handle { background: var(--gilt-bright); border-color: var(--label); }
 .compare:has(.compare__handle:active) .compare__line,
 .compare.is-dragging .compare__line { width: 4px; margin-left: -2px; }
+/* "Drag to compare": beside the grip until the slider is first used */
+.compare__hint {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--pos, 0%) + 36px);
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(20, 38, 34, .88);
+  color: var(--linen);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(20, 38, 34, .35);
+  animation: fade-in var(--t-base) var(--ease) both;
+  animation-delay: 1.2s;
+}
+.compare.is-used .compare__hint,
+.compare:not([data-at="start"]) .compare__hint { display: none; }
+@container stage (max-width: 360px) {
+  .compare__hint { font-size: 12px; padding: 5px 10px; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .compare__handle:active,
   .compare.is-dragging .compare__handle { transform: scale(1.08); }

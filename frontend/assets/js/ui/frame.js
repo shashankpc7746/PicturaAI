@@ -22,9 +22,10 @@ export function createFrame({ onFiles }) {
   const studio = $('#studio');
 
   let pos = 0;
-  // The first result of a visit slides the divider out to the middle once, so it is
-  // clear that the frame compares the photo with the painting. Any touch of the
-  // slider stops it and keeps the user's position from then on.
+  // The painting stays fully shown; the divider rests on the picture's left edge.
+  // On the first result of a visit it peeks in once (to about 20 % and back) so it
+  // is clear the frame compares the photo with the painting, and a "Drag to compare"
+  // chip sits beside the grip until the user first touches it.
   let introduced = false;
   let sweepTimer = 0;
   let sweepFrame = 0;
@@ -34,21 +35,27 @@ export function createFrame({ onFiles }) {
     sweepTimer = 0;
     sweepFrame = 0;
   }
-  function sweepTo(target, delay) {
+  function peek(delay) {
     stopSweep();
-    if (prefersReducedMotion()) { setCompare(target); return; }
+    if (prefersReducedMotion()) return;
     sweepTimer = setTimeout(() => {
-      const from = pos;
       const start = performance.now();
-      const dur = 700;
+      const dur = 1100;
       const step = (now) => {
         const t = Math.min(1, (now - start) / dur);
-        const eased = 1 - Math.pow(1 - t, 3);
-        setCompare(from + (target - from) * eased, { announce: t === 1 });
+        // out and back: 0 -> 20 -> 0, eased at both ends
+        const v = Math.sin(Math.PI * t) ** 2 * 20;
+        setCompare(t === 1 ? 0 : v, { announce: false });
         sweepFrame = t < 1 ? requestAnimationFrame(step) : 0;
       };
       sweepFrame = requestAnimationFrame(step);
     }, delay);
+  }
+  function markUsed() {
+    introduced = true;
+    // interrupted mid-peek: start from the resting position, not the peek's
+    if (sweepTimer || sweepFrame) { stopSweep(); setCompare(0, { announce: false }); }
+    compare.classList.add('is-used');
   }
 
   function setAspect(ar) {
@@ -92,11 +99,10 @@ export function createFrame({ onFiles }) {
     return ((e.clientX - r.left) / r.width) * 100;
   }
 
-  handle.addEventListener('focus', () => { introduced = true; stopSweep(); });
+  handle.addEventListener('keydown', markUsed, { once: true });
   handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    introduced = true;
-    stopSweep();
+    markUsed();
     handle.setPointerCapture(e.pointerId);
     compare.classList.remove('is-intro');
     // .is-dragging (app.css) keeps the held look while the pointer is off the handle.
@@ -150,7 +156,7 @@ export function createFrame({ onFiles }) {
     if (compareEnabled && !introduced && pos === 0) {
       introduced = true;
       // after the brush-wipe unveiling (700 ms) has finished
-      sweepTo(50, unveil ? 900 : 300);
+      peek(unveil ? 1000 : 400);
     }
   }
 
