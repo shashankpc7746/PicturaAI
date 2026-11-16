@@ -34,10 +34,48 @@ FOCUSED_CARD_VISIBLE = """() => {
 }"""
 
 
-@pytest.mark.parametrize("width,height", [(1536, 690), (1366, 625)])
+# The gallery's cut at rest: the first row of cards (image, title and artist) is
+# clear of the "more below" fade, and the row under the fade shows either nothing or
+# at least --peek-min of it (never a sliver).
+GALLERY_CUT = """() => {
+  const g = document.querySelector('.tab-panel--gallery');
+  const gr = g.getBoundingClientRect();
+  const rows = [];
+  for (const c of document.querySelectorAll('.style-card[role=radio]')) {
+    const r = c.getBoundingClientRect();
+    const top = r.top - gr.top - g.clientTop + g.scrollTop;
+    const row = rows.find((x) => Math.abs(x.top - top) < 2);
+    if (row) row.bottom = Math.max(row.bottom, r.bottom - gr.top - g.clientTop + g.scrollTop);
+    else rows.push({ top, bottom: r.bottom - gr.top - g.clientTop + g.scrollTop });
+  }
+  rows.sort((a, b) => a.top - b.top);
+  const visible = g.clientHeight;
+  const clean = g.classList.contains('is-clean-cut') || g.classList.contains('is-scrolled-end');
+  const fade = clean ? 0 : parseFloat(getComputedStyle(g).getPropertyValue('--gallery-fade')) || 0;
+  const next = rows.find((r) => r.bottom > visible + 1);
+  return {
+    height: Math.round(gr.height),
+    firstRowClear: rows[0].bottom <= visible - fade + 1,
+    peek: next ? Math.round(visible - next.top) : null,
+    peekMin: parseFloat(getComputedStyle(g).getPropertyValue('--peek-min')),
+  };
+}"""
+
+SHORT_SCREENS = [(1536, 690), (1366, 625), (1280, 650), (1024, 690), (1024, 768), (1180, 720)]
+
+
+@pytest.mark.parametrize("width,height", SHORT_SCREENS)
 def test_panel_keeps_paint_and_mix_visible_in_every_tab(open_page, width, height):
     page = open_page(width, height=height).page
+    before = page.evaluate(GALLERY_CUT)
     style_radio(page, "The Starry Night").click()
+    page.wait_for_timeout(200)
+    after = page.evaluate(GALLERY_CUT)
+    # Picking a painting clears "Pick a painting first" but keeps its line.
+    assert after["height"] == before["height"], f"the gallery resized: {before} -> {after}"
+    assert after["firstRowClear"], f"the first row of paintings is cut or faded: {after}"
+    assert after["peek"] is None or after["peek"] <= 0 or after["peek"] >= after["peekMin"], \
+        f"a sliver of the next row shows: {after}"
     assert page.evaluate(VISIBLE_IN_PANEL, "#paint-btn") == 100
     assert page.evaluate(VISIBLE_IN_PANEL, "#mix-toggle") == 100
 
@@ -56,6 +94,25 @@ def test_panel_keeps_paint_and_mix_visible_in_every_tab(open_page, width, height
     page.wait_for_timeout(400)
     assert page.evaluate(VISIBLE_IN_PANEL, "#mix-ratio") == 100
     assert page.evaluate(VISIBLE_IN_PANEL, "#paint-btn") == 100
+
+
+def test_titles_wrap_where_there_is_room(open_page):
+    """1024x768: two-line titles ("The Great Wave off Kanagawa" in full); 1366x625: one line."""
+    full = "(t) => { const el = [...document.querySelectorAll('.style-card__title')].find(e => e.textContent === t); return el.scrollHeight <= el.clientHeight + 1; }"
+    page = open_page(1024, height=768).page
+    assert page.evaluate(full, "The Great Wave off Kanagawa")
+    page = open_page(1366, height=625).page
+    card = style_radio(page, "The Great Wave off Kanagawa")
+    assert card.get_attribute("title").startswith("The Great Wave off Kanagawa")
+
+
+@pytest.mark.parametrize("width,height", [(1440, 900), (1920, 1080), (1280, 800)])
+def test_no_sliver_of_the_next_row_on_taller_screens(open_page, width, height):
+    page = open_page(width, height=height).page
+    style_radio(page, "The Starry Night").click()
+    page.wait_for_timeout(200)
+    cut = page.evaluate(GALLERY_CUT)
+    assert cut["peek"] is None or cut["peek"] <= 0 or cut["peek"] >= cut["peekMin"], f"a sliver shows: {cut}"
 
 
 def test_gallery_focus_stays_fully_visible_on_a_short_screen(open_page):

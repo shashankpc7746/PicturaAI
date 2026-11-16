@@ -362,6 +362,24 @@ function initMix() {
     store.set({ mix: Number(ratio.value) / 100 });
   });
   paintRange(ratio);
+  initRailFade($('#mix-rail'));
+}
+
+// The Mix rail fades out at its right edge while more thumbnails are to the right
+// (.has-more-right in app.css), like the gallery's "more below" fade.
+function initRailFade(rail) {
+  let raf = 0;
+  const update = () => {
+    raf = 0;
+    const more = rail.scrollWidth - rail.clientWidth - rail.scrollLeft > 2;
+    rail.classList.toggle('has-more-right', more);
+  };
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(update); };
+  rail.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(schedule).observe(rail);
+  new MutationObserver(schedule).observe(rail, { childList: true });
+  schedule();
 }
 
 // ── "More below" hint ────────────────────────────────────────────────────
@@ -371,34 +389,82 @@ function initMix() {
 // panel does not jump) and .is-scrolled-end drops the fade. On tablets and phones
 // the gallery is not a vertical scroller, so the hint stays hidden. Plain text in
 // reading order, not a live region: it is not announced as it changes.
+//
+// The cut at the bottom is deliberate: at rest the row under the fade shows at least
+// --peek-min of its thumbnails (app.css), or none of it. When the space the panel
+// leaves would show only a sliver, the scroller is trimmed to end at that row's top
+// (a max-height) and drops its fade there (.is-clean-cut); the hint line still says
+// there is more. The cut is measured on resize, not while scrolling.
 let scheduleHint = () => {};
+
+/** Rows of cards as [top, bottom] in the scroller's content (scrollTop 0) coordinates. */
+function cardRows(panel) {
+  const pr = panel.getBoundingClientRect();
+  const off = panel.scrollTop - pr.top - panel.clientTop;
+  const rows = [];
+  for (const c of $$('.style-card[role="radio"]', grid())) {
+    const r = c.getBoundingClientRect();
+    const top = r.top + off;
+    const row = rows.find((x) => Math.abs(x.top - top) < 2);
+    if (row) row.bottom = Math.max(row.bottom, r.bottom + off);
+    else rows.push({ top, bottom: r.bottom + off });
+  }
+  return rows.sort((a, b) => a.top - b.top);
+}
+
 function initScrollHint() {
   const panel = $('#panel-gallery');
   const hint = $('#gallery-hint');
   const text = $('#gallery-hint-text');
   if (!panel || !hint || !text) return;
   let raf = 0;
+  let measure = true;
+  let cleanCut = false;
+  const scrolls = () => !panel.hidden && getComputedStyle(panel).overflowY !== 'visible'
+    && panel.scrollHeight - panel.clientHeight > 4;
+  const cut = () => {
+    // Measure the height the panel's layout gives the scroller, untrimmed.
+    if (panel.style.maxHeight) panel.style.maxHeight = '';
+    cleanCut = false;
+    if (panel.hidden || !scrolls()) return;
+    const visible = panel.clientHeight;
+    const next = cardRows(panel).find((r) => r.bottom > visible + 1);
+    if (!next) return;
+    const peek = visible - next.top;
+    const min = parseFloat(getComputedStyle(panel).getPropertyValue('--peek-min')) || 24;
+    if (peek >= min) return;
+    cleanCut = true;
+    // min-height (app.css) still wins over this when the panel is crowded.
+    if (peek > 0) panel.style.maxHeight = `${Math.floor(panel.getBoundingClientRect().height - peek)}px`;
+  };
   const update = () => {
     raf = 0;
+    if (measure) { measure = false; cut(); }
     const count = $$('.style-card[role="radio"]', grid()).length;
     const overflow = panel.scrollHeight - panel.clientHeight;
-    const scrolls = !panel.hidden && count > 0 && overflow > 4
-      && getComputedStyle(panel).overflowY !== 'visible';
-    const atEnd = !scrolls || panel.scrollTop >= overflow - 4;
+    const scrolling = count > 0 && overflow > 4 && scrolls();
+    const atEnd = !scrolling || panel.scrollTop >= overflow - 4;
     panel.classList.toggle('is-scrolled-end', atEnd);
-    hint.hidden = !scrolls;
+    panel.classList.toggle('is-clean-cut', scrolling && cleanCut && panel.scrollTop < 1);
+    hint.hidden = !scrolling;
     hint.classList.toggle('is-done', atEnd);
     if (count) text.textContent = `${count} ${count === 1 ? 'painting' : 'paintings'}. Scroll for more.`;
   };
-  scheduleHint = () => { if (!raf) raf = requestAnimationFrame(update); };
-  panel.addEventListener('scroll', scheduleHint, { passive: true });
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(update); };
+  scheduleHint = () => { measure = true; schedule(); };
+  panel.addEventListener('scroll', schedule, { passive: true });
   if (typeof ResizeObserver === 'function') {
+    // The panel's own size changes with the screen and with what else is in the style
+    // panel (a tab, Mix, Download); the grid's with the cards.
     const ro = new ResizeObserver(scheduleHint);
     ro.observe(panel);
     ro.observe(grid());
-  } else {
-    window.addEventListener('resize', scheduleHint);
+    // A trimmed scroller keeps its size when room comes back (Mix closed); the
+    // style panel around it does not.
+    if ($('#style-panel')) ro.observe($('#style-panel'));
   }
+  window.addEventListener('resize', scheduleHint);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(scheduleHint);
   scheduleHint();
 }
 
