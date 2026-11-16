@@ -1,17 +1,9 @@
-// Banded convolutions for the TF.js WebGL backend.
-//
-// The style network runs large 'VALID' convolutions at full image size (a 9x9
-// conv over 32 channels at the output resolution, 3x3 convs over 128 channels in
-// the residual tower). TF.js lowers each to one im2col matrix + one matmul. At
-// 768-1024 px that matrix exceeds GPU texture limits ("Texture total allocation
-// size is too large", or a requested texture beyond MAX_TEXTURE_SIZE), and a
-// single huge draw can trip the OS GPU watchdog, which loses the WebGL context.
-//
-// This wraps the backend's Conv2D / FusedConv2D kernels: when the im2col matrix
-// would be large, the output is computed in horizontal bands (each band slices
-// the input rows it needs, convolves them with the original kernel, and the
-// bands are concatenated). Results are bit-identical for VALID padding; other
-// padding modes pass through unchanged.
+// Banded convolutions for the TF.js WebGL backend (docs/revamp/engine/ENGINE.md §3).
+// TF.js lowers each convolution to one im2col matrix + matmul; at 768-1024 px the
+// model's large 'VALID' convolutions exceed GPU texture limits, and one huge draw
+// can trip the OS GPU watchdog (lost context). When the im2col matrix would be
+// large, Conv2D / FusedConv2D are computed in horizontal bands instead (slice the
+// rows a band needs, convolve, concatenate): bit-identical for VALID padding.
 
 const DEFAULT_BAND_ELEMENTS = 1 << 23; // im2col elements per band (32 MB as float32)
 

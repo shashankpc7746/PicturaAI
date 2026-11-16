@@ -51,11 +51,6 @@ export async function listPaintings() {
   return all.sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function getPainting(id) {
-  const db = await open();
-  return req2p(db.transaction(STORE).objectStore(STORE).get(id));
-}
-
 export async function storageNote() {
   try {
     const { usage, quota } = await navigator.storage.estimate();

@@ -322,16 +322,6 @@ function unsharpInto(planes, w, h, radius, percent, threshold, od) {
   for (let j = 3; j < od.length; j += 4) od[j] = 255;
 }
 
-/** Pillow-exact UnsharpMask on an ImageData (exported for tests and reuse). */
-export function unsharpMask(imageData, { radius = 1.2, percent = 90, threshold = 2 } = {}) {
-  const w = imageData.width, h = imageData.height, n = w * h, d = imageData.data;
-  const planes = [new Uint8Array(n), new Uint8Array(n), new Uint8Array(n)];
-  for (let i = 0, j = 0; i < n; i++, j += 4) { planes[0][i] = d[j]; planes[1][i] = d[j + 1]; planes[2][i] = d[j + 2]; }
-  const out = makeImageData(w, h);
-  unsharpInto(planes, w, h, radius, percent, threshold, out.data);
-  return out;
-}
-
 // ── Palette transfer (port of color_palette_transfer) ───────────────────────
 
 function srgbToLin(v) { return v > 0.04045 ? Math.pow((v + 0.055) / 1.055, 2.4) : v / 12.92; }
