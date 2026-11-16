@@ -78,7 +78,10 @@
 }
 
 /* ── The frame ─────────────────────────────────────────────────────────── */
-.studio__frame { display: flex; justify-content: center; }
+/* The frame is height-capped (--frame-max-h), so on short screens or with portrait
+   photos it is narrower than its column. Hang it on the same left edge as the
+   intro text and the wall label instead of centring it. */
+.studio__frame { display: flex; justify-content: flex-start; }
 .frame {
   position: relative;
   width: min(100%, calc((var(--frame-max-h) - 2 * var(--chrome)) * var(--ar) + 2 * var(--chrome)));
