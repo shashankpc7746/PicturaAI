@@ -1,321 +1,125 @@
 <div align="center">
 
-<img src="frontend/assets/logo.png" alt="PicturaAI Logo" width="130" />
+<img src="frontend/assets/icon-192.png" alt="PicturaAI logo: a gilt frame" width="96">
 
-# 🎨 PicturaAI
+# PicturaAI
 
-### Neural Style Transfer Studio — turn any photo into living art
+Turn a photo into a painting in the style of Van Gogh, Hokusai, Klimt and other
+public-domain masters. Free, with no sign-up and no watermark.
 
-*Pictura* — Latin for "a painting." Upload a photo, choose or describe a style, and generate stylized artwork in a single flow.
-
-<br/>
-
-[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-PicturaAI-7c3aed?style=for-the-badge)](https://picturaai-k7q6.onrender.com/app)
-[![API Docs](https://img.shields.io/badge/API-Swagger_UI-009688?style=for-the-badge&logo=swagger&logoColor=white)](https://picturaai-k7q6.onrender.com/docs)
-
-<br/>
-
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat-square&logo=fastapi&logoColor=white)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-FF6F00?style=flat-square&logo=tensorflow&logoColor=white)
-![JavaScript](https://img.shields.io/badge/Vanilla_JS-222222?style=flat-square&logo=javascript&logoColor=F7DF1E)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
-![Render](https://img.shields.io/badge/Deployed_on-Render-46E3B7?style=flat-square&logo=render&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+**[Open the studio](https://picturaai-k7q6.onrender.com/app/)** ·
+[The collection](https://picturaai-k7q6.onrender.com/app/styles/) ·
+[API docs](https://picturaai-k7q6.onrender.com/docs)
 
 </div>
 
----
+*Pictura* is Latin for "a painting". PicturaAI is a small neural style transfer
+studio: your photo hangs in a gilt frame on a green museum wall, you pick a painting,
+and the photo is repainted in its style in a few seconds. On most computers and recent
+phones the painting is made **in your browser**, so the photo never leaves your device.
 
-## 📑 Table of Contents
-
-- [Overview](#-overview)
-- [Features](#-features)
-- [Live Demo](#-live-demo)
-- [Tech Stack](#-tech-stack)
-- [Architecture](#-architecture)
-- [Quick Start](#-quick-start-local)
-- [Deployment](#-deployment-render)
-- [API Reference](#-api-reference)
-- [Built-In Styles](#-built-in-styles)
-- [How It Works](#-how-it-works)
-- [Project Structure](#-project-structure)
-- [License](#-license)
-
----
-
-## 🌟 Overview
-
-PicturaAI is a full-stack Neural Style Transfer application built around **Google Magenta's arbitrary image stylization model**. It pairs a FastAPI backend with a vanilla HTML/CSS/JavaScript frontend and a quality-focused post-processing pipeline that produces stylized images in seconds while preserving the structure of the original photo.
-
-It's a complete interactive studio — not just a model demo. Upload custom styles, blend two styles, paint regional masks, transfer only the color palette, generate interpolation GIFs, revisit past results, or describe a style in plain text.
-
----
-
-## ✨ Features
-
-| Category | What's Included |
+| Desktop | Phone |
 |---|---|
-| 🖼️ **Transfer modes** | Standard NST · palette-only transfer · text-to-style preset matching |
-| 🎛️ **Creative controls** | Style mixing (blend two styles) · regional masking · style intensity slider |
-| 📦 **Output tools** | Before/after compare slider · download · interpolation GIF · history strip |
-| ⚡ **Runtime UX** | Synchronous generation · preset gallery · responsive dark UI |
+| ![The studio on a desktop: a dog photo painted in the style of The Starry Night, with the painting picker beside the frame](docs/revamp/after/pages/studio-1440.jpg) | ![The studio on a phone, with the result in the frame and a Download button in the bottom bar](docs/revamp/after/pages/studio-390.jpg) |
 
-<details>
-<summary><b>📝 Feature details (click to expand)</b></summary>
+![A style page: The Kiss by Gustav Klimt hung in a frame with its wall label](docs/revamp/after/pages/1440-styles-klimt-the-kiss.jpg)
 
-- **Standard NST** — fast single-pass stylization via Magenta's pretrained model
-- **Style Mixing** — blend two styles A/B with an adjustable ratio
-- **Regional Masking** — paint exactly where the style should apply
-- **Color Palette Transfer** — LAB-space color matching, no texture change
-- **Text-to-Style** — type "watercolor portrait" and it picks the closest preset
-- **Interpolation GIF** — animate the style sweeping from 0% → 100%
-- **Before/After Slider** — drag to compare original vs styled
-- **Generation History** — revisit and re-download the last 10 results
+## Features
 
-</details>
+- **14 public-domain paintings** from 1495 to 1913, each with its own page
+  ([the collection](https://picturaai-k7q6.onrender.com/app/styles/)). Sources and
+  licences: [credits](https://picturaai-k7q6.onrender.com/app/credits.html) and
+  [`docs/revamp/presets/README.md`](docs/revamp/presets/README.md).
+- **Your painting**: use any painting you have the right to use as the style.
+- **Describe it**: type a style in words. With Cloudflare Workers AI configured, a
+  style image is generated; otherwise the closest painting in the collection is used.
+- **Live intensity**: the slider changes the picture instantly, without a new request.
+- **Colours only**: take just the painting's palette (LAB colour matching).
+- **Paint a region**: brush where the style goes, or one tap on "Style the subject" /
+  "Style the background" (on-device segmentation).
+- **Mix two styles** with an adjustable share.
+- **Before/after** handle on the frame, **downloads** (full size, Instagram, A4 print),
+  **Share**, and **Animate** (a 0 to 100% reveal video, recorded in the browser).
+- **My gallery**: save paintings in the browser (IndexedDB, this device only).
+- No accounts, no cookies, no tracking. See the
+  [privacy page](https://picturaai-k7q6.onrender.com/app/privacy.html).
 
----
+## How it works
 
-## 🚀 Live Demo
+Both engines run the same model: Google Magenta's
+[arbitrary-image-stylization-v1-256](https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2)
+(one forward pass, no training).
 
-> **[👉 Try PicturaAI live](https://picturaai-k7q6.onrender.com/app)**
+- **On your device** (default when WebGL 2 is available): the model, converted to
+  TensorFlow.js with uint8 weights, runs in the browser. Preset styles ship as
+  precomputed style vectors, so a first visit downloads about 8 MB; later visits use
+  the browser cache. Details and measurements:
+  [`docs/revamp/engine/ENGINE.md`](docs/revamp/engine/ENGINE.md).
+- **On the server** (fallback): `POST /api/transfer` with `output=raw` returns the raw
+  stylisation from TensorFlow, and the browser does the same compositing
+  (intensity blend, detail, mask, sharpening) as the server's `run_nst`.
 
-⚠️ Hosted on Render's **free tier**, so the first request after inactivity takes **~30–60s** to wake the server and load the model. After that, each transfer takes ~10–15s.
-
----
-
-## 🛠 Tech Stack
-
-| Layer | Technology |
+| Part | Stack |
 |---|---|
-| **Backend** | FastAPI · Uvicorn · Python 3.10 |
-| **ML Model** | Google Magenta Arbitrary Image Stylization (TensorFlow Hub) |
-| **Image Pipeline** | TensorFlow · NumPy · Pillow |
-| **Frontend** | Vanilla HTML / CSS / JavaScript (no framework) |
-| **Deployment** | Docker · Render |
+| Frontend | Plain HTML, CSS and native ES modules, no framework or build step (`frontend/`) |
+| Backend | Python 3.12, FastAPI, Uvicorn, slowapi rate limits (`backend/`) |
+| ML | TensorFlow 2.20 on the server, TensorFlow.js 4.22 and MediaPipe Tasks Vision in the browser |
+| Hosting | Docker on Render's free tier (512 MB RAM) |
 
----
-
-## 🏗 Architecture
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                        Browser (SPA)                          │
-│   index.html · app.js · style.css  →  served at /app          │
-└───────────────────────────────┬───────────────────────────────┘
-                                │  HTTP (multipart upload)
-                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Backend (main.py)                  │
-│   • Routes / validation / style presets                       │
-│   • Synchronous transfer (free-tier memory-safe)              │
-└───────────────────────────────┬───────────────────────────────┘
-                                │  run_in_executor
-                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  NST Engine (nst_engine.py)                   │
-│   Preprocess → Magenta forward pass → luminance blend →       │
-│   detail reinjection → sharpening → JPEG out                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## ⚡ Quick Start (Local)
-
-### Prerequisites
-
-- Python 3.10+
-- 4 GB RAM
-- Internet connection (first run downloads the TF Hub model, ~90 MB)
-
-### Setup
+## Run locally
 
 ```bash
-git clone https://github.com/shashankpc7746/PicturaAI.git
-cd PicturaAI
 python -m venv venv
-
-# Windows
-venv\Scripts\pip install -r backend\requirements.txt
-
-# macOS / Linux
-venv/bin/pip install -r backend/requirements.txt
+venv\Scripts\pip install -r backend\requirements.txt     # macOS/Linux: venv/bin/pip
+python run.py                                            # http://localhost:8000/app
 ```
 
-### Run
+The first run downloads the model (about 90 MB) into `.tfhub_cache/`. Add
+`?engine=server` to the studio URL to force the server engine. No secrets are needed.
+
+Configuration is through environment variables, all optional with safe defaults
+(image size limits, rate limits, `PUBLIC_SITE_URL`, optional Workers AI, Sentry and
+Cloudflare Web Analytics). They are listed in [`CLAUDE.md`](CLAUDE.md#environment-variables-all-optional-defaults-in-code)
+and declared in [`render.yaml`](render.yaml).
+
+## Static pages
+
+The collection, the 14 style pages and the credits page are generated from
+[`data/styles.json`](data/styles.json) and
+[`scripts/style_notes.json`](scripts/style_notes.json):
 
 ```bash
-python run.py
+venv\Scripts\python scripts\build_pages.py           # write frontend/styles/**, credits.html, 404.html
+venv\Scripts\python scripts\build_pages.py --check   # fail if a generated page is out of date
 ```
 
-Open **http://localhost:8000/app** 🎉
+`privacy.html` and `terms.html` are written by hand between their `page-content`
+markers; the script keeps their header, footer and meta tags in step with the rest.
 
-The first request downloads and caches the model. Subsequent starts are instant.
-
----
-
-## ☁️ Deployment (Render)
-
-Render is the recommended host — it supports Docker, persistent storage, and the memory TensorFlow needs.
-
-### One-Click via Blueprint
-
-1. Push this repo to GitHub.
-2. Go to **[render.com](https://render.com)** → **New → Blueprint**.
-3. Connect the repo — Render auto-detects [`render.yaml`](render.yaml).
-4. Click **Apply**. Done.
-
-### Manual Setup
-
-| Setting | Value |
-|---|---|
-| Environment | Docker |
-| Plan | Free (512 MB) |
-| Health Check Path | `/api/styles` |
-| Branch | `main` |
-
-### 🧠 Free-Tier Memory Notes
-
-TensorFlow is heavy. To fit inference within the **512 MB** free tier, the app:
-
-- Runs the model at **320px** (`NST_MAX_DIM`)
-- Limits TF to a single thread + `MALLOC_ARENA_MAX=2`
-- Runs transfers **synchronously** (so a result is never lost to a restart)
-- Forces garbage collection after each job
-
-> 💡 **Want higher quality?** Upgrade to Render's Starter plan, then bump `NST_MAX_DIM` / `NST_OUTPUT_DIM` to `512` or `768` via env vars — no code changes needed.
-
-<details>
-<summary><b>⚙️ Tunable environment variables</b></summary>
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `NST_MAX_DIM` | `320` | Model inference resolution (memory-critical) |
-| `NST_OUTPUT_DIM` | `320` | Final output resolution |
-| `MALLOC_ARENA_MAX` | `2` | Limits glibc memory arenas |
-| `TF_NUM_INTRAOP_THREADS` | `1` | TF compute threads |
-| `TF_NUM_INTEROP_THREADS` | `1` | TF op-scheduling threads |
-| `TFHUB_CACHE_DIR` | `/app/.tfhub_cache` | Pre-cached model location |
-
-</details>
-
-### Why Render over Vercel?
-
-| Concern | Render | Vercel |
-|---|:---:|:---:|
-| Long-running inference | ✅ | ❌ (10s timeout) |
-| TensorFlow + large model | ✅ | ❌ (250 MB limit) |
-| Docker deployment | ✅ | ❌ |
-| Persistent filesystem | ✅ | ❌ |
-
-Vercel is excellent for static sites and edge functions, but PicturaAI needs a real long-lived server with enough memory for TensorFlow.
-
----
-
-## 📡 API Reference
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/` | Redirects to the studio |
-| `GET` | `/app` | Frontend studio |
-| `GET` | `/api/styles` | Built-in styles with thumbnails |
-| `POST` | `/api/transfer` | Run a style transfer (returns result) |
-| `GET` | `/api/result/{job_id}` | Download result JPEG |
-| `POST` | `/api/interpolate` | Generate interpolation GIF |
-| `POST` | `/api/palette-transfer` | Color-palette-only transfer |
-| `GET` | `/docs` | Swagger UI |
-
-<details>
-<summary><b>📤 Transfer request fields</b></summary>
-
-- `content_image` — your photo (**required**)
-- `style_image` **or** `style_preset` **or** `text_prompt` — the style source
-- `style_weight` — intensity, `0.0`–`1.0`
-- `style_image_2` / `style_preset_2` — optional second style for mixing
-- `style_mix_ratio` — blend ratio between two styles
-- `mask_image` — optional regional mask (white = apply style)
-
-</details>
+## Tests
 
 ```bash
-# Example: preset-based transfer
-curl -X POST https://picturaai-k7q6.onrender.com/api/transfer \
-  -F "content_image=@photo.jpg" \
-  -F "style_preset=starry_night" \
-  -F "style_weight=0.75"
+venv\Scripts\python -m pytest backend/tests                        # API, catalogue, site config
+venv\Scripts\python docs\revamp\engine\parity\composite_parity.py  # browser compositor vs run_nst (needs Node 18+)
+venv\Scripts\python scripts\build_pages.py --check                  # generated pages up to date
 ```
 
----
+## Deployment
 
-## 🖌 Built-In Styles
+Render reads [`render.yaml`](render.yaml) and builds the [`Dockerfile`](Dockerfile),
+which pre-downloads the model and runs `python backend/main.py` as a non-root user.
+Pushing to `main` deploys. The free instance sleeps when idle, so the first request
+after a while takes longer; the studio shows a waiting state meanwhile. Optional
+secrets (Cloudflare, Sentry) go in the Render dashboard, never in the repository.
 
-| Style | Artist | Character |
-|---|---|---|
-| Starry Night | Van Gogh | Swirling cosmic energy |
-| The Scream | Munch | Expressive dramatic curves |
-| The Great Wave | Hokusai | Japanese woodblock print |
-| La Muse | Picasso | Cubist geometry |
-| Rain Princess | Afremov | Warm rainy reflections |
-| Udnie | Picabia | Abstract dynamic motion |
-| The Shipwreck | Turner | Stormy seascape |
-| Aquarelle | — | Soft watercolor wash |
-| Chinese Ink | Traditional | Brush and ink minimalism |
-| Space | Digital | Cosmic nebula textures |
-| Hampson | Illustration | Bold graphic style |
-| Mountain | Nature | Rugged landscape |
-| Paris | Photography | Urban atmosphere |
+## Credits and licences
 
----
+- Code: [MIT](LICENSE).
+- Paintings: public domain (one, *Improvisation 27*, released as CC0 by the
+  Metropolitan Museum of Art). Sample photos: CC0. Full list on the
+  [credits page](https://picturaai-k7q6.onrender.com/app/credits.html).
+- Magenta style model, DeepLab-v3, TensorFlow, TensorFlow.js and MediaPipe:
+  Apache-2.0 (licence files in [`frontend/models/`](frontend/models)).
+- Fonts: Libre Caslon Display and Schibsted Grotesk, SIL Open Font License 1.1.
 
-## 🔬 How It Works
-
-1. **Upload** a content photo and pick / describe a style.
-2. **Preprocess** — content resized for efficient inference, style resized to 256×256.
-3. **Stylize** — one forward pass through Magenta's model (no slow iterative optimization).
-4. **Enhance** — luminance-preserving blend keeps your subject sharp; high-frequency details are reinjected from the original.
-5. **Finalize** — adaptive sharpening, JPEG export, result returned to the browser.
-
----
-
-## 📂 Project Structure
-
-```text
-PicturaAI/
-├── backend/
-│   ├── main.py              # FastAPI app, routes, transfer pipeline
-│   ├── nst_engine.py        # TF Hub model + image pipeline
-│   └── requirements.txt     # Python dependencies
-├── frontend/
-│   ├── index.html           # Single-page studio UI
-│   └── assets/              # app.js, style.css, logo, favicons
-├── images/
-│   └── style_image/         # 13 built-in style presets
-├── Dockerfile               # Production container
-├── render.yaml              # Render deploy blueprint
-└── run.py                   # Local dev launcher
-```
-
----
-
-## 🧑‍💻 Development
-
-```bash
-# Run with auto-reload
-cd backend
-../venv/Scripts/python -m uvicorn main:app --reload
-
-# API docs at http://localhost:8000/docs
-```
-
----
-
-## 📄 License
-
-[MIT](LICENSE) © 2026 Shashank
-
-<div align="center">
-<br/>
-Made with 🎨 and TensorFlow · <a href="https://picturaai-k7q6.onrender.com/app">Try it live</a>
-</div>
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
