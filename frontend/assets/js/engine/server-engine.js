@@ -110,6 +110,9 @@ export function createServerEngine(options = {}) {
     form.append('output', 'raw');
     form.append('intensity', '1');
 
+    // fetch() has no upload-complete event. The photo is small (<= 1024 px JPEG), so
+    // after a second the wait is the server painting (or waking up), not the upload.
+    const paintTimer = onProgress ? setTimeout(() => onProgress({ loaded: 0, total: 1, phase: 'paint' }), 1000) : 0;
     let res;
     try {
       res = await doFetch(endpoint, { method: 'POST', body: form, signal });
@@ -118,6 +121,8 @@ export function createServerEngine(options = {}) {
       throw new EngineError(typeof navigator !== 'undefined' && navigator.onLine === false
         ? 'You appear to be offline. Check your connection and try again.'
         : 'Could not reach the server. It may be waking up; please try again in a minute.', 'SERVER_UNAVAILABLE', e);
+    } finally {
+      clearTimeout(paintTimer);
     }
     if (!res.ok) throw await errorFromResponse(res);
     if (onProgress) onProgress({ loaded: 0, total: 1, phase: 'paint' });
