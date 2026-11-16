@@ -650,10 +650,18 @@ function initDownloadMenu() {
     const b = bar.getBoundingClientRect();
     return b.height && b.top < innerHeight ? b.top : innerHeight;
   }
-  // The band of the screen where the trigger can be seen: inside every ancestor
-  // that clips (the style panel scrolls on its own) and above the action bar.
+  // Bottom of the sticky header (0 where it scrolls away: a phone held sideways).
+  const header = $('.site-header');
+  function headerBottom() {
+    if (!header) return 0;
+    const pos = getComputedStyle(header).position;
+    return pos === 'sticky' || pos === 'fixed' ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  }
+  // The band of the screen where the trigger can be seen: below the sticky header,
+  // inside every ancestor that clips (the style panel scrolls on its own) and above
+  // the action bar.
   function visibleBand(el) {
-    let top = 0;
+    let top = el.closest('#action-bar') ? 0 : headerBottom();
     let bottom = el.closest('#action-bar') ? innerHeight : barTop();
     for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
       if (getComputedStyle(p).overflowY === 'visible') continue;
@@ -709,7 +717,10 @@ function initDownloadMenu() {
       if (menu.hidden || !trigger) return;
       const r = trigger.getBoundingClientRect();
       const band = visibleBand(trigger);
-      if (!r.height || r.bottom <= band.top || r.top >= band.bottom) close('keep');
+      // Close once most of the trigger is out of sight (under the header, scrolled
+      // out of the panel or behind the bar): a sliver is not something to hang from.
+      const seen = Math.min(r.bottom, band.bottom) - Math.max(r.top, band.top);
+      if (!r.height || seen < r.height / 2) close('keep');
       else place();
     });
   }
