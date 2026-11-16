@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/sloop_nassau-512.jpg">
   <meta name="twitter:image:alt" content="Sloop, Nassau by Winslow Homer, 1899">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">Sloop, Nassau</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/sloop_nassau-512.jpg" alt="Sloop, Nassau by Winslow Homer, 1899" width="512" height="357" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/sloop_nassau-512.jpg" srcset="/app/assets/styles/sloop_nassau-512.jpg 512w, /app/assets/styles/sloop_nassau-1024.webp 1024w" sizes="(max-width: 580px) calc(100vw - 68px), 512px" alt="Sloop, Nassau by Winslow Homer, 1899" width="512" height="357" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">Sloop, Nassau</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Winslow Homer, Sloop, Nassau, 1899. Metropolitan Museum of Art, New York. <a href="https://commons.wikimedia.org/wiki/File:Winslow_Homer_-_Sloop,_Nassau_(1899).jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Winslow Homer painted Sloop, Nassau during a winter trip to the Bahamas in 1898 and 1899. A small sailing boat leans in a fresh wind on a choppy turquoise sea under grey clouds. The Metropolitan Museum of Art bought it in 1910, the year Homer died.</p>
+          <p>Homer was one of the great American watercolourists. Here he works fast and wet: transparent washes for the sea and sky, the white of the paper left bare for the sails and the foam, and a few darker strokes for the hull and the waves.</p>
+          <h2>How it looks on your photo</h2>
+          <p>The model gives photos a soft, washed look in teal, grey and white, and dissolves fine detail into broad, watery areas. It suits seascapes, skies and calm landscapes. It is a gentle style, so try it at full intensity.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Winslow Homer painted Sloop, Nassau during a winter trip to the Bahamas in 1898 and 1899. A small sailing boat leans in a fresh wind on a choppy turquoise sea under grey clouds. The Metropolitan Museum of Art bought it in 1910, the year Homer died.</p>
-        <p>Homer was one of the great American watercolourists. Here he works fast and wet: transparent washes for the sea and sky, the white of the paper left bare for the sails and the foam, and a few darker strokes for the hull and the waves.</p>
-        <h2>How it looks on your photo</h2>
-        <p>The model gives photos a soft, washed look in teal, grey and white, and dissolves fine detail into broad, watery areas. It suits seascapes, skies and calm landscapes. It is a gentle style, so try it at full intensity.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

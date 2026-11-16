@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/starry_night-512.jpg">
   <meta name="twitter:image:alt" content="The Starry Night by Vincent van Gogh, 1889">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">The Starry Night</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/starry_night-512.jpg" alt="The Starry Night by Vincent van Gogh, 1889" width="512" height="405" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/starry_night-512.jpg" srcset="/app/assets/styles/starry_night-512.jpg 512w, /app/assets/styles/starry_night-1024.webp 1024w" sizes="(max-width: 580px) calc(100vw - 68px), 512px" alt="The Starry Night by Vincent van Gogh, 1889" width="512" height="405" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">The Starry Night</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Vincent van Gogh, The Starry Night, 1889. Museum of Modern Art, New York. <a href="https://commons.wikimedia.org/wiki/File:Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Van Gogh painted The Starry Night in June 1889 at the asylum of Saint-Paul-de-Mausole in Saint-Rémy-de-Provence, where he had admitted himself after a breakdown. The view is the one from his east-facing window before sunrise, but the village is largely invented and the cypress is pulled up close so that it rises like a flame against the sky.</p>
+          <p>Everything is made of short, loaded strokes laid side by side: ultramarine and cobalt in the sky, chrome yellow in the stars and moon, and the large spiral at the centre that gives the painting its movement. The Museum of Modern Art in New York acquired it in 1941.</p>
+          <h2>How it looks on your photo</h2>
+          <p>The model takes the dark blue and the yellow highlights, and turns flat areas such as skies and water into curving strokes. Landscapes and night scenes work best. On close-up faces the effect can be heavy, so try an intensity around 50 to 60%.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Van Gogh painted The Starry Night in June 1889 at the asylum of Saint-Paul-de-Mausole in Saint-Rémy-de-Provence, where he had admitted himself after a breakdown. The view is the one from his east-facing window before sunrise, but the village is largely invented and the cypress is pulled up close so that it rises like a flame against the sky.</p>
-        <p>Everything is made of short, loaded strokes laid side by side: ultramarine and cobalt in the sky, chrome yellow in the stars and moon, and the large spiral at the centre that gives the painting its movement. The Museum of Modern Art in New York acquired it in 1941.</p>
-        <h2>How it looks on your photo</h2>
-        <p>The model takes the dark blue and the yellow highlights, and turns flat areas such as skies and water into curving strokes. Landscapes and night scenes work best. On close-up faces the effect can be heavy, so try an intensity around 50 to 60%.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

@@ -171,18 +171,9 @@ class PageWatch:
             return []
 
 
-def _stub_fonts(context: BrowserContext) -> None:
-    """With E2E_OFFLINE=1, Google Fonts answer with an empty stylesheet.
-
-    Off by default: the layout checks (overflow at 360 px) should measure the real
-    fonts, not the platform's fallback. CSP is enforced before the request is routed,
-    so a blocked font host would still show as a violation.
-    """
-    if os.environ.get("E2E_OFFLINE") != "1":
-        return
-    context.route("https://fonts.googleapis.com/**",
-                  lambda r: r.fulfill(status=200, content_type="text/css", body="/* stub */"))
-    context.route("https://fonts.gstatic.com/**", lambda r: r.fulfill(status=204, body=""))
+# The fonts are self-hosted under /app/assets/fonts/, so the suite needs no internet
+# for them and the layout checks always measure the real typefaces
+# (test_assets.py checks that no page asks Google Fonts).
 
 
 @pytest.fixture
@@ -199,7 +190,6 @@ def open_page(chromium: Browser, server_url: str) -> Iterator[Callable[..., Page
             accept_downloads=True, **ctx_opts,
         )
         contexts.append(ctx)
-        _stub_fonts(ctx)
         ctx.add_init_script(CSP_LISTENER)
         page = ctx.new_page()
         page.set_default_timeout(30_000)

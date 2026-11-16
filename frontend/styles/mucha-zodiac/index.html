@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/zodiac-512.jpg">
   <meta name="twitter:image:alt" content="Zodiac by Alphonse Mucha, 1896">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">Zodiac</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/zodiac-512.jpg" alt="Zodiac by Alphonse Mucha, 1896" width="374" height="512" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/zodiac-512.jpg" srcset="/app/assets/styles/zodiac-512.jpg 374w, /app/assets/styles/zodiac-1024.webp 748w" sizes="(max-width: 442px) calc(100vw - 68px), 374px" alt="Zodiac by Alphonse Mucha, 1896" width="374" height="512" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">Zodiac</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Alphonse Mucha, Zodiac, 1896. Colour lithograph. <a href="https://commons.wikimedia.org/wiki/File:Alphonse_Mucha_-_Zodiac,_1869.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Mucha designed Zodiac in 1896 as a calendar for the Paris printer F. Champenois, and the magazine La Plume also issued it. A woman in profile wears an elaborate jewelled headdress, framed by a halo carrying the signs of the zodiac. It was printed as a colour lithograph, one stone per colour.</p>
+          <p>This is Art Nouveau at its most typical: flowing hair, a firm outline around every shape, flat areas of soft colour and dense ornament around the edges. Mucha&#x27;s posters for Sarah Bernhardt had made him famous in Paris, and the look became so tied to him that people called it the Mucha style.</p>
+          <h2>How it looks on your photo</h2>
+          <p>A warm style. Photos turn peach, terracotta and soft gold, with a light texture and slightly firmer edges. It flatters portraits and suits warm scenes. Cool colours such as sky blue are replaced by warm ones.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Mucha designed Zodiac in 1896 as a calendar for the Paris printer F. Champenois, and the magazine La Plume also issued it. A woman in profile wears an elaborate jewelled headdress, framed by a halo carrying the signs of the zodiac. It was printed as a colour lithograph, one stone per colour.</p>
-        <p>This is Art Nouveau at its most typical: flowing hair, a firm outline around every shape, flat areas of soft colour and dense ornament around the edges. Mucha&#x27;s posters for Sarah Bernhardt had made him famous in Paris, and the look became so tied to him that people called it the Mucha style.</p>
-        <h2>How it looks on your photo</h2>
-        <p>A warm style. Photos turn peach, terracotta and soft gold, with a light texture and slightly firmer edges. It flatters portraits and suits warm scenes. Cool colours such as sky blue are replaced by warm ones.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

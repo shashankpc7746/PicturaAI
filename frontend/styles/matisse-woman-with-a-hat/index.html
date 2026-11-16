@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/woman_with_a_hat-512.jpg">
   <meta name="twitter:image:alt" content="Woman with a Hat by Henri Matisse, 1905">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">Woman with a Hat</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/woman_with_a_hat-512.jpg" alt="Woman with a Hat by Henri Matisse, 1905" width="376" height="512" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/woman_with_a_hat-512.jpg" srcset="/app/assets/styles/woman_with_a_hat-512.jpg 376w, /app/assets/styles/woman_with_a_hat-1024.webp 752w" sizes="(max-width: 444px) calc(100vw - 68px), 376px" alt="Woman with a Hat by Henri Matisse, 1905" width="376" height="512" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">Woman with a Hat</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Henri Matisse, Woman with a Hat, 1905. San Francisco Museum of Modern Art. <a href="https://commons.wikimedia.org/wiki/File:Matisse-Woman-with-a-Hat.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Woman with a Hat is a portrait of Matisse&#x27;s wife, Amélie. He showed it at the Salon d&#x27;Automne in Paris in 1905, in the room that the critic Louis Vauxcelles mocked as a cage of fauves, wild beasts. The name stuck, and Fauvism became the first major art movement of the new century.</p>
+          <p>The scandal was the colour. Green and violet shadows run across the face, the background is a patchwork of teal, pink and orange, and nothing is blended. Leo and Gertrude Stein bought the painting from the exhibition. It is now in the San Francisco Museum of Modern Art.</p>
+          <h2>How it looks on your photo</h2>
+          <p>Photos break into patches of teal, green, orange and violet, with darker outlines around shapes. Portraits and street scenes respond well. The colour is deliberately unnatural, so skin tones change a lot at full intensity.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Woman with a Hat is a portrait of Matisse&#x27;s wife, Amélie. He showed it at the Salon d&#x27;Automne in Paris in 1905, in the room that the critic Louis Vauxcelles mocked as a cage of fauves, wild beasts. The name stuck, and Fauvism became the first major art movement of the new century.</p>
-        <p>The scandal was the colour. Green and violet shadows run across the face, the background is a patchwork of teal, pink and orange, and nothing is blended. Leo and Gertrude Stein bought the painting from the exhibition. It is now in the San Francisco Museum of Modern Art.</p>
-        <h2>How it looks on your photo</h2>
-        <p>Photos break into patches of teal, green, orange and violet, with darker outlines around shapes. Portraits and street scenes respond well. The colour is deliberately unnatural, so skin tones change a lot at full intensity.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/splashed_ink-512.jpg">
   <meta name="twitter:image:alt" content="Splashed-Ink Landscape by Sesshū Tōyō, 1495">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">Splashed-Ink Landscape</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/splashed_ink-512.jpg" alt="Splashed-Ink Landscape by Sesshū Tōyō, 1495" width="331" height="512" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/splashed_ink-512.jpg" srcset="/app/assets/styles/splashed_ink-512.jpg 331w, /app/assets/styles/splashed_ink-1024.webp 662w" sizes="(max-width: 399px) calc(100vw - 68px), 331px" alt="Splashed-Ink Landscape by Sesshū Tōyō, 1495" width="331" height="512" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">Splashed-Ink Landscape</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Sesshū Tōyō, Splashed-Ink Landscape, 1495. Tokyo National Museum. <a href="https://commons.wikimedia.org/wiki/File:Sesshu_-_Haboku-Sansui.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Sesshū Tōyō, a Zen monk and the most celebrated Japanese ink painter of his time, painted this landscape in 1495 for his pupil Josui Sōen as a sign that his training was complete. Above the picture, Sesshū wrote about his own studies in China, and six Zen monks added poems. It is a National Treasure of Japan, in the Tokyo National Museum.</p>
+          <p>The technique is haboku, splashed or broken ink. Mountains, trees and a village are suggested with a few quick, wet washes and dark accents of ink, and the empty paper becomes mist. The whole scene is built from what is left out.</p>
+          <h2>How it looks on your photo</h2>
+          <p>The only monochrome style here. Photos lose their colour and turn into soft grey and sepia washes with dark accents, like ink on old paper. It works well for landscapes, fog and architecture, and for portraits with a quiet mood.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Sesshū Tōyō, a Zen monk and the most celebrated Japanese ink painter of his time, painted this landscape in 1495 for his pupil Josui Sōen as a sign that his training was complete. Above the picture, Sesshū wrote about his own studies in China, and six Zen monks added poems. It is a National Treasure of Japan, in the Tokyo National Museum.</p>
-        <p>The technique is haboku, splashed or broken ink. Mountains, trees and a village are suggested with a few quick, wet washes and dark accents of ink, and the empty paper becomes mist. The whole scene is built from what is left out.</p>
-        <h2>How it looks on your photo</h2>
-        <p>The only monochrome style here. Photos lose their colour and turn into soft grey and sepia washes with dark accents, like ink on old paper. It works well for landscapes, fog and architecture, and for portraits with a quiet mood.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

@@ -44,8 +44,10 @@ SAMPLES_JSON = FRONTEND / "assets" / "samples" / "credits.json"
 DEFAULT_SITE_URL = "https://picturaai-k7q6.onrender.com"
 GITHUB_URL = "https://github.com/shashankpc7746/PicturaAI"
 PRESETS_DOC_URL = f"{GITHUB_URL}/blob/main/docs/revamp/presets/README.md"
-FONTS_CSS = ("https://fonts.googleapis.com/css2?family=Libre+Caslon+Display"
-             "&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap")
+# The fonts are self-hosted (frontend/assets/fonts/README.md; @font-face in tokens.css,
+# font-display: swap). These pages do not preload them: on a slow connection the
+# preloads took bandwidth from the hero painting (the LCP image), measured +550 ms LCP
+# on Slow 4G for a style page, while the fonts arrived only ~0.7 s sooner.
 RELATED_COUNT = 4
 
 LICENSE_URLS = {
@@ -274,11 +276,9 @@ def render(page: Page, site: str) -> str:
   <meta name="twitter:image" content="{e(site + app_url(page.og_image))}">
   <meta name="twitter:image:alt" content="{e(page.og_image_alt)}">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="{e(FONTS_CSS)}">
 {css_links}
-  <script type="module" src="/app/assets/js/page.js"></script>{ld}
+  <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">{ld}
 </head>
 <body>
   <a class="skip-link" href="#content">Skip to the content</a>
@@ -394,12 +394,14 @@ def style_page(s: Style, styles: List[Style], site: str) -> Page:
     lic_url = license_url(s.license)
     lic = (f'<a href="{e(lic_url)}" rel="license noopener">{e(s.license)}</a>' if lic_url else e(s.license))
 
-    prose = ["      <article class=\"prose\">", "        <h2>About the painting</h2>"]
-    prose += [f"        <p>{e(p)}</p>" for p in about]
+    # The notes sit inside .artwork so pages.css can hang them beside the painting on
+    # wide screens (under the wall label) and below it on narrower ones.
+    prose = ["        <article class=\"prose artwork__notes\">", "          <h2>About the painting</h2>"]
+    prose += [f"          <p>{e(p)}</p>" for p in about]
     if look:
-        prose.append("        <h2>How it looks on your photo</h2>")
-        prose += [f"        <p>{e(p)}</p>" for p in look]
-    prose.append("      </article>")
+        prose.append("          <h2>How it looks on your photo</h2>")
+        prose += [f"          <p>{e(p)}</p>" for p in look]
+    prose.append("        </article>")
 
     rel_items = []
     for r in related_styles(s, styles):
@@ -428,10 +430,10 @@ def style_page(s: Style, styles: List[Style], site: str) -> Page:
           </a>
           <p class="artwork__credit">{e(s.credit)} <a href="{e(s.source_url)}" rel="noopener">Source on Wikimedia Commons</a>. Licence: {lic}.</p>
         </div>
-      </section>
 """
         + "\n".join(prose) + "\n"
-        + """      <section class="page__inner" aria-labelledby="related-title">
+        + """      </section>
+      <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">
 """
@@ -587,9 +589,9 @@ SOFTWARE = (
 
 FONTS = (
     ("Libre Caslon Display", "Pablo Impallari", "https://fonts.google.com/specimen/Libre+Caslon+Display",
-     "Titles and painting names."),
+     "/app/assets/fonts/libre-caslon-display/OFL.txt", "Titles and painting names."),
     ("Schibsted Grotesk", "Bakken & Bæck for Schibsted", "https://fonts.google.com/specimen/Schibsted+Grotesk",
-     "Everything else."),
+     "/app/assets/fonts/schibsted-grotesk/OFL.txt", "Everything else."),
 )
 
 
@@ -623,10 +625,13 @@ def credits_page(styles: List[Style], site: str) -> Page:
             f'          <li><a href="{e(url)}" rel="noopener">{e(name)}</a>, {e(author)}. {e(what)} Licence: {lic_html}.</li>'
         )
     fonts = []
-    for name, author, url, what in FONTS:
+    for name, author, url, lic_file, what in FONTS:
+        if not served_file(lic_file):
+            raise SystemExit(f"build_pages: font licence {lic_file} is missing")
         fonts.append(
             f'          <li><a href="{e(url)}" rel="noopener">{e(name)}</a> by {e(author)}. {e(what)} '
-            f'Licence: SIL Open Font License 1.1. Served by Google Fonts.</li>'
+            f'Licence: <a href="{e(lic_file)}">SIL Open Font License 1.1</a>. '
+            f'Served from our own server; the files come from Google Fonts.</li>'
         )
 
     body = (
@@ -688,8 +693,8 @@ CONTENT_END = "<!-- page-content:end -->"
 
 HAND_PAGES = (
     ("privacy.html", "privacy", "Privacy | PicturaAI",
-     "What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our "
-     "server and deleted after about an hour. No accounts, no cookies, no tracking."),
+     "How PicturaAI handles your photos: painted on your device when it can, otherwise on our "
+     "server, which keeps no copy. No accounts, no cookies, no tracking."),
     ("terms.html", "terms", "Terms | PicturaAI",
      "The short terms for using PicturaAI: a free service with no warranty. Your photos stay yours; "
      "only upload what you have the right to use."),

@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/the_scream-512.jpg">
   <meta name="twitter:image:alt" content="The Scream by Edvard Munch, 1893">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">The Scream</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/the_scream-512.jpg" alt="The Scream by Edvard Munch, 1893" width="412" height="512" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/the_scream-512.jpg" srcset="/app/assets/styles/the_scream-512.jpg 412w, /app/assets/styles/the_scream-1024.webp 824w" sizes="(max-width: 480px) calc(100vw - 68px), 412px" alt="The Scream by Edvard Munch, 1893" width="412" height="512" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">The Scream</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Edvard Munch, The Scream, 1893. National Museum, Oslo. <a href="https://commons.wikimedia.org/wiki/File:Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Munch made several versions of The Scream: two paintings, two pastels and a lithograph. This is the first painted version of 1893, in oil, tempera and pastel on cardboard, now in the National Museum in Oslo. He described the moment behind it in his notebook: walking on a road above the Oslofjord at sunset, the sky turning blood red, and sensing a great scream passing through nature.</p>
+          <p>The figure is reduced to a skull-like head and hands. The fjord, the sky and the figure are all drawn with the same long, wavering bands, while the straight diagonal of the railing cuts across them. Colour is used for feeling rather than description, which is why the painting became a reference point for Expressionism.</p>
+          <h2>How it looks on your photo</h2>
+          <p>Photos take on the orange and rust of the sky and the dark blue-black of the fjord, with soft, wavy banding over large areas. Sunsets, water and dramatic portraits suit it. Busy city scenes turn warm and murky at full intensity.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Munch made several versions of The Scream: two paintings, two pastels and a lithograph. This is the first painted version of 1893, in oil, tempera and pastel on cardboard, now in the National Museum in Oslo. He described the moment behind it in his notebook: walking on a road above the Oslofjord at sunset, the sky turning blood red, and sensing a great scream passing through nature.</p>
-        <p>The figure is reduced to a skull-like head and hands. The fjord, the sky and the figure are all drawn with the same long, wavering bands, while the straight diagonal of the railing cuts across them. Colour is used for feeling rather than description, which is why the painting became a reference point for Expressionism.</p>
-        <h2>How it looks on your photo</h2>
-        <p>Photos take on the orange and rust of the sky and the dark blue-black of the fjord, with soft, wavy banding over large areas. Sunsets, water and dramatic portraits suit it. Busy city scenes turn warm and murky at full intensity.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

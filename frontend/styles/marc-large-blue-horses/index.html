@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/blue_horses-512.jpg">
   <meta name="twitter:image:alt" content="The Large Blue Horses by Franz Marc, 1911">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">The Large Blue Horses</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/blue_horses-512.jpg" alt="The Large Blue Horses by Franz Marc, 1911" width="512" height="293" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/blue_horses-512.jpg" srcset="/app/assets/styles/blue_horses-512.jpg 512w, /app/assets/styles/blue_horses-1024.webp 1024w" sizes="(max-width: 580px) calc(100vw - 68px), 512px" alt="The Large Blue Horses by Franz Marc, 1911" width="512" height="293" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">The Large Blue Horses</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Franz Marc, The Large Blue Horses, 1911. Walker Art Center, Minneapolis. <a href="https://commons.wikimedia.org/wiki/File:Franz_Marc_-_Die_gro%C3%9Fen_blauen_Pferde_1911.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Franz Marc painted The Large Blue Horses in 1911, the year he and Kandinsky founded the Blaue Reiter group in Munich. Marc gave colours meanings of their own: in a letter to August Macke he called blue the male principle, stern and spiritual. Three horses fill the canvas, their curved backs echoing the red and yellow hills behind them.</p>
+          <p>Marc painted animals because he felt they lived more purely than people. He was killed at Verdun in 1916, at 36. The painting has been in the Walker Art Center in Minneapolis since 1942.</p>
+          <h2>How it looks on your photo</h2>
+          <p>One of the most colourful styles. Photos turn deep blue and violet with red and yellow accents, and outlines become rounded, rhythmic curves. It is striking on animals and landscapes. At high intensity it overwhelms small detail.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Franz Marc painted The Large Blue Horses in 1911, the year he and Kandinsky founded the Blaue Reiter group in Munich. Marc gave colours meanings of their own: in a letter to August Macke he called blue the male principle, stern and spiritual. Three horses fill the canvas, their curved backs echoing the red and yellow hills behind them.</p>
-        <p>Marc painted animals because he felt they lived more purely than people. He was killed at Verdun in 1916, at 36. The painting has been in the Walker Art Center in Minneapolis since 1942.</p>
-        <h2>How it looks on your photo</h2>
-        <p>One of the most colourful styles. Photos turn deep blue and violet with red and yellow accents, and outlines become rounded, rhythmic curves. It is striking on animals and landscapes. At high intensity it overwhelms small detail.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

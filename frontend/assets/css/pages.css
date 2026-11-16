@@ -28,8 +28,8 @@
            <a class="btn btn--primary" href="/app/?style=starry_night#studio">Use this style</a>
            <p class="artwork__credit">…</p>
          </div>
+         <article class="prose artwork__notes">…</article>
        </section>
-       <article class="prose">…</article>
        <ul class="related" role="list"> <li><a class="related__card" href="…"><img …><span class="related__title">…</span><span class="related__meta">…</span></a></li> </ul>
      </div>
    </main>
@@ -111,16 +111,51 @@ body > .page { flex: 1 0 auto; }
   .prose a:hover, .breadcrumb a:hover { color: var(--gilt-bright); }
 }
 
-/* A painting hung on the page, with its wall label */
+/* A painting hung on the page, with its wall label and notes.
+   < 900 px: one column (painting, label, notes).
+   900–1199: painting and label side by side on one line; the notes run below,
+   lined up with the breadcrumb.
+   >= 1200: the painting hangs on the left, the label and notes are read beside it
+   on the right, and the painting stays in view while the notes scroll. */
 .artwork {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "hang" "label" "notes";
   gap: var(--s-6);
-  align-items: end;
 }
+.artwork__hang { grid-area: hang; display: flex; justify-content: center; }
+.artwork__label { grid-area: label; }
+.artwork__notes { grid-area: notes; }
+.artwork__notes > h2:first-child { margin-top: var(--s-2); }
 @media (min-width: 900px) {
-  .artwork { grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: var(--s-7); }
+  .artwork {
+    grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+    grid-template-areas: "hang label" "notes notes";
+    column-gap: var(--s-7);
+  }
+  .artwork__hang { justify-content: flex-start; }
+  .artwork__label { align-self: end; }
 }
-.artwork__hang { display: flex; justify-content: center; }
+@media (min-width: 1200px) {
+  .artwork {
+    /* The painting's column hugs its frame (portrait paintings leave no gap beside
+       them), up to 58% of the row; the label and notes take the rest. */
+    grid-template-columns: fit-content(58%) minmax(360px, 1fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "hang label" "hang notes";
+    column-gap: var(--s-8);
+    row-gap: var(--s-6);
+  }
+  .artwork__label { align-self: start; }
+  .artwork__notes > h2:first-child { margin-top: 0; }
+}
+@media (min-width: 1200px) and (min-height: 700px) {
+  .artwork__hang {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-6));
+    align-self: start;
+  }
+}
 .artwork__img {
   max-height: min(70vh, 720px);
   width: auto;
@@ -152,11 +187,14 @@ body > .page { flex: 1 0 auto; }
 /* Other styles */
 .related {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
   gap: var(--s-5) var(--s-4);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+@media (min-width: 900px) {
+  .related { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-5); }
 }
 .related__card { display: grid; gap: var(--s-2); color: var(--linen); text-decoration: none; }
 .related__card img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }

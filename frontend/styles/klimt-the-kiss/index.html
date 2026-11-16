@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/the_kiss-512.jpg">
   <meta name="twitter:image:alt" content="The Kiss by Gustav Klimt, 1907–1908">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -128,7 +126,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">The Kiss</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/the_kiss-512.jpg" alt="The Kiss by Gustav Klimt, 1907–1908" width="510" height="512" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/the_kiss-512.jpg" srcset="/app/assets/styles/the_kiss-512.jpg 510w, /app/assets/styles/the_kiss-1024.webp 1020w" sizes="(max-width: 578px) calc(100vw - 68px), 510px" alt="The Kiss by Gustav Klimt, 1907–1908" width="510" height="512" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">The Kiss</h1>
@@ -141,14 +139,14 @@
           </a>
           <p class="artwork__credit">Gustav Klimt, The Kiss, 1907–1908. Belvedere, Vienna. <a href="https://commons.wikimedia.org/wiki/File:The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>The Kiss is the high point of Klimt&#x27;s golden period. Two lovers embrace at the edge of a flowering meadow, wrapped in robes that are almost pure pattern: black and white rectangles on his, coloured circles and flowers on hers. The square canvas is painted in oil, with layers of gold leaf laid onto it.</p>
+          <p>Klimt showed it at the 1908 Kunstschau in Vienna, and the Austrian state bought it during the exhibition. It has been in the Belvedere in Vienna ever since. The flat gold background recalls Byzantine mosaics, which Klimt had seen in Ravenna.</p>
+          <h2>How it looks on your photo</h2>
+          <p>Photos take on an olive-gold tone with a fine, flecked texture like gold leaf, and darker areas pick up small rectangular marks. Portraits and warmly lit scenes suit it best. Blues and greens in the photo are mostly replaced by gold.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>The Kiss is the high point of Klimt&#x27;s golden period. Two lovers embrace at the edge of a flowering meadow, wrapped in robes that are almost pure pattern: black and white rectangles on his, coloured circles and flowers on hers. The square canvas is painted in oil, with layers of gold leaf laid onto it.</p>
-        <p>Klimt showed it at the 1908 Kunstschau in Vienna, and the Austrian state bought it during the exhibition. It has been in the Belvedere in Vienna ever since. The flat gold background recalls Byzantine mosaics, which Klimt had seen in Ravenna.</p>
-        <h2>How it looks on your photo</h2>
-        <p>Photos take on an olive-gold tone with a fine, flecked texture like gold leaf, and darker areas pick up small rectangular marks. Portraits and warmly lit scenes suit it best. Blues and greens in the photo are mostly replaced by gold.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

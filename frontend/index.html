@@ -42,9 +42,10 @@
   }
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
+  <!-- Self-hosted fonts (assets/fonts/README.md). Both latin files are used above the
+       fold; preloaded, they arrive ~1.2 s sooner on Slow 4G for ~0.1 s of LCP. -->
+  <link rel="preload" href="assets/fonts/schibsted-grotesk/schibsted-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/libre-caslon-display/libre-caslon-display-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/css/tokens.css">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/app.css">
@@ -147,9 +148,10 @@
                     </div>
 
                     <div class="frame-error" id="frame-error" hidden>
-                      <div class="frame-error__card" role="alert">
+                      <!-- The alert is the message alone, so it is read without the button names. -->
+                      <div class="frame-error__card">
                         <svg class="icon frame-error__marker" aria-hidden="true"><use href="assets/icons/icons.svg#alert"/></svg>
-                        <p class="frame-error__text" id="frame-error-text"></p>
+                        <p class="frame-error__text" id="frame-error-text" role="alert"></p>
                         <div class="frame-error__actions">
                           <button class="btn btn--primary" type="button" id="error-retry">
                             <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#refresh"/></svg>
@@ -209,6 +211,11 @@
               <div class="panel-status" id="styles-status" role="status" hidden></div>
               <div class="style-grid" id="style-grid" role="radiogroup" aria-label="Paintings" aria-busy="true"></div>
             </div>
+            <!-- Shown only while the gallery above is a scroller with more below (style-picker.js). -->
+            <p class="gallery-hint" id="gallery-hint" hidden>
+              <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#chevron-down"/></svg>
+              <span id="gallery-hint-text"></span>
+            </p>
 
             <div class="tab-panel" role="tabpanel" id="panel-custom" aria-labelledby="tab-custom" hidden>
               <div class="upload-tile" id="style-drop">
@@ -425,7 +432,7 @@
           <h3 class="faq__title">Questions</h3>
           <details class="faq">
             <summary>Is my photo uploaded anywhere?</summary>
-            <p class="muted" id="faq-privacy">On most computers and recent phones the painting is made in your browser and your photo never leaves your device. On older devices the photo goes to our server, is used for that one picture, and is deleted within an hour.</p>
+            <p class="muted" id="faq-privacy">On most computers and recent phones the painting is made in your browser and your photo never leaves your device. On older devices the photo goes to our server, is used for that one picture and is not saved there.</p>
           </details>
           <details class="faq">
             <summary>How big are the downloads?</summary>
@@ -509,5 +516,27 @@
 
   <div class="toasts" id="toasts" aria-live="polite"></div>
   <p class="visually-hidden" id="sr-status" aria-live="polite"></p>
+  <!-- Every module main.js imports statically (directly or through another module),
+       fetched in parallel instead of one import level at a time. They are at the end
+       of the body so the frame photo (the LCP image) is requested before them. The
+       engine modules are imported dynamically later and are not listed.
+       tests/e2e/test_assets.py keeps this list in step with the imports. -->
+  <link rel="modulepreload" href="assets/js/core/dom.js">
+  <link rel="modulepreload" href="assets/js/core/store.js">
+  <link rel="modulepreload" href="assets/js/services/api.js">
+  <link rel="modulepreload" href="assets/js/services/styles-data.js">
+  <link rel="modulepreload" href="assets/js/services/engine-adapter.js">
+  <link rel="modulepreload" href="assets/js/services/image-io.js">
+  <link rel="modulepreload" href="assets/js/services/export.js">
+  <link rel="modulepreload" href="assets/js/services/video.js">
+  <link rel="modulepreload" href="assets/js/services/gallery-db.js">
+  <link rel="modulepreload" href="assets/js/ui/header.js">
+  <link rel="modulepreload" href="assets/js/ui/style-picker.js">
+  <link rel="modulepreload" href="assets/js/ui/collection.js">
+  <link rel="modulepreload" href="assets/js/ui/my-gallery.js">
+  <link rel="modulepreload" href="assets/js/ui/studio.js">
+  <link rel="modulepreload" href="assets/js/ui/frame.js">
+  <link rel="modulepreload" href="assets/js/ui/mask-painter.js">
+  <link rel="modulepreload" href="assets/js/ui/toasts.js">
 </body>
 </html>

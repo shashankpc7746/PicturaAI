@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/the_shipwreck-512.jpg">
   <meta name="twitter:image:alt" content="The Wreck of a Transport Ship by J. M. W. Turner, c. 1810">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -128,7 +126,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">The Wreck of a Transport Ship</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/the_shipwreck-512.jpg" alt="The Wreck of a Transport Ship by J. M. W. Turner, c. 1810" width="512" height="365" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/the_shipwreck-512.jpg" srcset="/app/assets/styles/the_shipwreck-512.jpg 512w, /app/assets/styles/the_shipwreck-1024.webp 1024w" sizes="(max-width: 580px) calc(100vw - 68px), 512px" alt="The Wreck of a Transport Ship by J. M. W. Turner, c. 1810" width="512" height="365" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">The Wreck of a Transport Ship</h1>
@@ -141,14 +139,14 @@
           </a>
           <p class="artwork__credit">J. M. W. Turner, The Wreck of a Transport Ship, c. 1810. Calouste Gulbenkian Museum, Lisbon. <a href="https://commons.wikimedia.org/wiki/File:The_wreck_of_a_transport_ship_by_Turner_(1810).JPG" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Turner painted this storm scene around 1810. It has long been known as The Shipwreck of the Minotaur, after a British warship lost off the Dutch coast that year, although the ship in the picture is not clearly identified. It belongs to the Calouste Gulbenkian Museum in Lisbon.</p>
+          <p>The subject is the power of the sea against the people caught in it, a central theme of Romantic painting. Turner builds the waves and spray from loose, layered paint in amber, brown and grey, and lets the light break through the storm rather than drawing every rope and spar.</p>
+          <h2>How it looks on your photo</h2>
+          <p>The softest style in the collection. Colours shift to warm amber and brown, edges soften, and skies take on a smoky, painted texture. It works well for moody landscapes and seascapes and for giving any photo an old varnished look.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Turner painted this storm scene around 1810. It has long been known as The Shipwreck of the Minotaur, after a British warship lost off the Dutch coast that year, although the ship in the picture is not clearly identified. It belongs to the Calouste Gulbenkian Museum in Lisbon.</p>
-        <p>The subject is the power of the sea against the people caught in it, a central theme of Romantic painting. Turner builds the waves and spray from loose, layered paint in amber, brown and grey, and lets the light break through the storm rather than drawing every rope and spar.</p>
-        <h2>How it looks on your photo</h2>
-        <p>The softest style in the collection. Colours shift to warm amber and brown, edges soften, and skies take on a smoky, painted texture. It works well for moody landscapes and seascapes and for giving any photo an old varnished look.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">

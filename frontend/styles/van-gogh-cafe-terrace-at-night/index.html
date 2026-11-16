@@ -27,13 +27,11 @@
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/styles/cafe_terrace-512.jpg">
   <meta name="twitter:image:alt" content="Café Terrace at Night by Vincent van Gogh, 1888">
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
   <link rel="stylesheet" href="/app/assets/css/tokens.css">
   <link rel="stylesheet" href="/app/assets/css/base.css">
   <link rel="stylesheet" href="/app/assets/css/pages.css">
   <script type="module" src="/app/assets/js/page.js"></script>
+  <link rel="modulepreload" href="/app/assets/js/ui/header.js">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -129,7 +127,7 @@
       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <a href="/app/styles/">Styles</a> <span aria-hidden="true">/</span> <span aria-current="page">Café Terrace at Night</span></nav>
       <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="/app/assets/styles/cafe_terrace-512.jpg" alt="Café Terrace at Night by Vincent van Gogh, 1888" width="408" height="512" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="/app/assets/styles/cafe_terrace-512.jpg" srcset="/app/assets/styles/cafe_terrace-512.jpg 408w, /app/assets/styles/cafe_terrace-1024.webp 816w" sizes="(max-width: 476px) calc(100vw - 68px), 408px" alt="Café Terrace at Night by Vincent van Gogh, 1888" width="408" height="512" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">Café Terrace at Night</h1>
@@ -142,14 +140,14 @@
           </a>
           <p class="artwork__credit">Vincent van Gogh, Café Terrace at Night, 1888. Kröller-Müller Museum, Otterlo. <a href="https://commons.wikimedia.org/wiki/File:Vincent_Willem_van_Gogh_-_Cafe_Terrace_at_Night_(Yorck).jpg" rel="noopener">Source on Wikimedia Commons</a>. Licence: <a href="https://creativecommons.org/publicdomain/mark/1.0/" rel="license noopener">Public domain</a>.</p>
         </div>
+        <article class="prose artwork__notes">
+          <h2>About the painting</h2>
+          <p>Van Gogh painted this café on the Place du Forum in Arles in September 1888, working outside at night. Writing to his sister, he said he wanted to paint a night picture without any black, using only blue, violet and green, with the lit square in pale sulphur yellow and citron green.</p>
+          <p>It is the first painting in which he shows a starry sky, a year before The Starry Night. The gas-lit yellow awning and terrace glow against the deep blue street, and the cobblestones are painted as small, separate dabs. It is in the Kröller-Müller Museum in Otterlo, in the Netherlands.</p>
+          <h2>How it looks on your photo</h2>
+          <p>Photos warm up with yellow and orange light set against blue shadows, with short, textured strokes. It is a good choice for streets, buildings and evening photos, and a gentler alternative to The Starry Night.</p>
+        </article>
       </section>
-      <article class="prose">
-        <h2>About the painting</h2>
-        <p>Van Gogh painted this café on the Place du Forum in Arles in September 1888, working outside at night. Writing to his sister, he said he wanted to paint a night picture without any black, using only blue, violet and green, with the lit square in pale sulphur yellow and citron green.</p>
-        <p>It is the first painting in which he shows a starry sky, a year before The Starry Night. The gas-lit yellow awning and terrace glow against the deep blue street, and the cobblestones are painted as small, separate dabs. It is in the Kröller-Müller Museum in Otterlo, in the Netherlands.</p>
-        <h2>How it looks on your photo</h2>
-        <p>Photos warm up with yellow and orange light set against blue shadows, with short, textured strokes. It is a good choice for streets, buildings and evening photos, and a gentler alternative to The Starry Night.</p>
-      </article>
       <section class="page__inner" aria-labelledby="related-title">
         <h2 id="related-title">More from the collection</h2>
         <ul class="related" role="list">
