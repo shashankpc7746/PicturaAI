@@ -45,6 +45,15 @@
 @media (min-width: 768px) {
   .studio__intro, .studio__frame, .studio__label, .style-panel { width: 100%; max-width: 640px; justify-self: center; }
 }
+/* Tablet portrait: once there is a result to adjust (or a region to brush), the
+   controls move up under the label, next to the frame they change, and the
+   style panel follows them. Before that the painting picker comes first. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .studio__grid:has(#result-actions:not([hidden])),
+  .studio__grid:has(#region-tools:not([hidden])) {
+    grid-template-areas: "intro" "frame" "label" "plinth" "styles";
+  }
+}
 @media (min-width: 1024px) {
   .studio__grid {
     grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
@@ -58,6 +67,14 @@
 }
 @media (min-width: 1100px) {
   .studio__grid { column-gap: var(--s-7); }
+}
+/* Phone held sideways: the header scrolls away (base.css) and the action bar is
+   slimmer, so size the frame from the height that is really left above the bar. */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px) {
+  .studio {
+    --frame-max-h: calc(100vh - var(--bar-h) - env(safe-area-inset-bottom) - var(--s-5));
+    --frame-max-h: calc(100svh - var(--bar-h) - env(safe-area-inset-bottom) - var(--s-5));
+  }
 }
 
 /* ── The frame ─────────────────────────────────────────────────────────── */
@@ -88,9 +105,16 @@
 }
 .frame__stage {
   position: relative;
+  /* The veil and the error card are in-flow grid items (everything else is
+     absolutely positioned), so a panorama's short stage grows to fit them
+     instead of clipping Cancel / Try again. With no overlay the stage is
+     exactly the photo's aspect ratio. Not overflow:hidden: that would turn
+     off the aspect-ratio box's automatic minimum height. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  container: stage / inline-size;
   width: 100%;
   aspect-ratio: var(--ar);
-  overflow: hidden;
   background: #E6DECD;
   /* bevelled cut of the mat around the picture */
   box-shadow: 0 0 0 2px #FBF8F1, 0 0 0 3px rgba(38, 34, 29, .16);
@@ -118,6 +142,11 @@
 }
 .frame__mask.is-drawing { opacity: .9; }
 .frame.is-empty .frame__photo { visibility: hidden; }
+/* While an overlay has made the stage taller than the photo, letterbox the
+   picture on the mat instead of zooming into it. */
+.frame__stage:has(> .veil:not([hidden]), > .frame-error:not([hidden])) > :is(.frame__photo, .frame__result, .frame__mask) {
+  object-fit: contain;
+}
 
 /* Signature moment: the unveiling. One brush-edged wipe, left to right. */
 .frame__result.is-unveiling {
@@ -127,7 +156,8 @@
   mask-size: 300% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
-  animation: unveil var(--t-reveal) var(--ease) both;
+  /* its own curve: with the UI ease-out the edge crossed the frame in ~150 ms */
+  animation: unveil var(--t-reveal) var(--ease-brush) both;
 }
 @keyframes unveil {
   from { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
@@ -209,11 +239,22 @@
   cursor: ew-resize;
   pointer-events: auto;
   touch-action: none;
-  transition: background-color var(--t-fast) var(--ease);
+  transition: background-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
 }
 .compare__handle:focus-visible { outline-color: var(--linen); }
 @media (hover: hover) {
   .compare__handle:hover { background: var(--gilt-bright); }
+}
+/* Held / dragged: brighter, a touch larger, and a heavier line (frame.js may also
+   set .is-dragging on .compare while the pointer is captured) */
+.compare__handle:active,
+.compare.is-dragging .compare__handle { background: var(--gilt-bright); }
+.compare:has(.compare__handle:active) .compare__line,
+.compare.is-dragging .compare__line { width: 3px; margin-left: -1.5px; }
+@media (prefers-reduced-motion: no-preference) {
+  .compare__handle:active,
+  .compare.is-dragging .compare__handle { transform: scale(1.08); }
 }
 .compare.is-intro .compare__handle { animation: nudge 900ms var(--ease) 1; }
 @keyframes nudge {
@@ -234,15 +275,19 @@
 
 /* Generating: linen veil + label card + gilt line along the bottom edge */
 .veil {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  grid-area: 1 / 1;
+  min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: var(--s-4);
   background: rgba(243, 238, 227, .58);
   animation: fade-in var(--t-base) var(--ease);
 }
 .veil__status {
+  position: relative;
+  z-index: 1;
   display: grid;
   justify-items: center;
   gap: var(--s-1);
@@ -257,7 +302,7 @@
 .veil__text { font-family: var(--font-display); font-size: var(--fs-h3); line-height: 1.2; }
 .veil__sub { font-size: var(--fs-meta); color: var(--ink-muted); }
 .veil__sub:empty { display: none; }
-.veil__cancel { margin-top: var(--s-2); min-height: 40px; }
+.veil__cancel { margin-top: var(--s-2); }
 .veil__progress {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -284,16 +329,28 @@
   .veil__status { padding: var(--s-3) var(--s-4); }
   .veil__text { font-size: 18px; }
 }
+/* A narrow stage (phones; very tall photos): less padding around the card, and
+   a very narrow one (a 1:8 photo) lets the card spill over the frame sideways
+   rather than squeezing it to one word per line. */
+@container stage (max-width: 360px) {
+  .veil { padding: var(--s-1) var(--s-2); }
+  .frame-error { padding: var(--s-2); }
+}
+@container stage (max-width: 239px) {
+  .veil__status { width: min(240px, calc(100vw - 2 * var(--gutter))); max-width: none; justify-self: unsafe center; }
+  .frame-error__card { width: min(280px, calc(100vw - 2 * var(--gutter))); max-width: none; justify-self: unsafe center; }
+}
 
 /* Error inside the frame */
 .frame-error {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  grid-area: 1 / 1;
+  min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: var(--s-3);
   background: rgba(20, 38, 34, .74);
-  overflow-y: auto;
 }
 .frame-error__card {
   display: grid;
@@ -312,7 +369,7 @@
 @media (max-width: 420px) {
   .frame-error__card { padding: var(--s-3) var(--s-4); gap: var(--s-2); }
   .frame-error__marker { display: none; }
-  .frame-error__actions .btn { min-height: 40px; padding-inline: var(--s-3); }
+  .frame-error__actions .btn { padding-inline: var(--s-3); }
 }
 
 /* ── Wall label and photo source ───────────────────────────────────────── */
@@ -343,7 +400,10 @@
 .wall-label__line { font-size: var(--fs-small); line-height: 1.45; margin-top: 2px; overflow-wrap: anywhere; }
 .wall-label__line--muted { color: var(--ink-muted); }
 .wall-label__line:empty { display: none; }
-.wall-label.is-fresh .wall-label__title { animation: label-in 500ms var(--ease) 200ms both; }
+.wall-label.is-fresh .wall-label__title { animation: label-in 500ms var(--ease) 400ms both; }   /* arrives as the brush leaves */
+@media (prefers-reduced-motion: reduce) {
+  .wall-label.is-fresh .wall-label__title { animation-delay: 0s; }
+}
 @keyframes label-in { from { opacity: 0; transform: translateY(4px); } }
 
 .photo-source {
@@ -367,6 +427,7 @@
   transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
 .chip[aria-pressed="true"] { border-color: var(--gilt); background: var(--wall-raised); }
+.chip:active { border-color: var(--gilt); background: var(--wall-raised); }
 @media (hover: hover) and (pointer: fine) {
   .chip { min-height: 38px; }
   .chip:hover { border-color: var(--gilt); }
@@ -397,6 +458,12 @@
     justify-self: center;
   }
 }
+/* Tablet portrait: two columns, Mode | Intensity, in the 640 px plinth (Mode
+   gets the wider one so its three segments stay on one line) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .plinth { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: var(--s-5); }
+  .plinth__group--mode .segmented__item { padding-inline: var(--s-2); }
+}
 @media (min-width: 1024px) {
   .plinth { max-width: none; }
 }
@@ -423,13 +490,13 @@
 }
 .segmented__item {
   flex: 1 1 auto;
-  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: var(--touch);
   min-width: 0;
+  white-space: nowrap;
   padding: 4px var(--s-3);
   border: 0;
   border-radius: var(--r-pill);
@@ -445,8 +512,15 @@
 @media (hover: hover) {
   .segmented__item:not([aria-checked="true"]):hover { color: var(--linen); background: var(--wall-raised); }
 }
+@media (hover: hover) and (pointer: fine) {
+  .segmented__item { min-height: 40px; }
+}
+.segmented__item:not([aria-checked="true"]):active { color: var(--linen); background: var(--wall-raised); }
+.segmented__item, .tabs__tab, .chip, .icon-btn, .menu__item, .mix__toggle, .toast__action { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 400px) {
-  .segmented__item { padding-inline: 7px; font-size: 13px; }
+  /* white-space: with enlarged text spacing (WCAG 1.4.12) at 320 px a label
+     wraps inside its segment instead of pushing the page sideways */
+  .segmented__item { padding-inline: 7px; font-size: 13px; white-space: normal; }
 }
 @media (max-width: 767px) {
   .tool-row--seg, .tool-row--brush, .tool-row--actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -520,6 +594,12 @@
     align-self: start;
     max-height: calc(100vh - var(--header-h) - var(--s-7));
     max-height: calc(100dvh - var(--header-h) - var(--s-7));
+    /* Normally the gallery scroller below absorbs the cap. With "Mix" open on a
+       short screen the content can be taller; then the panel scrolls as a whole
+       so Paint it stays reachable. */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--linen-muted) transparent;
   }
 }
 .style-panel__title { font-size: var(--fs-h3); font-family: var(--font-display); }
@@ -541,24 +621,48 @@
   color: var(--linen-muted);
   font-size: var(--fs-small);
   font-weight: 600;
-  white-space: nowrap;
+  line-height: 1.25;
+  /* labels may wrap (enlarged text spacing at 320 px) rather than push the page sideways */
+  min-width: 0;
+  text-align: center;
   transition: color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 .tabs__tab[aria-selected="true"] { color: var(--linen); box-shadow: inset 0 -2px 0 var(--gilt); }
 @media (hover: hover) {
   .tabs__tab:hover { color: var(--linen); }
 }
+.tabs__tab:active { color: var(--linen); }
 .tab-panel { min-height: 0; }
+.tab-panel:not([hidden]) { animation: fade-in var(--t-base) var(--ease); }
 .tab-panel:focus-visible { outline-offset: 4px; }
+@property --gallery-fade { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @media (min-width: 1024px) {
   .tab-panel--gallery {
     flex: 1 1 auto;
+    /* at least one full row of cards with titles, even with "Mix" open */
+    min-height: min(17rem, 40vh);
     overflow-y: auto;
     margin-inline: calc(-1 * var(--s-2));
     padding: var(--s-2);
     scrollbar-width: thin;
-    scrollbar-color: var(--wall-raised) transparent;
+    scrollbar-color: var(--linen-muted) transparent;
+    /* "There is more below": the last visible row fades out until the end is reached */
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--gallery-fade)), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--gallery-fade)), transparent);
   }
+  @supports (animation-timeline: scroll()) {
+    .tab-panel--gallery:not([hidden]) {
+      animation: fade-in var(--t-base) var(--ease), gallery-fade linear both;
+      animation-timeline: auto, scroll(self);
+    }
+  }
+  .tab-panel--gallery.is-scrolled-end { -webkit-mask-image: none; mask-image: none; }
+  /* Reserve the hang's height before the cards arrive, so Paint it does not jump down */
+  .style-grid[aria-busy="true"] { min-height: 100vh; }
+}
+@keyframes gallery-fade {
+  from, 90% { --gallery-fade: 64px; }
+  to { --gallery-fade: 0px; }
 }
 
 /* Style cards: a salon hang on desktop, a grid on tablets, a rail on phones */
@@ -580,24 +684,25 @@
   outline-offset: 2px;
   transition: outline-color var(--t-fast) var(--ease), filter var(--t-fast) var(--ease);
 }
+.style-card__title, .style-card__meta {
+  /* up to two lines each, so the year on "Artist, 1889" is not cut off */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
 .style-card__title {
-  display: block;
   margin-top: var(--s-2);
   font-size: var(--fs-small);
   font-weight: 600;
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .style-card__meta {
-  display: block;
   font-size: var(--fs-meta);
   color: var(--linen-muted);
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .style-card__check {
   position: absolute;
@@ -620,8 +725,14 @@
 .style-card[aria-checked="true"] .style-card__title { color: var(--gilt-bright); }
 .style-card:focus-visible { outline: none; }
 .style-card:focus-visible .style-card__img { outline-color: var(--linen); }
+.style-card:active .style-card__img { filter: brightness(.9); }
+@media (prefers-reduced-motion: no-preference) {
+  .style-card__img { transition: outline-color var(--t-fast) var(--ease), filter var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
+  .style-card:active .style-card__img, .mix-thumb:active img { transform: scale(.98); }
+}
 @media (hover: hover) {
   .style-card:hover .style-card__img { filter: brightness(1.08); }
+  .style-card:hover:active .style-card__img { filter: brightness(.92); }
   .style-card:hover .style-card__title { color: var(--linen); }
   .style-card[aria-checked="true"]:hover .style-card__title { color: var(--gilt-bright); }
 }
@@ -659,15 +770,6 @@
   .style-card__img { aspect-ratio: 4 / 5; }
 }
 /* Tablet portrait: even 4-column grid */
-@media (min-width: 768px) {
-  .style-card__title {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    white-space: normal;
-  }
-}
 @media (min-width: 768px) and (max-width: 1199px) {
   .style-grid {
     display: grid;
@@ -782,6 +884,7 @@
 @media (hover: hover) {
   .mix__toggle:hover { color: var(--gilt-bright); }
 }
+.mix__toggle:active { color: var(--gilt-bright); }
 .mix__body { display: grid; gap: var(--s-2); padding-bottom: var(--s-2); animation: fade-in var(--t-base) var(--ease); }
 .mix-rail {
   display: flex;
@@ -806,6 +909,7 @@
   cursor: pointer;
 }
 .mix-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.mix-thumb img { transition: transform var(--t-fast) var(--ease); }
 .mix-thumb[aria-checked="true"] { outline-color: var(--gilt); }
 .mix-thumb:focus-visible { outline-color: var(--linen); }
 
@@ -824,13 +928,18 @@
 .paint-reason:empty { display: none; }
 
 /* ── Mobile and tablet action bar ──────────────────────────────────────── */
+:root { --bar-h: 76px; }   /* the bar's height above the safe area, plus a little air */
 .action-bar {
   position: fixed;
   left: 0; right: 0; bottom: 0;
   z-index: 30;
   background: var(--wall-deep);
   border-top: 1px solid var(--hairline);
-  padding: var(--s-3) var(--gutter) calc(var(--s-3) + env(safe-area-inset-bottom));
+  padding:
+    var(--s-3)
+    max(var(--gutter), env(safe-area-inset-right))
+    calc(var(--s-3) + env(safe-area-inset-bottom))
+    max(var(--gutter), env(safe-area-inset-left));
   transition: transform var(--t-base) var(--ease);
 }
 .action-bar__inner {
@@ -863,7 +972,18 @@
   .action-bar__buttons .btn { max-width: none; }
 }
 .action-bar__reason:not(:empty) + .action-bar__buttons .btn { flex: 0 0 auto; }
-body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
+/* Keyboard focus never lands behind the bar (WCAG 2.4.11): scrolling a focused
+   control into view keeps it clear of the bar. */
+@media (max-width: 1023px) {
+  html { scroll-padding-bottom: calc(var(--bar-h) + var(--s-4) + env(safe-area-inset-bottom)); }
+}
+/* Phone held sideways: a slimmer bar */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px) {
+  :root { --bar-h: 64px; }
+  .action-bar { padding-block: var(--s-2) calc(var(--s-2) + env(safe-area-inset-bottom)); }
+  .action-bar__buttons .btn { min-height: var(--touch); }
+}
 @media (min-width: 1024px) {
   .action-bar { display: none; }
   body { padding-bottom: 0; }
@@ -903,6 +1023,13 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 @media (hover: hover) {
   .menu__item:hover { background: rgba(38, 34, 29, .07); }
 }
+.menu__item:active { background: rgba(38, 34, 29, .1); }
+/* Phones: the menu hangs from its trigger to the right gutter (the Download
+   button is full width, or the right half of the bar), with taller rows. */
+@media (max-width: 767px) {
+  .menu { min-width: 0; right: max(var(--gutter), env(safe-area-inset-right)); }
+  .menu__item { min-height: 52px; }
+}
 
 /* ── Toasts ────────────────────────────────────────────────────────────── */
 .toasts {
@@ -916,8 +1043,18 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   transform: translateX(-50%);
   pointer-events: none;
 }
+/* Desktop: top right, under the header, so a toast never covers the frame or the
+   wall label (bottom left). On phones and tablets it sits above the action bar. */
 @media (min-width: 1024px) {
-  .toasts { left: var(--s-5); bottom: var(--s-5); transform: none; }
+  .toasts {
+    --toast-dy: -8px;
+    left: auto;
+    right: var(--s-5);
+    top: calc(var(--header-h) + var(--s-3));
+    bottom: auto;
+    width: min(400px, calc(100vw - 2 * var(--s-5)));
+    transform: none;
+  }
 }
 .toast {
   display: flex;
@@ -938,7 +1075,7 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .toast--error .toast__icon { color: var(--vermilion); }
 .toast__text { flex: 1 1 auto; min-width: 0; padding-block: 6px; }
 .toast__action {
-  min-height: 40px;
+  min-height: var(--touch);
   padding: 0 var(--s-3);
   border: 0;
   border-radius: 6px;
@@ -951,8 +1088,12 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 @media (hover: hover) {
   .toast__action:hover { background: rgba(138, 59, 34, .08); }
 }
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(8px); } }
+@media (hover: hover) and (pointer: fine) {
+  .toast__action { min-height: 40px; }
+}
+.toast__action:active { background: rgba(138, 59, 34, .12); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(var(--toast-dy, 8px)); } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(var(--toast-dy, 8px)); } }
 
 /* ── Sections below the studio ─────────────────────────────────────────── */
 .section {
@@ -966,73 +1107,6 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .section__head { margin-bottom: var(--s-6); }
 .section__head p { margin-top: var(--s-2); max-width: 60ch; }
 .section__head--row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
-
-/* The collection */
-.collection {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--s-7) var(--s-6);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-@media (min-width: 560px) {
-  .collection { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-7) var(--s-5); }
-}
-@media (min-width: 1024px) {
-  .collection { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-8) var(--s-6); }
-}
-@media (min-width: 1300px) {
-  .collection { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-.piece { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
-.piece__hang {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  min-width: 0;
-  aspect-ratio: 5 / 4;
-  padding-bottom: var(--s-4);
-  overflow: hidden;
-}
-.piece__img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  min-width: 0;
-  object-fit: contain;
-  border: 1px solid rgba(0, 0, 0, .45);
-}
-.piece__label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--s-4);
-  border-radius: var(--r-label);
-  background: var(--label);
-  color: var(--ink);
-  box-shadow: var(--shadow-label);
-}
-.piece__title { font-family: var(--font-display); font-size: var(--fs-h3); line-height: 1.2; }
-.piece__artist { font-size: var(--fs-small); }
-.piece__desc { margin-top: var(--s-2); font-size: var(--fs-small); color: var(--ink-muted); }
-.piece__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-top: auto; padding-top: var(--s-3); }
-.piece__link {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--touch);
-  color: var(--rust);
-  font-size: var(--fs-small);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  text-decoration-thickness: 1px;
-}
-.piece__actions .btn { min-height: 40px; }
-@media (hover: hover) {
-  .piece__link:hover { color: var(--ink); }
-}
 
 /* My gallery */
 .gallery-empty {
@@ -1080,6 +1154,7 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   color: var(--linen-muted);
   transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
 }
+.icon-btn:active { color: var(--linen); background: var(--wall-raised); }
 @media (hover: hover) {
   .icon-btn:hover { color: var(--linen); background: var(--wall-raised); }
   .saved__open:hover img { filter: brightness(1.06); }
@@ -1107,7 +1182,7 @@ body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 .step h3 { margin-bottom: var(--s-1); }
 .faq__title { margin-bottom: var(--s-3); }
 @media (min-width: 1024px) {
-  .faq__title { margin-top: var(--s-2); font-family: var(--font-display); font-weight: 400; font-size: var(--fs-h2); line-height: var(--lh-display); margin-bottom: var(--s-5); }
+  .faq__title { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-h2); line-height: var(--lh-display); margin-bottom: var(--s-5); }
 }
 .faq { border-bottom: 1px solid var(--hairline); }
 .faq:first-of-type { border-top: 1px solid var(--hairline); }

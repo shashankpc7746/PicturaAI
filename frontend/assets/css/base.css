@@ -1,5 +1,6 @@
 /* Shared base for every PicturaAI page: reset, type, buttons, header, menu sheet,
-   footer. The studio adds app.css; static pages add pages.css. Needs tokens.css. */
+   footer, and the collection's wall labels (the studio and /app/styles/ show the
+   same list). The studio adds app.css; static pages add pages.css. Needs tokens.css. */
 
 /* ── Reset ─────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
@@ -64,13 +65,18 @@ p { max-width: var(--measure); }
 /* ── Focus ─────────────────────────────────────────────────────────────── */
 :focus { outline: none; }
 :focus-visible { outline: var(--focus-ring); outline-offset: 3px; }
+/* On the cream paper (wall labels, the veil card, menus, toasts) gilt is too faint */
+:is(.piece__label, .wall-label, .veil__status, .artwork__label, .menu, .toast) :focus-visible {
+  outline: var(--focus-ring-on-label);
+}
 
 /* ── Utilities ─────────────────────────────────────────────────────────── */
 .container {
   width: 100%;
   max-width: calc(var(--content-max) + 2 * var(--gutter));
   margin-inline: auto;
-  padding-inline: var(--gutter);
+  /* viewport-fit=cover: keep content clear of the notch on phones held sideways */
+  padding-inline: max(var(--gutter), env(safe-area-inset-left)) max(var(--gutter), env(safe-area-inset-right));
 }
 .visually-hidden {
   position: absolute !important;
@@ -118,10 +124,31 @@ p { max-width: var(--measure); }
   line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
   -webkit-tap-highlight-color: transparent;
 }
 .btn:disabled, .btn[aria-disabled="true"] { cursor: not-allowed; opacity: .5; }
+/* "Saved": a done state, not an unavailable one (the button is disabled once saved) */
+#save-btn:disabled, .btn.is-saved {
+  opacity: 1;
+  cursor: default;
+  border-color: var(--gilt);
+  color: var(--gilt-bright);
+}
+#save-btn:disabled .icon { display: none; }
+#save-btn:disabled::before {
+  content: "";
+  flex: none;
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: url("../icons/check.svg") center / contain no-repeat;
+  mask: url("../icons/check.svg") center / contain no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #save-btn:disabled::before { animation: saved-pop var(--t-base) var(--ease); }
+}
+@keyframes saved-pop { from { opacity: 0; transform: scale(.6); } }
 .btn--primary {
   background: var(--gilt);
   color: var(--on-gilt);
@@ -143,7 +170,14 @@ p { max-width: var(--measure); }
   .btn--quiet:not(:disabled):hover { background: var(--wall-raised); }
   .btn--on-label:not(:disabled):hover { border-color: var(--ink); background: rgba(38, 34, 29, .06); }
 }
+/* Pressed: every button answers a tap, hover or not */
 .btn--primary:not(:disabled):active { background: var(--gilt-shade); }
+.btn--secondary:not(:disabled):active,
+.btn--quiet:not(:disabled):active { background: var(--wall-raised); border-color: var(--gilt); }
+.btn--on-label:not(:disabled):active { background: rgba(38, 34, 29, .10); border-color: var(--ink); }
+@media (prefers-reduced-motion: no-preference) {
+  .btn:not(:disabled):active { transform: scale(.97); }
+}
 .btn.is-busy { cursor: progress; }
 
 /* ── Header ────────────────────────────────────────────────────────────── */
@@ -173,6 +207,9 @@ p { max-width: var(--measure); }
   padding-block: var(--s-2);
 }
 .wordmark .icon { width: 22px; height: 22px; color: var(--gilt); }
+@media (pointer: coarse) {
+  .wordmark { min-height: var(--touch); padding-block: 0; }
+}
 .site-nav { display: none; }
 .site-nav a {
   position: relative;
@@ -236,7 +273,7 @@ p { max-width: var(--measure); }
   overflow-y: auto;
   background: var(--wall-deep);
   border-bottom: 1px solid var(--hairline);
-  padding: 0 var(--gutter) calc(var(--s-6) + env(safe-area-inset-bottom));
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) calc(var(--s-6) + env(safe-area-inset-bottom)) max(var(--gutter), env(safe-area-inset-left));
   animation: sheet-down var(--t-base) var(--ease);
 }
 .menu-sheet__top {
@@ -302,6 +339,83 @@ p { max-width: var(--measure); }
 @media (min-width: 768px) {
   .site-footer__inner { grid-template-columns: 1fr auto; align-items: start; }
   .site-footer__small { grid-column: 1 / -1; }
+}
+
+/* ── The collection (studio section and /app/styles/) ───────────────────── */
+.collection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-7) var(--s-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 560px) {
+  .collection { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-7) var(--s-5); }
+}
+@media (min-width: 1024px) {
+  .collection { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-8) var(--s-6); }
+}
+@media (min-width: 1300px) {
+  .collection { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.piece { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.piece__hang {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+  aspect-ratio: 5 / 4;
+  padding-bottom: var(--s-4);
+  overflow: hidden;
+}
+.piece__img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  object-fit: contain;
+  border: 1px solid rgba(0, 0, 0, .45);
+}
+.piece__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-4);
+  border-radius: var(--r-label);
+  background: var(--label);
+  color: var(--ink);
+  box-shadow: var(--shadow-label);
+}
+.piece__title { font-family: var(--font-display); font-size: var(--fs-h3); line-height: 1.2; }
+.piece__artist { font-size: var(--fs-small); }
+.piece__desc { margin-top: var(--s-2); font-size: var(--fs-small); color: var(--ink-muted); }
+.piece__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-3); margin-top: auto; padding-top: var(--s-3); }
+.piece__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  color: var(--rust);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.piece__actions .btn { min-height: 40px; }
+@media (pointer: coarse) {
+  .piece__actions .btn { min-height: var(--touch); }
+}
+@media (hover: hover) {
+  .piece__link:hover { color: var(--ink); }
+}
+
+/* ── Phones held sideways ──────────────────────────────────────────────── */
+/* With only ~390 px of height, a sticky header costs too much; let it scroll away. */
+@media (orientation: landscape) and (max-height: 500px) {
+  html { scroll-padding-top: var(--s-4); }
+  .site-header { position: relative; }
 }
 
 /* ── Reduced motion ────────────────────────────────────────────────────── */
