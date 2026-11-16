@@ -4,6 +4,8 @@ export const MAX_BYTES = 25 * 1024 * 1024;
 export const MAX_MEGAPIXELS = 50;
 export const WORK_SIDE = 1600;      // the photo is kept at most this big in memory
 const TYPES = { 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/webp': 'WEBP' };
+// Rounded up to one decimal, so a size just over a limit never reads as the limit.
+const up1 = (n) => (Math.ceil(n * 10) / 10).toFixed(1);
 
 /** Quick checks before decoding. Returns a reason string, or null when fine. */
 export function checkFile(file) {
@@ -14,7 +16,7 @@ export function checkFile(file) {
     return `${ext && ext.length <= 5 ? `That ${ext} file` : 'That file'} isn't supported. Use a JPG, PNG or WEBP image.`;
   }
   if (file.size > MAX_BYTES) {
-    return `That image is ${(file.size / 1048576).toFixed(0)} MB. The limit is 25 MB.`;
+    return `That image is ${up1(file.size / 1048576)} MB, over the 25 MB limit. Use a smaller file.`;
   }
   return null;
 }
@@ -32,7 +34,7 @@ export function loadImageFile(file) {
       const mp = (w * h) / 1e6;
       if (mp > MAX_MEGAPIXELS) {
         URL.revokeObjectURL(url);
-        reject(new Error(`That image is ${Math.round(mp)} megapixels. Use one under ${MAX_MEGAPIXELS} megapixels.`));
+        reject(new Error(`That image is ${up1(mp)} megapixels, over the ${MAX_MEGAPIXELS}-megapixel limit. Use a smaller image.`));
         return;
       }
       resolve({ img, url, width: w, height: h });
@@ -59,8 +61,13 @@ function sizeOf(src) {
   return [src.naturalWidth || src.videoWidth || src.width, src.naturalHeight || src.videoHeight || src.height];
 }
 
-/** Draw any image source into a new canvas no larger than maxSide (high quality, stepped). */
-export function toCanvas(src, maxSide = Infinity) {
+/**
+ * Draw any image source into a new canvas no larger than maxSide (high quality, stepped).
+ * `background` flattens transparency onto a colour: photos and style images need it,
+ * because JPEG encoding and the compositor would otherwise turn transparent pixels
+ * black. Masks must keep their alpha, so it is off by default.
+ */
+export function toCanvas(src, maxSide = Infinity, { background = null } = {}) {
   let [w, h] = sizeOf(src);
   const k = Math.min(1, maxSide / Math.max(w, h));
   const tw = Math.max(1, Math.round(w * k));
@@ -80,6 +87,10 @@ export function toCanvas(src, maxSide = Infinity) {
   out.width = tw; out.height = th;
   const ctx = out.getContext('2d', { willReadFrequently: false });
   ctx.imageSmoothingQuality = 'high';
+  if (background) {
+    ctx.fillStyle = background;
+    ctx.fillRect(0, 0, tw, th);
+  }
   ctx.drawImage(cur, 0, 0, tw, th);
   return out;
 }

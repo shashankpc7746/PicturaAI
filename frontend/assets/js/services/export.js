@@ -4,16 +4,29 @@ import { canvasToBlob } from './image-io.js';
 const PRINT_LONG = 1754;   // A4 at 150 dpi
 const IG_WIDTH = 1080;
 
-/** Target sizes for a picture of w x h. Instagram allows 4:5 to 1.91:1, so outside that we crop. */
+// A size this much bigger than the painting is an enlargement and is labelled so
+// (the server engine paints at 320 px, so Print is about 5x).
+const ENLARGED = 1.05;
+
+/**
+ * Target sizes for a picture of w x h. Instagram allows 4:5 to 1.91:1, so outside that
+ * we crop. `scale` is how much each size enlarges the painting (1 = no enlargement),
+ * and `enlarged` is true when that would visibly soften it.
+ */
 export function exportSizes(w, h) {
   const ar = w / h;
   const igAr = Math.min(1.91, Math.max(0.8, ar));
   const k = PRINT_LONG / Math.max(w, h);
-  return {
-    full: { width: w, height: h },
-    instagram: { width: IG_WIDTH, height: Math.round(IG_WIDTH / igAr), crop: igAr !== ar },
-    print: { width: Math.round(w * k), height: Math.round(h * k) },
+  const ig = { width: IG_WIDTH, height: Math.round(IG_WIDTH / igAr), crop: igAr !== ar };
+  // A crop keeps the full height (wide photos) or the full width (tall ones).
+  ig.scale = igAr < ar ? ig.height / h : ig.width / w;
+  const sizes = {
+    full: { width: w, height: h, scale: 1 },
+    instagram: ig,
+    print: { width: Math.round(w * k), height: Math.round(h * k), scale: k },
   };
+  for (const s of Object.values(sizes)) s.enlarged = s.scale > ENLARGED;
+  return sizes;
 }
 
 /** Render the source canvas at a size, centre-cropping when the aspect differs. */
