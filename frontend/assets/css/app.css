@@ -100,7 +100,10 @@
   border-radius: var(--r-panel);
   background: var(--wall-deep);
 }
-.frame-ledge .range { flex: 1 1 auto; min-width: 0; }
+/* The slider fills the ledge's full height (same 60 px box as before), so a press
+   just above or below the track still grabs it instead of landing on the padding. */
+.frame-ledge { padding-block: 0; }
+.frame-ledge .range { flex: 1 1 auto; min-width: 0; height: calc(var(--touch) + 2 * var(--s-2)); }
 .frame-ledge .control-value { min-width: 4ch; text-align: right; }
 .frame {
   position: relative;
@@ -314,6 +317,12 @@
 @container stage (max-width: 360px) {
   .compare__hint { font-size: 12px; padding: 5px 10px; }
 }
+/* Tall, narrow photos: the stage is too thin for the pill beside the grip (36 px
+   offset + about 210 px of pill), which would hang off the frame onto the wall.
+   The grip alone still reads as a slider. */
+@container stage (max-width: 250px) {
+  .compare__hint { display: none; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .compare__handle:active,
   .compare.is-dragging .compare__handle { transform: scale(1.08); }
@@ -333,8 +342,18 @@
   color: var(--linen);
   font-size: var(--fs-meta);
   pointer-events: none;
+  /* stay inside a very narrow stage (a tall photo) */
+  max-width: calc(100% - 2 * var(--s-3));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .frame__tag--painting { left: auto; right: var(--s-3); }
+/* A very narrow stage: the two corner tags cannot share the top edge, so
+   "Painting" hangs at the bottom */
+@container stage (max-width: 250px) {
+  .frame__tag--painting { top: auto; bottom: var(--s-3); }
+}
 
 /* Generating: linen veil + label card + gilt line along the bottom edge */
 .veil {
@@ -393,15 +412,17 @@
   .veil__text { font-size: 18px; }
 }
 /* A narrow stage (phones; very tall photos): less padding around the card, and
-   a very narrow one (a 1:8 photo) lets the card spill over the frame sideways
-   rather than squeezing it to one word per line. */
+   a very narrow one (a 1:8 photo) lets the card spill over the frame to the
+   right rather than squeezing it to one word per line. It starts at the stage's
+   left edge (the frame hangs on the page's left edge, so that is on screen) and
+   is capped so its right edge stays inside the gutter. */
 @container stage (max-width: 360px) {
   .veil { padding: var(--s-1) var(--s-2); }
   .frame-error { padding: var(--s-2); }
 }
 @container stage (max-width: 239px) {
-  .veil__status { width: min(240px, calc(100vw - 2 * var(--gutter))); max-width: none; justify-self: unsafe center; }
-  .frame-error__card { width: min(280px, calc(100vw - 2 * var(--gutter))); max-width: none; justify-self: unsafe center; }
+  .veil__status { width: min(240px, calc(100vw - 2 * var(--gutter) - 2 * var(--chrome))); max-width: none; justify-self: unsafe start; }
+  .frame-error__card { width: min(280px, calc(100vw - 2 * var(--gutter) - 2 * var(--chrome))); max-width: none; justify-self: unsafe start; }
 }
 
 /* Error inside the frame */
@@ -431,6 +452,21 @@
 .frame-error__actions .btn--primary { font-size: var(--fs-small); padding-inline: var(--s-4); }
 @media (max-width: 420px) {
   .frame-error__card { padding: var(--s-3) var(--s-4); gap: var(--s-2); }
+  .frame-error__marker { display: none; }
+  .frame-error__actions .btn { padding-inline: var(--s-3); }
+}
+/* Phone held sideways: the stage is short, so a stacked card would grow the frame
+   past the action bar. Widen the card past the frame (hung from its left edge,
+   like the frame) so the actions sit on one row, and trim it. */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 1023px) {
+  .frame-error { padding: var(--s-2); }
+  .frame-error__card {
+    width: min(420px, calc(100vw - 2 * var(--gutter) - 2 * var(--chrome)));
+    max-width: none;
+    justify-self: unsafe start;
+    padding: var(--s-3) var(--s-4);
+    gap: var(--s-2);
+  }
   .frame-error__marker { display: none; }
   .frame-error__actions .btn { padding-inline: var(--s-3); }
 }
@@ -659,16 +695,22 @@
     align-self: start;
     max-height: calc(100vh - var(--header-h) - var(--s-7));
     max-height: calc(100dvh - var(--header-h) - var(--s-7));
-    /* Normally the gallery scroller below absorbs the cap. With "Mix" open on a
-       short screen the content can be taller; then the panel scrolls as a whole
-       so Paint it stays reachable. */
+    /* On a tall screen the gallery scroller below absorbs the cap. When the content
+       is still taller (a short laptop screen, "Mix" open, the "Your painting" or
+       "Describe it" tab) the panel scrolls as a whole, and the call to action
+       (Paint it / Download) stays stuck to its bottom edge (rule below). */
     overflow-y: auto;
+    /* focus and scrollIntoView land clear of the stuck call to action (at most
+       about 180 px tall, with Download and a reason) and of the top edge */
+    scroll-padding-block: var(--s-3) 12rem;
     scrollbar-width: thin;
     scrollbar-color: var(--linen-muted) transparent;
   }
 }
 .style-panel__title { font-size: var(--fs-h3); font-family: var(--font-display); }
-.style-panel__selected { margin-top: 2px; font-size: var(--fs-small); color: var(--linen-muted); }
+/* anywhere: a described style is quoted here verbatim, and one long word must
+   wrap rather than push the panel (and a phone's page) sideways */
+.style-panel__selected { margin-top: 2px; font-size: var(--fs-small); color: var(--linen-muted); overflow-wrap: anywhere; }
 .style-panel__selected strong { color: var(--linen); font-weight: 600; }
 
 /* Tabs */
@@ -707,6 +749,9 @@
     /* at least one full row of cards with titles, even with "Mix" open */
     min-height: min(17rem, 40vh);
     overflow-y: auto;
+    /* a focused card scrolls clear of the 64 px "more below" fade (see
+       gallery-fade), and its focus ring clear of the top edge */
+    scroll-padding: var(--s-2) 0 64px;
     margin-inline: calc(-1 * var(--s-2));
     padding: var(--s-2);
     scrollbar-width: thin;
@@ -722,6 +767,14 @@
     }
   }
   .tab-panel--gallery.is-scrolled-end { -webkit-mask-image: none; mask-image: none; }
+  /* Short laptop screens (1536x690 at 125 %, 1366x625, 1280x585 at 150 %): a lower
+     floor, so that with "Mix" closed the gallery still absorbs the panel's cap and
+     the Mix toggle shows above Paint it. 490 px is the rest of the panel (head,
+     tabs, hint, Mix, Paint it with its reason, gaps) plus the header and margins. */
+  @media (max-height: 760px) {
+    .tab-panel--gallery { min-height: max(6.5rem, min(13rem, 100vh - 490px)); }
+    .tab-panel--gallery { min-height: max(6.5rem, min(13rem, 100dvh - 490px)); }
+  }
   /* Reserve the hang's height before the cards arrive, so Paint it does not jump down */
   .style-grid[aria-busy="true"] { min-height: 100vh; }
 }
@@ -867,10 +920,12 @@
     gap: var(--s-4) var(--gap);
   }
   .style-grid::after { content: ""; flex: 12 1 0; }
-  .style-card { flex: var(--a, 1) 1 calc(var(--a, 1) * 104px); }
+  /* the 7.5rem floor keeps a portrait painting's card wide enough for
+     "Artist, year" in two lines */
+  .style-card { flex: var(--a, 1) 1 max(calc(var(--a, 1) * 104px), 7.5rem); }
 }
 @media (min-width: 1360px) {
-  .style-card { flex-basis: calc(var(--a, 1) * 116px); }
+  .style-card { flex-basis: max(calc(var(--a, 1) * 116px), 7.5rem); }
 }
 
 .panel-status {
@@ -905,11 +960,14 @@
   object-fit: cover;
   border-radius: var(--r-label);
 }
-.upload-tile__body { display: grid; gap: var(--s-2); min-width: 0; }
-.upload-tile__title { font-weight: 600; }
+/* minmax(0, 1fr): the long "Use a different painting" button (or a file name
+   with no spaces) must not widen the column past the tile and the screen */
+.upload-tile__body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; gap: var(--s-2); min-width: 0; }
+.upload-tile__title { font-weight: 600; overflow-wrap: anywhere; }
 .upload-tile__hint { font-size: var(--fs-small); color: var(--linen-muted); }
 .upload-tile__hint.is-error { color: var(--vermilion-text); }
 .upload-tile__actions { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-1); }
+.upload-tile__actions .btn { max-width: 100%; min-width: 0; white-space: normal; text-align: center; }
 
 /* Describe it */
 .describe { display: grid; gap: var(--s-2); }
@@ -938,8 +996,9 @@
   background: var(--wall-raised);
 }
 .describe-result__img { width: 72px; height: 72px; object-fit: cover; border-radius: var(--r-label); flex: none; }
-.describe-result__title { font-weight: 600; }
-.describe-result__text { font-size: var(--fs-small); color: var(--linen-muted); }
+.describe-result > :not(.describe-result__img) { min-width: 0; }
+.describe-result__title { font-weight: 600; overflow-wrap: anywhere; }
+.describe-result__text { font-size: var(--fs-small); color: var(--linen-muted); overflow-wrap: anywhere; }
 .describe-result.is-error .describe-result__text { color: var(--vermilion-text); }
 
 /* Mix with a second style */
@@ -997,8 +1056,30 @@
   .style-panel__cta {
     display: grid;
     gap: var(--s-2);
-    padding-top: var(--s-4);
-    border-top: 1px solid var(--hairline);
+    /* Paint it / Download stay in view while the panel scrolls: stuck over the
+       panel's bottom padding, on the panel's colour so content slides under it.
+       The negative margins cancel the extra padding when nothing scrolls; the
+       sides also cover the gallery and the Mix rail, which bleed 8 / 4 px. The
+       hairline keeps the content's width. */
+    position: sticky;
+    bottom: calc(-1 * var(--s-5));
+    z-index: 1;
+    margin: 0 calc(-1 * var(--s-2)) calc(-1 * var(--s-5));
+    padding: calc(var(--s-4) + 1px) var(--s-2) var(--s-5);
+    background:
+      linear-gradient(var(--hairline), var(--hairline)) top / calc(100% - 2 * var(--s-2)) 1px no-repeat,
+      var(--wall-deep);
+  }
+  /* content scrolling under it fades out instead of being cut through a line of text */
+  .style-panel__cta::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: var(--s-4);   /* the panel's gap, so nothing fades when nothing scrolls */
+    background: linear-gradient(transparent, var(--wall-deep));
+    pointer-events: none;
   }
 }
 .btn--paint { width: 100%; min-height: 52px; font-size: 17px; }
@@ -1070,7 +1151,7 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 /* ── Download menu ─────────────────────────────────────────────────────── */
 .menu {
   position: fixed;
-  z-index: 50;
+  z-index: 75;   /* above .toasts (70): an open menu is never under a toast */
   min-width: 248px;
   padding: var(--s-1);
   border-radius: var(--r-control);
@@ -1121,17 +1202,16 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
   transform: translateX(-50%);
   pointer-events: none;
 }
-/* Desktop: top right, under the header, so a toast never covers the frame or the
-   wall label (bottom left). On phones and tablets it sits above the action bar. */
+/* Desktop: centred in the header bar, between the logo and the nav, so a toast
+   never covers the frame, the wall label or the sticky style panel's heading
+   (which sits under a top-right toast on laptops). On phones and tablets it sits
+   above the action bar. */
 @media (min-width: 1024px) {
   .toasts {
     --toast-dy: -8px;
-    left: auto;
-    right: var(--s-5);
-    top: calc(var(--header-h) + var(--s-3));
+    top: calc((var(--header-h) - 48px) / 2);
     bottom: auto;
-    width: min(400px, calc(100vw - 2 * var(--s-5)));
-    transform: none;
+    width: min(400px, calc(100vw - 760px));
   }
 }
 .toast {
@@ -1206,15 +1286,20 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 @media (max-width: 559px) {
   .my-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5) var(--s-3); }
 }
-.saved { display: grid; grid-template-rows: auto 1fr auto; gap: var(--s-2); }
+.saved { display: grid; grid-template-rows: auto 1fr auto; gap: var(--s-2); min-width: 0; }
 /* Only a painting saved (or restored by Undo) during this visit fades in;
    my-gallery.js adds .is-new, so the first load does not replay it for every item. */
 .saved.is-new { animation: fade-in var(--t-base) var(--ease); }
 .saved.is-leaving { animation: fade-out var(--t-base) var(--ease) forwards; }
+/* Definite tracks: with auto ones a portrait thumbnail's max-height had nothing to
+   resolve against, and the track grew to the image, out of the card. */
 .saved__open {
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   aspect-ratio: 1;
+  min-width: 0;
+  overflow: hidden;
   padding: var(--s-3);
   border: 0;
   border-radius: var(--r-control);
