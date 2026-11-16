@@ -251,9 +251,14 @@
   box-shadow: 0 0 0 1px rgba(20, 38, 34, .55), 0 0 12px 1px rgba(20, 38, 34, .45);
   transition: width var(--t-fast) var(--ease), margin var(--t-fast) var(--ease);
 }
+/* At rest (0 % or 100 %) the rule would sit on the picture's edge, where it reads
+   as a stray white border: show only the grip there. The rule appears as soon as
+   the divider moves into the picture. */
+.compare[data-at="start"] .compare__line,
+.compare[data-at="end"] .compare__line { opacity: 0; }
 /* The grip: a linen disc with a gilt ring and two arrows, always centred on the
-   rule. At rest (0 %) rule and grip sit on the picture's left edge, the grip
-   half over the mat, so it reads as a slider mounted on the edge. */
+   rule. At rest (0 %) the grip sits on the picture's left edge, half over the
+   mat, so it reads as a slider mounted on the edge. */
 .compare__handle {
   position: absolute;
   top: 50%;
