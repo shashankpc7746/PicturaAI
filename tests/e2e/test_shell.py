@@ -1,6 +1,7 @@
 """The page shell: headers, first load, layout at every target width, the menu sheet."""
 from __future__ import annotations
 
+import json
 import re
 import urllib.request
 
@@ -49,7 +50,10 @@ def test_config_js_is_public_and_script(server_url):
     assert not re.search(r"token\W+[A-Za-z0-9_-]{20,}", text, re.I), "config.js looks like it leaks a token"
 
 
-def test_studio_loads_with_sample(open_page):
+def test_studio_loads_with_sample(open_page, server_url):
+    _, _, styles_body = _get(server_url + "/api/styles")
+    presets = json.loads(styles_body)
+    assert isinstance(presets, list) and presets, "/api/styles returned no presets"
     w = open_page(1440)
     page = w.page
     expect(page.get_by_role("heading", level=1)).to_have_text("Turn a photo into a painting")
@@ -59,7 +63,8 @@ def test_studio_loads_with_sample(open_page):
     expect(photo).to_be_visible()
     assert page.evaluate("document.getElementById('frame-photo').naturalWidth") > 0
     cards = page.get_by_role("radiogroup", name="Paintings").get_by_role("radio")
-    assert cards.count() >= 10, "the style gallery should list the presets"
+    # One card per preset in /api/styles (data/styles.json), no more and no fewer.
+    expect(cards).to_have_count(len(presets))
     # One tab stop in the radio group.
     assert page.locator('.style-card[role="radio"][tabindex="0"]').count() == 1
     # Paint is disabled with the reason shown until a painting is chosen.

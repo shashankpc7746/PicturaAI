@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 from PIL import Image
 from playwright.sync_api import Page, expect
 
@@ -143,19 +144,49 @@ def test_region_mask_with_mouse(open_page):
     page.wait_for_timeout(300)
 
     # Brushed area is styled; an unbrushed corner matches the photo.
-    diff = page.evaluate("""() => {
+    diff = _brushed_vs_corner(page)
+    assert diff[0] > 25 and diff[1] < 25, f"brushed vs unbrushed difference: {diff}"
+    expect(paint_button(page)).to_be_enabled()
+    expect(page.locator("#label-line2")).to_contain_text("brushed areas only")
+
+    # Invert swaps the mask: the brushed stroke now shows the photo, the corner is styled.
+    mask_before, result_before = _mask_alpha_sum(page), result_checksum(page)
+    assert mask_before > 0, "the brush stroke is not shown on the mask overlay"
+    page.get_by_role("button", name="Invert").click()
+    page.wait_for_function(
+        "(before) => { const c = document.getElementById('frame-result'); const d = c.getContext('2d')"
+        ".getImageData(0, 0, c.width, c.height).data; let s = 0; for (let i = 0; i < d.length; i += 40) s += d[i];"
+        " return s !== before; }", arg=result_before, timeout=5_000)
+    page.wait_for_function(f"(before) => ({MASK_ALPHA_JS})() !== before", arg=mask_before, timeout=5_000)
+    inverted = _brushed_vs_corner(page)
+    assert inverted[0] < 25 and inverted[1] > 25, f"after Invert, brushed vs unbrushed difference: {inverted}"
+    expect(paint_button(page)).to_be_enabled()
+
+    page.get_by_role("button", name="Clear", exact=True).click()
+    expect(paint_button(page)).to_be_disabled()
+    page.wait_for_function(f"() => ({MASK_ALPHA_JS})() === 0", timeout=5_000)
+
+
+def _brushed_vs_corner(page: Page) -> list:
+    """Result vs photo colour difference at the brushed stroke (20%, 50%) and a corner (85%, 15%)."""
+    return page.evaluate("""() => {
       const c = document.getElementById('frame-result'); const ctx = c.getContext('2d');
       const p = document.getElementById('frame-photo'); const t = document.createElement('canvas');
       t.width = c.width; t.height = c.height; const tc = t.getContext('2d'); tc.drawImage(p, 0, 0, c.width, c.height);
       const at = (x, y) => { const a = ctx.getImageData(x, y, 1, 1).data, b = tc.getImageData(x, y, 1, 1).data;
         return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]) + Math.abs(a[2]-b[2]); };
       return [at(Math.round(c.width*0.2), Math.round(c.height*0.5)), at(Math.round(c.width*0.85), Math.round(c.height*0.15))]; }""")
-    assert diff[0] > 25 and diff[1] < 25, f"brushed vs unbrushed difference: {diff}"
-    expect(paint_button(page)).to_be_enabled()
-    expect(page.locator("#label-line2")).to_contain_text("brushed areas only")
-    page.get_by_role("button", name="Invert").click()
-    page.get_by_role("button", name="Clear", exact=True).click()
-    expect(paint_button(page)).to_be_disabled()
+
+
+# Sum of the alpha channel of the visible mask overlay (#frame-mask, redrawn on the next frame).
+MASK_ALPHA_JS = """() => {
+  const c = document.getElementById('frame-mask');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let s = 0; for (let i = 3; i < d.length; i += 4) s += d[i]; return s; }"""
+
+
+def _mask_alpha_sum(page: Page) -> int:
+    return page.evaluate(MASK_ALPHA_JS)
 
 
 def test_my_gallery_save_delete_undo_open(open_page):
@@ -249,8 +280,23 @@ def test_cancel_painting(open_page):
     _pick(page, "Udnie")
     paint_button(page).click()
     expect(page.locator("#veil")).to_be_visible()
+    page.wait_for_timeout(300)
+    # Measured in the page: from the Cancel click to the veil being hidden.
+    page.evaluate("""() => {
+      window.__cancelMs = null;
+      const veil = document.getElementById('veil');
+      document.getElementById('cancel-paint').addEventListener('click', () => {
+        const t0 = performance.now();
+        const check = () => { if (veil.hidden || !veil.offsetParent) window.__cancelMs = performance.now() - t0;
+                              else requestAnimationFrame(check); };
+        check();
+      }, { once: true, capture: true });
+    }""")
     page.get_by_role("button", name="Cancel").click()
     expect(page.locator("#veil")).to_be_hidden(timeout=10_000)
+    page.wait_for_function("window.__cancelMs !== null", timeout=5_000)
+    cancel_ms = page.evaluate("window.__cancelMs")
+    assert cancel_ms < 1000, f"Cancel took {cancel_ms:.0f} ms to hide the veil"
     expect(page.locator("#toasts")).to_contain_text("Painting cancelled")
     expect(page.locator("#frame-result")).to_be_hidden()
     for r in held:
@@ -290,10 +336,13 @@ def test_upload_validation_and_custom_painting(open_page):
 def test_animate_downloads_a_video(open_page):
     page = open_page(1440).page
     animate = page.get_by_role("button", name="Animate")
+    supported = page.evaluate(
+        "import('/app/assets/js/services/video.js').then((m) => !!m.videoSupport())")
+    if not supported:
+        pytest.skip("this Chromium has no MediaRecorder video type, so Animate is hidden by design")
     _pick(page, "The Starry Night")
     paint(page)
-    if not animate.is_visible():   # no MediaRecorder: the button is hidden by design
-        return
+    expect(animate).to_be_visible()
     with page.expect_download(timeout=60_000) as dl:
         animate.click()
     assert dl.value.suggested_filename.endswith((".webm", ".mp4")), dl.value.suggested_filename
