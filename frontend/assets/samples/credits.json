@@ -1,0 +1,23 @@
+[
+  {
+    "file": "dog.jpg",
+    "title": "Golden Retriever in a forest",
+    "author": "Johan Spaedtke",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Golden_Retriever_adult.jpg",
+    "license": "CC0"
+  },
+  {
+    "file": "city.jpg",
+    "title": "Herzog-Friedrich-Strasse in the old town of Innsbruck, Austria",
+    "author": "Wilfredor",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Herzog-Friedrich-Stra%C3%9Fe_in_Innsbruck%27s_Historic_Old_Town,_Austria.jpg",
+    "license": "CC0"
+  },
+  {
+    "file": "lake.jpg",
+    "title": "Clouds mirrored in Lake Bohinj, Slovenia",
+    "author": "Ales Krivec",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Clouds_mirrored_in_a_mountain_lake_(Unsplash).jpg",
+    "license": "CC0"
+  }
+]
