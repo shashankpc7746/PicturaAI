@@ -20,7 +20,9 @@ services:
         value: "320"
       - key: NST_OUTPUT_DIM
         value: "320"
-      # Real visitor IP for rate limiting (Cloudflare fronts Render and overwrites it)
+      # Real visitor IP for rate limiting (Cloudflare fronts Render and overwrites it).
+      # FORWARDED_ALLOW_IPS stays at its default (127.0.0.1): X-Forwarded-For is
+      # client-controlled and is not used for the limits.
       - key: CLIENT_IP_HEADER
         value: "cf-connecting-ip"
       # ── Memory optimization for 512MB free tier ──

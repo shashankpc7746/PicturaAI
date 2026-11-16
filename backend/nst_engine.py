@@ -362,10 +362,15 @@ def run_nst(
 
     # 3c. Regional mask: if provided, only apply style where mask is white
     if mask_bytes is not None:
-        mask_img = Image.open(io.BytesIO(mask_bytes)).convert("L")
-        # Resize mask to match content tensor spatial dimensions
         _ct_np = np.array(content_hr)  # (1, H, W, 3)
         h, w = _ct_np.shape[1], _ct_np.shape[2]
+        # The upload's pixel count is capped in main.read_image_upload. A JPEG
+        # mask is also decoded at a reduced DCT scale, never below (w, h), so
+        # the resize below is still a downscale (no-op for other formats).
+        mask_img = Image.open(io.BytesIO(mask_bytes))
+        mask_img.draft(mask_img.mode, (max(w, h), max(w, h)))
+        mask_img = mask_img.convert("L")
+        # Resize mask to match content tensor spatial dimensions
         mask_img = mask_img.resize((w, h), _LANCZOS)
         # Light Gaussian blur to soften mask edges (avoid harsh boundaries)
         mask_img = mask_img.filter(ImageFilter.GaussianBlur(radius=6))

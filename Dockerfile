@@ -45,6 +45,11 @@ ENV OMP_NUM_THREADS=1
 ENV TF_NUM_INTRAOP_THREADS=1
 ENV TF_NUM_INTEROP_THREADS=1
 ENV NST_MAX_DIM=320
+# ── Client IP for per-IP rate limits ──
+# X-Forwarded-For is trusted only from FORWARDED_ALLOW_IPS (default 127.0.0.1,
+# set in backend/main.py). Behind a proxy, set CLIENT_IP_HEADER to a header the
+# proxy overwrites (cf-connecting-ip on Render), or set FORWARDED_ALLOW_IPS to
+# the proxy's own address. Never "*": clients could then pick their own IP.
 EXPOSE 8000
 
 # Run the FastAPI server

@@ -41,6 +41,7 @@ API_ROOT = "https://api.cloudflare.com/client/v4/accounts"
 PROMPT_TEMPLATE = "a painterly texture study in the style of: {prompt}"
 PROMPT_MAX_CHARS = 200
 SWATCH_MAX_DIM = 512
+SWATCH_SOURCE_MAX_PIXELS = 16_000_000  # largest provider image we will decode
 MAX_RESPONSE_BYTES = 12 * 1024 * 1024
 QUOTA_ERROR_CODE = 3036  # "You have used up your daily free allocation of 10,000 neurons."
 USER_AGENT = "PicturaAI/2.2 (+describe-style)"
@@ -150,8 +151,13 @@ def _to_swatch_jpeg(image_b64: str) -> bytes:
         raise DescribeUnavailable("failed", "image field is not valid base64") from None
     try:
         with Image.open(io.BytesIO(raw)) as probe:
+            # Check the declared size before anything is decoded (the provider
+            # returns ~1 MP; a huge image must not be decoded on a 512 MB host).
+            if probe.size[0] * probe.size[1] > SWATCH_SOURCE_MAX_PIXELS:
+                raise ValueError("image has too many pixels")
             probe.verify()
         with Image.open(io.BytesIO(raw)) as img:
+            img.draft("RGB", (SWATCH_MAX_DIM, SWATCH_MAX_DIM))
             img = img.convert("RGB")
             img.thumbnail((SWATCH_MAX_DIM, SWATCH_MAX_DIM))
             buf = io.BytesIO()

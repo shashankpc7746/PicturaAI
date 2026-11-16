@@ -2,16 +2,16 @@
 FastAPI Backend — PicturaAI
 ============================
 Endpoints:
-  POST /api/transfer         – Stylize a photo (synchronous; base64 JPEG in the response)
-  POST /api/palette-transfer – Colour-only transfer (synchronous)
+  POST /api/transfer         – Stylize a photo (synchronous; base64 JPEG in the response, not stored)
+  POST /api/palette-transfer – Colour-only transfer (synchronous, not stored)
   POST /api/interpolate      – Start a 0→100% style GIF job, returns job_id
   POST /api/describe-style   – Text → generated style swatch (Workers AI) or closest preset
-  GET  /api/jobs/{job_id}    – Poll job status & result
+  GET  /api/jobs/{job_id}    – Poll GIF job status & result
   WS   /ws/{job_id}          – WebSocket stream for real-time progress
   GET  /api/styles           – List built-in style presets (from data/styles.json)
   GET  /api/health           – Cheap liveness check
-  GET  /api/result/{job_id}  – Download final image
-  DELETE /api/jobs/{job_id}  – Cancel / cleanup
+  GET  /api/result/{job_id}  – Download a finished GIF job's result
+  DELETE /api/jobs/{job_id}  – Cancel / cleanup a GIF job
   GET  /app/config.js        – Public browser config (window.PICTURA_CONFIG)
   GET  /robots.txt, /sitemap.xml
 """
@@ -35,7 +35,7 @@ import logging
 import mimetypes
 import time
 import uuid
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -56,6 +56,7 @@ from slowapi.errors import RateLimitExceeded  # pyre-ignore[21]
 from slowapi.util import get_remote_address  # pyre-ignore[21]
 from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response  # pyre-ignore[21]
+from fastapi.routing import APIRoute  # pyre-ignore[21]
 from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
 from starlette.middleware.gzip import GZipMiddleware  # pyre-ignore[21]
 
@@ -149,15 +150,29 @@ except StyleCatalogError as _exc:
 # ── Upload limits & validation ─────────────────────────────────────────────────
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "10"))
 MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
-# Reject decompression bombs: PIL raises DecompressionBombError above 2× this cap.
+# Last-resort decompression-bomb guard for every Pillow decode in the process:
+# PIL warns above this and raises DecompressionBombError above 2× this cap.
 Image.MAX_IMAGE_PIXELS = int(os.environ.get("MAX_IMAGE_PIXELS", str(64_000_000)))
+# Pixel budgets per upload, checked from the header before anything is decoded.
+# A few KB of PNG can declare 100+ MP, and decoding it (plus convert("RGB"))
+# costs ~4 bytes per pixel on top of the ~455 MB the model already holds, so
+# non-JPEG images get a small budget. JPEGs are decoded at a reduced DCT scale
+# (Image.draft in nst_engine.open_image), so they may be larger.
+MAX_UPLOAD_PIXELS = int(os.environ.get("MAX_UPLOAD_PIXELS", str(12_000_000)))
+MAX_UPLOAD_PIXELS_JPEG = int(os.environ.get("MAX_UPLOAD_PIXELS_JPEG", str(40_000_000)))
+
+
+def _pixel_budget(fmt: Optional[str]) -> int:
+    budget = MAX_UPLOAD_PIXELS_JPEG if fmt in ("JPEG", "MPO") else MAX_UPLOAD_PIXELS
+    return min(budget, Image.MAX_IMAGE_PIXELS or budget)
 
 
 async def read_image_upload(upload: Optional[UploadFile], field: str) -> Optional[bytes]:
-    """Read an uploaded file with a size cap and verify it is a decodable image.
+    """Read an uploaded file with size and pixel caps and verify it is an image.
 
     Returns None if the upload is absent or empty. Raises HTTPException on
-    oversized or invalid files.
+    oversized (413) or invalid (400) files. Only the header is parsed here;
+    nothing is decoded.
     """
     if upload is None:
         return None
@@ -172,11 +187,23 @@ async def read_image_upload(upload: Optional[UploadFile], field: str) -> Optiona
     if not data:
         return None
     raw = bytes(data)
+    del data  # don't hold two copies while verifying
     try:
+        # The budget is never above MAX_IMAGE_PIXELS, so Pillow's 64–128 MP
+        # "warning only" range is rejected here too (no global warning filters:
+        # they would also affect the worker thread).
         with Image.open(io.BytesIO(raw)) as img:
-            img.verify()
+            width, height = img.size
+            too_many_pixels = width * height > _pixel_budget(img.format)
+            if not too_many_pixels:
+                img.verify()
+    except Image.DecompressionBombError:
+        too_many_pixels = True
     except Exception:
         raise HTTPException(400, f"{field} is not a valid image file")
+    if too_many_pixels:
+        logger.info("Rejected %s: too many pixels", field)
+        raise HTTPException(413, f"{field} has too many pixels. Please use a smaller image.")
     return raw
 
 # ── In-memory job store ────────────────────────────────────────────────────────
@@ -188,8 +215,14 @@ executor = ThreadPoolExecutor(max_workers=1)
 # ── Concurrency guard ──────────────────────────────────────────────────────────
 # The single worker thread processes one heavy TF job at a time; cap how many
 # more may wait in line so a request flood can't pile bytes up in memory.
+# Handlers take a slot BEFORE reading any upload into memory (Starlette has
+# already spooled large parts to temporary files by then), so rejected
+# requests never hold image bytes. Admitted requests then wait for `_work_lock`
+# before reading theirs, so only the job about to run holds image bytes; the
+# others wait with their uploads still in those temporary files.
 MAX_PENDING_JOBS = int(os.environ.get("MAX_PENDING_JOBS", "3"))
 _inflight_jobs = 0
+_work_lock = asyncio.Lock()  # recreated per lifespan (see lifespan below)
 
 
 def _acquire_job_slot():
@@ -243,8 +276,9 @@ _main_loop: asyncio.AbstractEventLoop | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Modern lifespan handler (replaces deprecated on_event)."""
-    global _main_loop, executor
+    global _main_loop, executor, _work_lock
     _main_loop = asyncio.get_running_loop()
+    _work_lock = asyncio.Lock()
     # A fresh worker per lifespan: shutdown below closes it, and a closed pool
     # can't be reused (matters when the app is started more than once in-process).
     executor = ThreadPoolExecutor(max_workers=1)
@@ -277,10 +311,103 @@ app = FastAPI(
     openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
 )
 
+# ── Request size and form part limits ──────────────────────────────────────────
+# FastAPI parses the whole multipart body before a handler (and its rate limit)
+# runs, with Starlette's defaults: 1000 files, 1000 fields, and up to 1 MB of
+# every file part kept in memory. Cap the body and the part counts instead.
+# Largest legitimate request: content + style + style_2 + mask, plus small fields.
+MAX_REQUEST_BYTES = int(os.environ.get("MAX_REQUEST_BYTES", str(4 * MAX_UPLOAD_BYTES + 64 * 1024)))
+FORM_MAX_FILES = 4
+FORM_MAX_FIELDS = 24
+FORM_MAX_FIELD_BYTES = 64 * 1024  # text fields only (file parts are spooled to disk)
+
+
+class RequestTooLarge(HTTPException):
+    def __init__(self) -> None:
+        super().__init__(413, "Request is too large")
+
+
+class BodySizeLimitMiddleware:
+    """Reject POST /api/* bodies over `max_bytes` (pure ASGI, wraps `receive`).
+
+    A declared Content-Length over the cap gets 413 without reading the body;
+    otherwise streamed bytes are counted, so chunked bodies or a false
+    Content-Length can't get around it.
+    """
+
+    def __init__(self, app: Any, max_bytes: Callable[[], int]) -> None:
+        self.app = app
+        self.max_bytes = max_bytes  # read per request
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] != "http" or scope["method"] != "POST" or not scope["path"].startswith("/api/"):
+            await self.app(scope, receive, send)
+            return
+        max_bytes = self.max_bytes()
+        declared = dict(scope.get("headers") or []).get(b"content-length")
+        if declared is not None and (not declared.isdigit() or int(declared) > max_bytes):
+            await JSONResponse({"detail": "Request is too large"}, status_code=413)(scope, receive, send)
+            return
+
+        received = 0
+        started = False
+
+        async def limited_receive() -> dict:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > max_bytes:
+                    raise RequestTooLarge()  # → 413 via the exception handler
+            return message
+
+        async def tracking_send(message: dict) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracking_send)
+        except RequestTooLarge:
+            if started:
+                raise
+            await JSONResponse({"detail": "Request is too large"}, status_code=413)(scope, receive, send)
+
+
+class _FormLimitedRequest(Request):
+    def form(self, *, max_files: int | float = FORM_MAX_FILES, max_fields: int | float = FORM_MAX_FIELDS,
+             max_part_size: int = FORM_MAX_FIELD_BYTES):  # type: ignore[override]
+        return super().form(
+            max_files=min(max_files, FORM_MAX_FILES),
+            max_fields=min(max_fields, FORM_MAX_FIELDS),
+            max_part_size=min(max_part_size, FORM_MAX_FIELD_BYTES),
+        )
+
+
+class _FormLimitedRoute(APIRoute):
+    """Parse form bodies with tight part limits (too many parts → 400)."""
+
+    def get_route_handler(self):  # type: ignore[override]
+        handler = super().get_route_handler()
+
+        async def limited_handler(request: Request) -> Response:
+            return await handler(_FormLimitedRequest(request.scope, request.receive))
+
+        return limited_handler
+
+
+# Before any route is declared, so every API route uses it.
+app.router.route_class = _FormLimitedRoute
+# Registered first, so it runs inside CORS and the header middleware (its 413
+# gets the same CORS and security headers as any other response).
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=lambda: MAX_REQUEST_BYTES)
+
 # ── Per-IP rate limiting ───────────────────────────────────────────────────────
 # Complements the queue guard: the guard caps total server load, these limits
-# stop a single client from hogging all the slots. Requires proxy headers to be
-# trusted (see uvicorn.run below) so the real client IP is seen behind Render.
+# stop a single client from hogging all the slots. Behind a proxy the real
+# client IP comes from CLIENT_IP_HEADER, or from X-Forwarded-For when the proxy's
+# address is listed in FORWARDED_ALLOW_IPS (see uvicorn_options below).
 RATE_LIMIT_TRANSFER    = os.environ.get("RATE_LIMIT_TRANSFER", "10/minute")
 RATE_LIMIT_INTERPOLATE = os.environ.get("RATE_LIMIT_INTERPOLATE", "3/minute")
 RATE_LIMIT_PALETTE     = os.environ.get("RATE_LIMIT_PALETTE", "20/minute")
@@ -290,7 +417,9 @@ RATE_LIMIT_DESCRIBE    = os.environ.get("RATE_LIMIT_DESCRIBE", "5/minute")
 # Cloudflare, which *overwrites* CF-Connecting-IP with the connecting address,
 # whereas X-Forwarded-For is only appended to — its first entry is whatever the
 # client sent, so keying on it lets anyone dodge the limits. Leave this empty
-# on hosts without such a proxy (a client could forge the header there).
+# on hosts without such a proxy (a client could forge the header there); the
+# limits then key on the socket peer, which is the proxy itself unless
+# FORWARDED_ALLOW_IPS names it (coarser limits, but they can't be bypassed).
 CLIENT_IP_HEADER = os.environ.get("CLIENT_IP_HEADER", "").strip().lower()
 
 
@@ -407,6 +536,23 @@ def resolve_style_from_text(prompt: str) -> Optional[str]:
     """Map a free-text style prompt to the best matching preset key (or None)."""
     preset = CATALOG.match_text(prompt)
     return preset.key if preset else None
+
+
+def _resolve_text_prompt(raw: str) -> str:
+    """Validate a `text_prompt` form field like /api/describe-style does, then match it.
+
+    The matcher runs on the event loop, so the length is capped before any work.
+    """
+    too_long = f"Describe the style in 1 to {PROMPT_MAX_CHARS} characters."
+    if len(raw) > PROMPT_MAX_CHARS * 4:
+        raise HTTPException(400, too_long)
+    prompt = clean_prompt(raw)
+    if not 1 <= len(prompt) <= PROMPT_MAX_CHARS:
+        raise HTTPException(400, too_long)
+    key = resolve_style_from_text(prompt)
+    if key is None:
+        raise HTTPException(400, "No matching style found for the provided text_prompt")
+    return key
 
 
 def _style_title(style_key: Optional[str]) -> Optional[str]:
@@ -568,82 +714,71 @@ async def start_transfer(
     resolved_style_key: Optional[str] = None
     if style_image is None and style_preset is None:
         if text_prompt and text_prompt.strip():
-            resolved_style_key = resolve_style_from_text(text_prompt)
-            if resolved_style_key is None:
-                raise HTTPException(400, "No matching style found for the provided text_prompt")
+            resolved_style_key = _resolve_text_prompt(text_prompt)
             style_preset = resolved_style_key
         else:
             raise HTTPException(400, "Provide style_image, style_preset, or text_prompt")
 
     num_steps = max(50, min(num_steps, 1000))
 
-    content_bytes = await read_image_upload(content_image, "content_image")
-    if content_bytes is None:
-        raise HTTPException(400, "content_image is empty")
-
-    style_bytes = await read_image_upload(style_image, "style_image")
-    if style_bytes is None:
-        assert style_preset is not None  # already validated above (style_image is None ⇒ style_preset must exist)
-        style_path = get_style_path(style_preset)
-        if not style_path or not style_path.exists():
-            raise HTTPException(404, f"Style preset '{style_preset}' not found")
-        style_bytes = style_path.read_bytes()
-
-    # ── Optional second style (style mixing) ─────────────────────────────
-    style_bytes_2 = await read_image_upload(style_image_2, "style_image_2")
-    if style_bytes_2 is None and style_preset_2 is not None:
-        style_path_2 = get_style_path(style_preset_2)
-        if style_path_2 and style_path_2.exists():
-            style_bytes_2 = style_path_2.read_bytes()
-
-    # ── Optional region mask (regional styling; the client masks raw output) ─
-    mask_bytes = None if raw_output else await read_image_upload(mask_image, "mask_image")
-
-    job_id = str(uuid.uuid4())
-
     # ── Run synchronously to avoid OOM-restart losing job state ──────────
     # On constrained environments (free tier), the async worker pattern fails
     # because the process can be killed mid-inference and the job store is lost.
     resolved_style_name = _style_title(resolved_style_key)
 
+    # Queue check first: a rejected request must not read its uploads into memory.
     _acquire_job_slot()
     try:
-        loop = asyncio.get_running_loop()
-        result_bytes = await loop.run_in_executor(
-            executor,
-            lambda: run_nst(
-                content_bytes, style_bytes,
-                style_weight=style_weight,
-                content_weight=content_weight,
-                tv_weight=tv_weight,
-                num_steps=num_steps,
-                learning_rate=learning_rate,
-                style_bytes_2=style_bytes_2,
-                style_mix_ratio=style_mix_ratio,
-                mask_bytes=mask_bytes,
-                raw=raw_output,
+        async with _work_lock:
+            content_bytes = await read_image_upload(content_image, "content_image")
+            if content_bytes is None:
+                raise HTTPException(400, "content_image is empty")
+
+            style_bytes = await read_image_upload(style_image, "style_image")
+            if style_bytes is None:
+                assert style_preset is not None  # validated above (style_image is None ⇒ style_preset must exist)
+                style_path = get_style_path(style_preset)
+                if not style_path or not style_path.exists():
+                    raise HTTPException(404, f"Style preset '{style_preset}' not found")
+                style_bytes = style_path.read_bytes()
+
+            # ── Optional second style (style mixing) ─────────────────────────
+            style_bytes_2 = await read_image_upload(style_image_2, "style_image_2")
+            if style_bytes_2 is None and style_preset_2 is not None:
+                style_path_2 = get_style_path(style_preset_2)
+                if style_path_2 and style_path_2.exists():
+                    style_bytes_2 = style_path_2.read_bytes()
+
+            # ── Optional region mask (regional styling; the client masks raw output) ─
+            mask_bytes = None if raw_output else await read_image_upload(mask_image, "mask_image")
+
+            loop = asyncio.get_running_loop()
+            result_bytes = await loop.run_in_executor(
+                executor,
+                lambda: run_nst(
+                    content_bytes, style_bytes,
+                    style_weight=style_weight,
+                    content_weight=content_weight,
+                    tv_weight=tv_weight,
+                    num_steps=num_steps,
+                    learning_rate=learning_rate,
+                    style_bytes_2=style_bytes_2,
+                    style_mix_ratio=style_mix_ratio,
+                    mask_bytes=mask_bytes,
+                    raw=raw_output,
+                )
             )
-        )
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Transfer failed")
         raise HTTPException(500, "Style transfer failed. Please try again with a different image.")
     finally:
         _release_job_slot()
 
-    # Save result to disk for the download endpoint
-    out_path = OUTPUT_DIR / f"{job_id}.jpg"
-    out_path.write_bytes(result_bytes)
+    # The result goes straight back in the response and is not stored on the
+    # server (data minimisation: nothing reads a saved copy of a transfer).
     result_b64 = base64.b64encode(result_bytes).decode()
-
-    # Store only lightweight metadata + disk path (NOT the base64) to save memory
-    jobs[job_id] = {
-        "id": job_id,
-        "status": "done",
-        "progress": 100,
-        "result_path": str(out_path),
-        "created_at": time.time(),
-        "finished_at": time.time(),
-    }
 
     # Release the raw bytes before building the response
     del result_bytes
@@ -651,7 +786,6 @@ async def start_transfer(
     gc.collect()
 
     return JSONResponse({
-        "job_id": job_id,
         "status": "done",
         "result": result_b64,
         "output": output,
@@ -691,6 +825,8 @@ async def download_result(job_id: str):
     path = job.get("result_path")
     if not path or not Path(path).exists():
         raise HTTPException(500, "Result file missing")
+    if job.get("result_type") == "gif":
+        return FileResponse(path, media_type="image/gif", filename=f"styled_{job_id}.gif")
     return FileResponse(path, media_type="image/jpeg", filename=f"styled_{job_id}.jpg")
 
 @app.delete("/api/jobs/{job_id}")
@@ -767,34 +903,42 @@ async def start_interpolation(
     num_frames = max(5, min(num_frames, 20))
     frame_duration = max(50, min(frame_duration, 500))
 
-    content_bytes = await read_image_upload(content_image, "content_image")
-    if content_bytes is None:
-        raise HTTPException(400, "content_image is empty")
-
-    style_bytes = await read_image_upload(style_image, "style_image")
-    if style_bytes is None:
-        assert style_preset is not None
-        style_path = get_style_path(style_preset)
-        if not style_path or not style_path.exists():
-            raise HTTPException(404, f"Style preset '{style_preset}' not found")
-        style_bytes = style_path.read_bytes()
-
+    # Queue check before reading uploads. Once the job is submitted, the worker
+    # releases the slot; until then, every exit path here releases it.
     _acquire_job_slot()
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {
-        "id": job_id, "status": "queued", "progress": 0,
-        "created_at": time.time(), "result_type": "gif",
-    }
-    ws_clients[job_id] = []
-
+    submitted = False
     try:
-        executor.submit(_interpolation_worker, job_id, content_bytes, style_bytes, num_frames, frame_duration)  # type: ignore[arg-type]
+        async with _work_lock:
+            content_bytes = await read_image_upload(content_image, "content_image")
+            if content_bytes is None:
+                raise HTTPException(400, "content_image is empty")
+
+            style_bytes = await read_image_upload(style_image, "style_image")
+            if style_bytes is None:
+                assert style_preset is not None
+                style_path = get_style_path(style_preset)
+                if not style_path or not style_path.exists():
+                    raise HTTPException(404, f"Style preset '{style_preset}' not found")
+                style_bytes = style_path.read_bytes()
+
+            jobs[job_id] = {
+                "id": job_id, "status": "queued", "progress": 0,
+                "created_at": time.time(), "result_type": "gif",
+            }
+            ws_clients[job_id] = []
+            executor.submit(_interpolation_worker, job_id, content_bytes, style_bytes, num_frames, frame_duration)  # type: ignore[arg-type]
+            submitted = True
+    except HTTPException:
+        raise
     except Exception:
-        _release_job_slot()
-        jobs.pop(job_id, None)
-        ws_clients.pop(job_id, None)
         logger.exception("Failed to queue interpolation job")
         raise HTTPException(500, "Could not start the animation job. Please try again.")
+    finally:
+        if not submitted:
+            _release_job_slot()
+            jobs.pop(job_id, None)
+            ws_clients.pop(job_id, None)
 
     return JSONResponse({"job_id": job_id, "status": "queued"})
 
@@ -817,46 +961,47 @@ async def palette_transfer(
     resolved_style_key: Optional[str] = None
     if style_image is None and style_preset is None:
         if text_prompt and text_prompt.strip():
-            resolved_style_key = resolve_style_from_text(text_prompt)
-            if resolved_style_key is None:
-                raise HTTPException(400, "No matching style found for the provided text_prompt")
+            resolved_style_key = _resolve_text_prompt(text_prompt)
             style_preset = resolved_style_key
         else:
             raise HTTPException(400, "Provide style_image, style_preset, or text_prompt")
 
     strength = max(0.0, min(1.0, strength))
 
-    content_bytes = await read_image_upload(content_image, "content_image")
-    if content_bytes is None:
-        raise HTTPException(400, "content_image is empty")
-
-    style_bytes = await read_image_upload(style_image, "style_image")
-    if style_bytes is None:
-        assert style_preset is not None
-        style_path = get_style_path(style_preset)
-        if not style_path or not style_path.exists():
-            raise HTTPException(404, f"Style preset '{style_preset}' not found")
-        style_bytes = style_path.read_bytes()
-
-    # ── Optional second style (style mixing) ─────────────────────────────
-    style_bytes_2 = await read_image_upload(style_image_2, "style_image_2")
-    if style_bytes_2 is None and style_preset_2 is not None:
-        style_path_2 = get_style_path(style_preset_2)
-        if style_path_2 and style_path_2.exists():
-            style_bytes_2 = style_path_2.read_bytes()
-
-    # Run the CPU-heavy transfer in the worker thread so it never blocks the
-    # event loop (it previously ran inline in this async handler).
+    # Queue check before reading uploads, then run the CPU-heavy transfer in the
+    # worker thread so it never blocks the event loop.
     _acquire_job_slot()
     try:
-        loop = asyncio.get_running_loop()
-        result_bytes = await loop.run_in_executor(
-            executor,
-            lambda: color_palette_transfer(
-                content_bytes, style_bytes, strength=strength,
-                style_bytes_2=style_bytes_2, style_mix_ratio=style_mix_ratio,
+        async with _work_lock:
+            content_bytes = await read_image_upload(content_image, "content_image")
+            if content_bytes is None:
+                raise HTTPException(400, "content_image is empty")
+
+            style_bytes = await read_image_upload(style_image, "style_image")
+            if style_bytes is None:
+                assert style_preset is not None
+                style_path = get_style_path(style_preset)
+                if not style_path or not style_path.exists():
+                    raise HTTPException(404, f"Style preset '{style_preset}' not found")
+                style_bytes = style_path.read_bytes()
+
+            # ── Optional second style (style mixing) ─────────────────────────
+            style_bytes_2 = await read_image_upload(style_image_2, "style_image_2")
+            if style_bytes_2 is None and style_preset_2 is not None:
+                style_path_2 = get_style_path(style_preset_2)
+                if style_path_2 and style_path_2.exists():
+                    style_bytes_2 = style_path_2.read_bytes()
+
+            loop = asyncio.get_running_loop()
+            result_bytes = await loop.run_in_executor(
+                executor,
+                lambda: color_palette_transfer(
+                    content_bytes, style_bytes, strength=strength,
+                    style_bytes_2=style_bytes_2, style_mix_ratio=style_mix_ratio,
+                )
             )
-        )
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Palette transfer failed")
         raise HTTPException(500, "Palette transfer failed. Please try again with a different image.")
@@ -1032,12 +1177,26 @@ async def websocket_endpoint(websocket: WebSocket, job_id: str):
             ws_clients.pop(job_id, None)
 
 # ── Entry point ────────────────────────────────────────────────────────────────
+def uvicorn_options() -> Dict[str, Any]:
+    """Options for `python backend/main.py` (the Dockerfile CMD).
+
+    X-Forwarded-For / X-Forwarded-Proto are trusted only from the peers listed in
+    FORWARDED_ALLOW_IPS (default 127.0.0.1, uvicorn's own default). Never "*":
+    uvicorn then takes the leftmost X-Forwarded-For entry, which the client
+    writes, and the per-IP rate limits could be dodged with a forged header.
+    Behind a proxy, set CLIENT_IP_HEADER (cf-connecting-ip on Render) or set
+    FORWARDED_ALLOW_IPS to the proxy's own address on purpose.
+    """
+    return {
+        "host": "0.0.0.0",
+        "port": int(os.environ.get("PORT", 8000)),
+        "reload": False,
+        "log_level": "info",
+        "proxy_headers": True,
+        "forwarded_allow_ips": os.environ.get("FORWARDED_ALLOW_IPS", "").strip() or "127.0.0.1",
+    }
+
+
 if __name__ == "__main__":
     import uvicorn  # pyre-ignore[21]
-    port = int(os.environ.get("PORT", 8000))
-    # proxy_headers + forwarded_allow_ips: trust X-Forwarded-For from the
-    # hosting platform's proxy (Render) so rate limiting sees real client IPs.
-    uvicorn.run(
-        "main:app", host="0.0.0.0", port=port, reload=False, log_level="info",
-        proxy_headers=True, forwarded_allow_ips="*",
-    )
+    uvicorn.run("main:app", **uvicorn_options())
