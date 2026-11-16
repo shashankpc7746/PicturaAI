@@ -4,11 +4,17 @@
 
 const MASK_SIDE = 1024;
 
-function makeHatch(ctx) {
+// The hatch is designed in CSS pixels (a 14 px tile with 2.5 px lines). The overlay
+// canvas is ~1024 px wide but shown at ~360 px on a phone, so the tile is scaled by
+// canvas px per CSS px; otherwise the lines shrink below a pixel and the brushed
+// area almost disappears on a busy photo.
+function makeHatch(ctx, k = 1) {
+  const T = Math.max(8, Math.round(14 * k));
   const t = document.createElement('canvas');
-  t.width = t.height = 14;
+  t.width = t.height = T;
   const c = t.getContext('2d');
-  c.fillStyle = 'rgba(201, 164, 76, 0.22)';
+  c.scale(T / 14, T / 14);
+  c.fillStyle = 'rgba(201, 164, 76, 0.34)';
   c.fillRect(0, 0, 14, 14);
   c.strokeStyle = 'rgba(221, 187, 102, 0.95)';
   c.lineWidth = 2.5;
@@ -25,6 +31,7 @@ export function createMaskPainter(overlay, { onChange, onCommit } = {}) {
   const dctx = data.getContext('2d', { willReadFrequently: true });
   const octx = overlay.getContext('2d');
   let hatch = null;
+  let hatchK = 0;
   let enabled = false;
   let brush = 'draw';
   let size = 36;            // CSS pixels
@@ -38,12 +45,24 @@ export function createMaskPainter(overlay, { onChange, onCommit } = {}) {
     const k = MASK_SIDE / Math.max(width, height);
     data.width = overlay.width = Math.max(1, Math.round(width * k));
     data.height = overlay.height = Math.max(1, Math.round(height * k));
-    hatch = makeHatch(octx);
+    hatch = null;
     clear(false);
+  }
+
+  /** Rebuild the hatch when the overlay's on-screen scale changes (resize, rotation). */
+  function ensureHatch() {
+    const cssW = overlay.getBoundingClientRect().width;
+    if (!cssW && hatch) return;   // hidden: keep what we have
+    const k = cssW ? Math.round((overlay.width / cssW) * 4) / 4 || 1 : 1;
+    if (!hatch || k !== hatchK) {
+      hatch = makeHatch(octx, k);
+      hatchK = k;
+    }
   }
 
   function refresh() {
     raf = 0;
+    ensureHatch();
     octx.globalCompositeOperation = 'source-over';
     octx.clearRect(0, 0, overlay.width, overlay.height);
     octx.drawImage(data, 0, 0);
