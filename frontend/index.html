@@ -1,504 +1,476 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PicturaAI – Neural Style Transfer Studio</title>
-  <meta name="description"
-    content="Transform your photos into stunning artworks using PicturaAI — AI-powered Neural Style Transfer. Latin for 'a painting'. Choose from famous styles or upload your own." />
-  <!-- Favicons -->
-  <!-- <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" /> -->
-  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
-  <link rel="apple-touch-icon" href="assets/logo.png" />
-  <meta property="og:image" content="assets/logo.png" />
-  <meta property="og:title" content="PicturaAI – Neural Style Transfer Studio" />
-  <meta property="og:description"
-    content="Transform your photos into living art with AI. Pictura — Latin for a painting." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap"
-    rel="stylesheet" />
-  <link rel="stylesheet" href="assets/style.css?v=7" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PicturaAI: turn a photo into a painting</title>
+  <meta name="description" content="Turn a photo into a painting in the style of Van Gogh, Hokusai, Klimt and other public-domain masters. Free, with no sign-up and no watermark.">
+  <meta name="theme-color" content="#142622">
+  <link rel="icon" href="assets/favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="PicturaAI: turn a photo into a painting">
+  <meta property="og:description" content="Pick a photo and a famous painting. Free, with no sign-up and no watermark.">
+  <meta property="og:image" content="https://picturaai-k7q6.onrender.com/app/assets/logo.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&amp;family=Schibsted+Grotesk:wght@400;500;600;700&amp;display=swap">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+
+  <!-- TODO(integration): load the server-built public config before main.js, once
+       GET /app/config.js exists everywhere:
+       <script src="config.js"></script>
+       main.js reads window.PICTURA_CONFIG when present and works without it. -->
+  <script type="module" src="assets/js/main.js"></script>
 </head>
-
 <body>
+  <a class="skip-link" href="#studio">Skip to the studio</a>
 
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║          NAVIGATION              ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-inner">
-      <a href="#" class="nav-logo">
-        <img src="assets/logo-96.png" alt="PicturaAI Logo" class="nav-logo-img" width="34" height="34" />
-        <span>PicturaAI</span>
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="wordmark" href="#studio" aria-label="PicturaAI, back to the studio">
+        <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#frame-mark"/></svg>
+        PicturaAI
       </a>
-      <div class="nav-links">
+      <nav class="site-nav" aria-label="Main">
         <a href="#studio">Studio</a>
-        <a href="#gallery">Gallery</a>
-        <a href="#how-it-works">How It Works</a>
-      </div>
-      <a href="#studio" class="btn btn-primary btn-sm">Start Creating</a>
+        <a href="#styles">Styles</a>
+        <a href="#gallery">My gallery</a>
+        <a href="#how-it-works">How it works</a>
+      </nav>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="menu-sheet" data-menu-open>
+        <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#menu"/></svg>
+        Menu
+      </button>
     </div>
-  </nav>
+  </header>
 
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║            HERO                  ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <section class="hero" id="home">
-    <div class="hero-bg">
-      <div class="hero-orb orb-1"></div>
-      <div class="hero-orb orb-2"></div>
-      <div class="hero-orb orb-3"></div>
-      <div class="hero-grid"></div>
+  <div class="menu-sheet" id="menu-sheet" role="dialog" aria-modal="true" aria-label="Menu" hidden>
+    <div class="menu-sheet__backdrop" data-menu-close></div>
+    <div class="menu-sheet__panel">
+      <div class="menu-sheet__top">
+        <span class="wordmark">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#frame-mark"/></svg>
+          PicturaAI
+        </span>
+        <button class="btn btn--quiet" type="button" data-menu-close>
+          <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#close"/></svg>
+          Close
+        </button>
+      </div>
+      <nav class="menu-sheet__nav" aria-label="Main">
+        <a href="#studio">Studio</a>
+        <a href="#styles">Styles</a>
+        <a href="#gallery">My gallery</a>
+        <a href="#how-it-works">How it works</a>
+      </nav>
     </div>
-    <div class="hero-content">
-      <div class="badge-pill">
-        <span class="badge-dot"></span>
-        Pictura · Latin for "A Painting"
-      </div>
-      <h1 class="hero-title">
-        Transform Photos<br />
-        Into <span class="gradient-text">Living Art</span>
-      </h1>
-      <p class="hero-subtitle">
-        PicturaAI blends the structure of your photo with the brushstrokes of Van Gogh,
-        Picasso, Hokusai — and more. Real-time AI art, in minutes.
-      </p>
-      <div class="hero-actions">
-        <a href="#studio" class="btn btn-primary btn-lg">
-          <span>Open Studio →</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M5 12h14M12 5l7 7-7 7" />
-          </svg>
-        </a>
-        <a href="#how-it-works" class="btn btn-ghost btn-lg">How It Works</a>
-      </div>
-      <div class="hero-stats">
-        <div class="stat"><span class="stat-num">13+</span><span class="stat-label">Art Styles</span></div>
-        <div class="stat-divider"></div>
-        <div class="stat"><span class="stat-num">AI</span><span class="stat-label">Powered</span></div>
-        <div class="stat-divider"></div>
-        <div class="stat"><span class="stat-num">Real-time</span><span class="stat-label">Preview</span></div>
-      </div>
-    </div>
-    <div class="hero-visual">
-      <div class="canvas-preview">
-        <div class="preview-card card-base">
-          <img
-            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3CdefinS%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23667eea'/%3E%3Cstop offset='1' stop-color='%23764ba2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect fill='url(%23g)' width='300' height='200'/%3E%3C/svg%3E"
-            alt="Demo" class="preview-img" id="heroPreviewImg" />
-          <div class="preview-label">Content</div>
-        </div>
-        <div class="plus-icon">+</div>
-        <div class="preview-card card-style">
-          <img
-            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f59e0b' width='300' height='200'/%3E%3C/svg%3E"
-            alt="Style" class="preview-img" id="heroStyleImg" />
-          <div class="preview-label">Style</div>
-        </div>
-        <div class="arrow-icon">→</div>
-        <div class="preview-card card-result">
-          <div class="result-shimmer">
-            <div class="shimmer-wave"></div>
+  </div>
+
+  <main>
+    <!-- ── Studio ─────────────────────────────────────────────────────── -->
+    <section class="studio" id="studio" aria-labelledby="studio-title">
+      <div class="container">
+        <div class="studio__grid">
+          <div class="studio__intro">
+            <h1 id="studio-title">Turn a photo into a painting</h1>
+            <p class="studio__lede" id="studio-lede">Pick a photo and a painting, and get your picture back in seconds.</p>
           </div>
-          <div class="preview-label">Masterpiece</div>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║    HOW IT WORKS                  ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <section class="section" id="how-it-works">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-tag">Process</div>
-        <h2 class="section-title">How PicturaAI Works</h2>
-        <p class="section-subtitle">Three simple steps to transform your images into art</p>
-      </div>
-      <div class="steps-grid">
-        <div class="step-card" data-step="01">
-          <div class="step-icon">📸</div>
-          <h3>Upload Content</h3>
-          <p>Upload any photo — portrait, landscape, cityscape. PicturaAI understands structure and depth.</p>
-        </div>
-        <div class="step-connector"></div>
-        <div class="step-card" data-step="02">
-          <div class="step-icon">🎨</div>
-          <h3>Choose a Style</h3>
-          <p>Pick from 13 iconic art styles — Van Gogh, Hokusai, Picasso — or upload your own painting.</p>
-        </div>
-        <div class="step-connector"></div>
-        <div class="step-card" data-step="03">
-          <div class="step-icon">✨</div>
-          <h3>Get Your Art</h3>
-          <p>Watch your photo transform instantly as Magenta AI applies the chosen artistic style in seconds.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+          <!-- Frame -->
+          <div class="studio__frame">
+            <figure class="frame" id="frame">
+              <div class="frame__moulding">
+                <div class="frame__mat">
+                  <div class="frame__stage" id="frame-stage">
+                    <img class="frame__photo" id="frame-photo" src="assets/samples/dog.jpg" width="1600" height="1068"
+                      alt="Sample photo: a golden retriever in a forest" decoding="async" fetchpriority="high">
+                    <canvas class="frame__result" id="frame-result" hidden></canvas>
+                    <canvas class="frame__mask" id="frame-mask" hidden></canvas>
 
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║        STUDIO                    ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <section class="section studio-section" id="studio">
-    <div class="container container-wide">
-      <div class="section-header">
-        <div class="section-tag">Studio</div>
-        <h2 class="section-title">Create Your Artwork</h2>
-        <p class="section-subtitle">Upload, configure, and watch your masterpiece come to life in real-time</p>
-      </div>
+                    <div class="compare" id="compare" hidden>
+                      <div class="compare__line"></div>
+                      <div class="compare__handle" id="compare-handle" role="slider" tabindex="0"
+                        aria-label="Compare with your photo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                        aria-valuetext="Showing the painting">
+                        <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#compare"/></svg>
+                      </div>
+                    </div>
+                    <span class="frame__tag" id="tag-original" hidden>Your photo</span>
 
-      <div class="studio-layout">
+                    <div class="frame__empty" id="frame-empty" hidden>
+                      <svg class="icon frame__empty-icon" aria-hidden="true"><use href="assets/icons/icons.svg#image"/></svg>
+                      <p class="frame__empty-title">Add a photo to begin</p>
+                      <p class="frame__empty-hint">Drop it here, or use the button below. JPG, PNG or WEBP up to 25 MB.</p>
+                    </div>
 
-        <!-- LEFT PANEL: Inputs -->
-        <div class="studio-panel panel-left">
+                    <div class="veil" id="veil" hidden>
+                      <div class="veil__status">
+                        <p class="veil__text" id="veil-text">Painting</p>
+                        <p class="veil__sub" id="veil-sub"></p>
+                        <button class="btn btn--on-label veil__cancel" type="button" id="cancel-paint">Cancel</button>
+                      </div>
+                      <div class="veil__progress" id="veil-progress" role="progressbar" aria-label="Painting progress">
+                        <span class="veil__bar" id="veil-bar"></span>
+                      </div>
+                    </div>
 
-          <!-- Step 1: Content Image -->
-          <div class="panel-section">
-            <div class="panel-label">
-              <span class="step-badge">1</span>
-              <span>Content Image</span>
-            </div>
-            <div class="upload-zone" id="contentUploadZone" role="button" tabindex="0"
-              aria-label="Upload your photo (PNG, JPG or WEBP, max 10 MB)"
-              onclick="if (!maskMode) document.getElementById('contentInput').click()">
-              <input type="file" id="contentInput" accept="image/*" hidden />
-              <div class="upload-placeholder" id="contentPlaceholder">
-                <div class="upload-icon">📷</div>
-                <div class="upload-text">Drop your photo here</div>
-                <div class="upload-hint">PNG, JPG, WEBP · Max 10MB</div>
-              </div>
-              <img id="contentPreview" class="upload-preview hidden" alt="Content" />
-              <canvas id="maskCanvas" class="mask-canvas hidden"></canvas>
-              <button class="upload-clear hidden" id="contentClear" aria-label="Remove photo" onclick="clearImage('content', event)">✕</button>
-            </div>
-            <!-- Mask painting toolbar -->
-            <div class="mask-toolbar hidden" id="maskToolbar">
-              <button class="mask-tool-btn" id="maskToggleBtn" onclick="toggleMaskMode()" type="button" title="Toggle mask painting" aria-pressed="false">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
-                <span>Paint Mask</span>
-              </button>
-              <div class="mask-controls hidden" id="maskControls">
-                <div class="mask-brush-size">
-                  <label for="brushSize">Brush</label>
-                  <input type="range" id="brushSize" min="5" max="80" value="30" class="slider slider-style"
-                    oninput="updateBrushSize(this.value)" />
-                  <span id="brushSizeVal">30</span>
+                    <div class="frame-error" id="frame-error" hidden>
+                      <div class="frame-error__card" role="alert">
+                        <svg class="icon frame-error__marker" aria-hidden="true"><use href="assets/icons/icons.svg#alert"/></svg>
+                        <p class="frame-error__text" id="frame-error-text"></p>
+                        <div class="frame-error__actions">
+                          <button class="btn btn--primary" type="button" id="error-retry">
+                            <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#refresh"/></svg>
+                            <span id="error-retry-text">Try again</span>
+                          </button>
+                          <button class="btn btn--secondary" type="button" id="error-smaller" hidden>Use a smaller photo</button>
+                          <button class="btn btn--quiet" type="button" id="error-dismiss">Dismiss</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="dropzone" id="dropzone" aria-hidden="true">
+                      <p>Drop your photo to hang it here</p>
+                    </div>
+                  </div>
                 </div>
-                <button class="mask-tool-btn mask-tool-sm" onclick="setMaskBrush('draw')" id="brushDraw" title="Paint (apply style here)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
-                  Draw
+              </div>
+            </figure>
+          </div>
+
+          <!-- Wall label + photo source -->
+          <div class="studio__label">
+            <div class="wall-label" id="wall-label">
+              <p class="wall-label__title" id="label-title">Sample photo</p>
+              <p class="wall-label__line" id="label-line1">Golden retriever in a forest</p>
+              <p class="wall-label__line wall-label__line--muted" id="label-line2">Photo by Johan Spaedtke, CC0</p>
+            </div>
+            <div class="photo-source">
+              <button class="btn btn--secondary" type="button" id="upload-photo">
+                <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#upload"/></svg>
+                Upload your photo
+              </button>
+              <div class="samples" id="samples" role="group" aria-labelledby="samples-label">
+                <span class="samples__label" id="samples-label">Try a sample</span>
+                <button class="chip" type="button" data-sample="dog" aria-pressed="true">Dog</button>
+                <button class="chip" type="button" data-sample="city" aria-pressed="false">City</button>
+                <button class="chip" type="button" data-sample="lake" aria-pressed="false">Lake</button>
+              </div>
+              <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp" hidden>
+            </div>
+          </div>
+
+          <!-- Style panel -->
+          <aside class="style-panel" id="style-panel" aria-labelledby="style-panel-title">
+            <div class="style-panel__head">
+              <h2 class="style-panel__title" id="style-panel-title">Choose a painting</h2>
+              <p class="style-panel__selected" id="selected-style" aria-live="polite">No painting chosen yet</p>
+            </div>
+
+            <div class="tabs" role="tablist" aria-label="Where the style comes from">
+              <button class="tabs__tab" type="button" role="tab" id="tab-gallery" aria-controls="panel-gallery" aria-selected="true">Gallery</button>
+              <button class="tabs__tab" type="button" role="tab" id="tab-custom" aria-controls="panel-custom" aria-selected="false" tabindex="-1">Your painting</button>
+              <button class="tabs__tab" type="button" role="tab" id="tab-describe" aria-controls="panel-describe" aria-selected="false" tabindex="-1">Describe it</button>
+            </div>
+
+            <div class="tab-panel tab-panel--gallery" role="tabpanel" id="panel-gallery" aria-labelledby="tab-gallery">
+              <div class="panel-status" id="styles-status" role="status" hidden></div>
+              <div class="style-grid" id="style-grid" role="radiogroup" aria-label="Paintings" aria-busy="true"></div>
+            </div>
+
+            <div class="tab-panel" role="tabpanel" id="panel-custom" aria-labelledby="tab-custom" hidden>
+              <div class="upload-tile" id="style-drop">
+                <img class="upload-tile__preview" id="custom-preview" alt="" hidden>
+                <div class="upload-tile__body">
+                  <p class="upload-tile__title" id="custom-title">Use a painting you own</p>
+                  <p class="upload-tile__hint" id="custom-hint">Paintings with bold brushwork and colour work best. JPG, PNG or WEBP up to 25 MB.</p>
+                  <div class="upload-tile__actions">
+                    <button class="btn btn--secondary" type="button" id="custom-upload">
+                      <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#upload"/></svg>
+                      <span id="custom-upload-text">Upload a painting</span>
+                    </button>
+                    <button class="btn btn--quiet" type="button" id="custom-remove" hidden>Remove</button>
+                  </div>
+                </div>
+              </div>
+              <input type="file" id="style-input" accept="image/jpeg,image/png,image/webp" hidden>
+            </div>
+
+            <div class="tab-panel" role="tabpanel" id="panel-describe" aria-labelledby="tab-describe" hidden>
+              <form class="describe" id="describe-form" novalidate>
+                <label class="control-label" for="describe-input">Describe a style in a few words</label>
+                <textarea class="textarea" id="describe-input" rows="3" maxlength="200" autocomplete="off"
+                  placeholder="Thick gold brushstrokes over a stormy sea" aria-describedby="describe-count"></textarea>
+                <div class="describe__foot">
+                  <span class="meta" id="describe-count">0 of 200 characters</span>
+                  <button class="btn btn--secondary" type="submit" id="describe-submit">Create style</button>
+                </div>
+              </form>
+              <div class="describe-result" id="describe-result" aria-live="polite" hidden>
+                <img class="describe-result__img" id="describe-img" alt="" hidden>
+                <div>
+                  <p class="describe-result__title" id="describe-title"></p>
+                  <p class="describe-result__text" id="describe-text"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mix">
+              <button class="mix__toggle" type="button" id="mix-toggle" aria-expanded="false" aria-controls="mix-body">
+                Mix with a second style
+                <svg class="icon mix__chevron" aria-hidden="true"><use href="assets/icons/icons.svg#chevron-down"/></svg>
+              </button>
+              <div class="mix__body" id="mix-body" hidden>
+                <div class="mix-rail" id="mix-rail" role="radiogroup" aria-label="Second painting"></div>
+                <div class="control-head">
+                  <label class="control-label" for="mix-ratio">Second style share</label>
+                  <output class="control-value" id="mix-value" for="mix-ratio">30%</output>
+                </div>
+                <input class="range" type="range" id="mix-ratio" min="10" max="90" step="5" value="30">
+              </div>
+            </div>
+
+            <div class="style-panel__cta">
+              <button class="btn btn--primary btn--paint" type="button" id="paint-btn" aria-describedby="paint-reason">
+                <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#brush"/></svg>
+                Paint it
+              </button>
+              <p class="paint-reason" id="paint-reason">Pick a painting first</p>
+            </div>
+          </aside>
+
+          <!-- Plinth: controls -->
+          <div class="plinth" id="plinth">
+            <div class="plinth__group plinth__group--mode">
+              <p class="control-label" id="mode-label">Mode</p>
+              <div class="segmented" id="mode" role="radiogroup" aria-labelledby="mode-label">
+                <button class="segmented__item" type="button" role="radio" aria-checked="true" data-mode="full">Full style</button>
+                <button class="segmented__item" type="button" role="radio" aria-checked="false" data-mode="palette" tabindex="-1">Colours only</button>
+                <button class="segmented__item" type="button" role="radio" aria-checked="false" data-mode="region" tabindex="-1">Paint a region</button>
+              </div>
+              <p class="control-hint" id="mode-hint">The painting's brushwork and colours across the whole photo.</p>
+            </div>
+
+            <div class="plinth__group plinth__group--intensity">
+              <div class="control-head">
+                <label class="control-label" for="intensity">Intensity</label>
+                <output class="control-value" id="intensity-value" for="intensity">75%</output>
+              </div>
+              <input class="range" type="range" id="intensity" min="0" max="100" step="1" value="75" aria-describedby="intensity-hint">
+              <p class="control-hint" id="intensity-hint">Changes the picture in the frame as you drag.</p>
+            </div>
+
+            <div class="plinth__group plinth__group--region" id="region-tools" hidden>
+              <p class="control-label">Choose the area to paint</p>
+              <p class="control-hint">Brush over the photo. Unbrushed parts stay as they are.</p>
+              <div class="tool-row tool-row--seg">
+                <button class="btn btn--secondary" type="button" id="seg-subject">
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#person"/></svg>
+                  Style the subject
                 </button>
-                <button class="mask-tool-btn mask-tool-sm" onclick="setMaskBrush('erase')" id="brushErase" title="Erase (keep original here)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8L14.6 1.6c.8-.8 2-.8 2.8 0L21.4 5.6c.8.8.8 2 0 2.8L10 20"/></svg>
-                  Erase
+                <button class="btn btn--secondary" type="button" id="seg-background">
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#landscape"/></svg>
+                  Style the background
                 </button>
-                <button class="mask-tool-btn mask-tool-sm" onclick="fillMask()" title="Fill entire mask (style everywhere)">Fill All</button>
-                <button class="mask-tool-btn mask-tool-sm" onclick="clearMask()" title="Clear mask (original everywhere)">Clear</button>
               </div>
-              <p class="mask-hint" id="maskHint">Paint green areas where you want the style applied. Unpainted areas stay original.</p>
-            </div>
-          </div>
-
-          <!-- Step 2: Style -->
-          <div class="panel-section">
-            <div class="panel-label">
-              <span class="step-badge">2</span>
-              <span>Art Style</span>
-            </div>
-
-            <div class="style-tabs">
-              <button class="style-tab active" id="tabPresets" onclick="switchStyleTab('presets')">Presets</button>
-              <button class="style-tab" id="tabCustom" onclick="switchStyleTab('custom')">Upload Custom</button>
-            </div>
-
-            <!-- Preset gallery -->
-            <div id="presetPanel" class="preset-grid" style="display:grid">
-              <div class="preset-loading">
-                <div class="spinner"></div>
-                <span>Loading styles…</span>
-              </div>
-            </div>
-
-            <!-- Custom upload -->
-            <div id="customPanel" class="upload-zone small" style="display:none" role="button" tabindex="0"
-              aria-label="Upload a painting to use as the style"
-              onclick="document.getElementById('styleCustomInput').click()">
-              <input type="file" id="styleCustomInput" accept="image/*" hidden />
-              <div class="upload-placeholder" id="stylePlaceholder">
-                <div class="upload-icon">🖼️</div>
-                <div class="upload-text">Upload any painting as style</div>
-              </div>
-              <img id="styleCustomPreview" class="upload-preview hidden" alt="Style" />
-              <button class="upload-clear hidden" id="styleClear" aria-label="Remove style image" onclick="clearImage('style', event)">✕</button>
-            </div>
-
-            <!-- Style Mixing (Optional Second Style) -->
-            <div class="style-mix-section" id="styleMixSection">
-              <button class="style-mix-toggle" id="styleMixToggle" onclick="toggleStyleMix()" type="button">
-                <span class="mix-toggle-icon">🎨</span>
-                <span class="mix-toggle-text">Mix with Second Style</span>
-                <svg class="mix-toggle-arrow" id="mixArrow" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-              <div class="style-mix-body hidden" id="styleMixBody">
-                <p class="style-mix-hint">Pick a second style to blend. Completely optional.</p>
-                <div class="style-tabs">
-                  <button class="style-tab active" id="tabPresets2" onclick="switchStyleTab2('presets')">Presets</button>
-                  <button class="style-tab" id="tabCustom2" onclick="switchStyleTab2('custom')">Upload Custom</button>
+              <div class="tool-row tool-row--brush">
+                <div class="segmented segmented--compact" role="radiogroup" aria-label="Brush">
+                  <button class="segmented__item" type="button" role="radio" aria-checked="true" data-brush="draw">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#brush"/></svg>
+                    Brush
+                  </button>
+                  <button class="segmented__item" type="button" role="radio" aria-checked="false" data-brush="erase" tabindex="-1">
+                    <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#eraser"/></svg>
+                    Erase
+                  </button>
                 </div>
-                <div id="presetPanel2" class="preset-grid" style="display:grid"></div>
-                <div id="customPanel2" class="upload-zone small" style="display:none" role="button" tabindex="0"
-                  aria-label="Upload a second painting to blend in"
-                  onclick="document.getElementById('styleCustomInput2').click()">
-                  <input type="file" id="styleCustomInput2" accept="image/*" hidden />
-                  <div class="upload-placeholder" id="stylePlaceholder2">
-                    <div class="upload-icon">🖼️</div>
-                    <div class="upload-text">Upload second style image</div>
-                  </div>
-                  <img id="styleCustomPreview2" class="upload-preview hidden" alt="Style 2" />
-                  <button class="upload-clear hidden" id="styleClear2" aria-label="Remove second style image"
-                    onclick="clearImage('style2', event)">✕</button>
-                </div>
-                <div class="control-item control-item-full" style="margin-top:0.75rem">
-                  <div class="control-header">
-                    <label for="mixRatio">Mix Ratio</label>
-                    <span class="control-value" id="mixRatioVal">A 50 / B 50</span>
-                  </div>
-                  <input type="range" id="mixRatio" min="0" max="100" step="1" value="50" class="slider slider-style"
-                    oninput="updateMixRatio(this.value)" />
-                  <div class="control-hints"><span>Style A</span><span>Style B</span></div>
-                </div>
+                <button class="btn btn--quiet" type="button" id="mask-invert">
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#invert"/></svg>
+                  Invert
+                </button>
+                <button class="btn btn--quiet" type="button" id="mask-clear">Clear</button>
+              </div>
+              <div class="control-head control-head--inline">
+                <label class="control-label" for="brush-size">Brush size</label>
+                <output class="control-value" id="brush-size-value" for="brush-size">36 px</output>
+              </div>
+              <input class="range" type="range" id="brush-size" min="8" max="120" step="2" value="36">
+            </div>
+
+            <div class="plinth__group plinth__group--actions" id="result-actions" hidden>
+              <p class="control-label">Your painting</p>
+              <div class="tool-row tool-row--actions">
+                <button class="btn btn--primary" type="button" id="download-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="download-menu">
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#download"/></svg>
+                  Download
+                  <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#chevron-down"/></svg>
+                </button>
+                <button class="btn btn--secondary" type="button" id="share-btn" hidden>
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#share"/></svg>
+                  Share
+                </button>
+                <button class="btn btn--secondary" type="button" id="animate-btn">
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#film"/></svg>
+                  <span>Animate</span>
+                </button>
+                <button class="btn btn--secondary" type="button" id="save-btn">
+                  <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#bookmark"/></svg>
+                  <span>Save to my gallery</span>
+                </button>
               </div>
             </div>
-
-            <div class="text-style-wrap">
-              <label for="textStylePrompt" class="text-style-label">Text-to-Style Prompt (Optional)</label>
-              <input
-                type="text"
-                id="textStylePrompt"
-                class="text-style-input"
-                placeholder="e.g. impressionist sunset, japanese wave, watercolor portrait"
-              />
-              <p class="text-style-hint">If no style is selected, PicturaAI will auto-pick the closest preset from your text.</p>
-            </div>
-          </div>
-
-          <!-- Step 3: Controls -->
-          <div class="panel-section">
-            <div class="panel-label">
-              <span class="step-badge">3</span>
-              <span>Fine-tune Parameters</span>
-            </div>
-
-            <div class="controls-grid">
-              <div class="control-item control-item-full">
-                <div class="control-header">
-                  <label for="styleWeight">Style Intensity</label>
-                  <span class="control-value" id="styleWeightVal">75%</span>
-                </div>
-                <input type="range" id="styleWeight" min="0" max="100" step="1" value="75" class="slider slider-style"
-                  oninput="document.getElementById('styleWeightVal').textContent = this.value + '%'" />
-                <div class="control-hints"><span>Subtle (more photo)</span><span>Bold (more art)</span></div>
-              </div>
-            </div>
-
-            <!-- Color Palette Transfer toggle -->
-            <div class="palette-toggle-wrap">
-              <label class="palette-toggle" id="paletteToggle">
-                <input type="checkbox" id="paletteMode" onchange="togglePaletteMode(this.checked)" />
-                <span class="palette-toggle-track">
-                  <span class="palette-toggle-thumb"></span>
-                </span>
-                <span class="palette-toggle-label">🎨 Color Palette Only</span>
-              </label>
-              <p class="palette-hint" id="paletteHint" style="display:none">Transfers only the colour palette — no texture or style changes.</p>
-            </div>
-
-            <button class="btn btn-primary btn-generate" id="generateBtn" onclick="startTransfer()">
-              <span class="btn-icon">✦</span>
-              <span class="btn-text">Generate Artwork</span>
-              <div class="btn-shine"></div>
-            </button>
-          </div>
-
-        </div>
-
-        <!-- RIGHT PANEL: Output -->
-        <div class="studio-panel panel-right">
-          <div class="output-header">
-            <h3>Output Canvas</h3>
-            <div class="output-actions" id="outputActions" style="display:none">
-              <button class="btn btn-ghost btn-sm" onclick="downloadResult()">
-                ⬇ Download
-              </button>
-              <button class="btn btn-ghost btn-sm" id="animateBtn" onclick="startInterpolation()">
-                🎞 Animation
-              </button>
-              <button class="btn btn-ghost btn-sm" onclick="resetStudio()">
-                ↺ Reset
-              </button>
-            </div>
-          </div>
-
-          <!-- Idle state -->
-          <div class="output-idle" id="outputIdle">
-            <div class="idle-art">
-              <div class="idle-circle c1"></div>
-              <div class="idle-circle c2"></div>
-              <div class="idle-circle c3"></div>
-            </div>
-            <h3>Your Canvas Awaits</h3>
-            <p>Upload an image and pick a style to begin your artistic journey</p>
-          </div>
-
-          <!-- Progress state -->
-          <div class="output-progress hidden" id="outputProgress">
-            <div class="progress-preview-wrap">
-              <img id="progressPreview" class="progress-preview-img" alt="Progress" src="" />
-              <div class="progress-overlay">
-                <div class="progress-status">
-                  <div class="progress-spinner"></div>
-                  <span id="progressLabel">Initialising AI…</span>
-                </div>
-              </div>
-            </div>
-            <div class="progress-bar-wrap">
-              <div class="progress-bar-track">
-                <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
-              </div>
-              <div class="progress-info">
-                <span id="progressPct">0%</span>
-                <span id="progressLoss">Loss: —</span>
-                <span id="progressStep">Step 0 / 0</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Result state -->
-          <div class="output-result hidden" id="outputResult">
-            <div class="result-image-wrap">
-              <img id="resultImage" class="result-image" alt="Styled Result" draggable="false" />
-              <div class="result-badge">✦ Masterpiece Ready</div>
-              <button class="result-download-btn" onclick="downloadResult()" title="Download Image" aria-label="Download image">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </button>
-            </div>
-            <!-- Before / After comparison slider -->
-            <div class="ba-slider-wrap" id="resultCompare" style="display:none">
-              <div class="ba-label">Before / After</div>
-              <div class="ba-slider" id="baSlider">
-                <img class="ba-img ba-img-after" id="compareResult" alt="Styled" draggable="false" />
-                <img class="ba-img ba-img-before" id="compareContent" alt="Original" draggable="false" />
-                <div class="ba-handle" id="baHandle">
-                  <div class="ba-handle-line"></div>
-                  <div class="ba-handle-knob">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                  </div>
-                  <div class="ba-handle-line"></div>
-                </div>
-                <span class="ba-tag ba-tag-before">Original</span>
-                <span class="ba-tag ba-tag-after">Styled</span>
-              </div>
-            </div>
-            <div class="result-meta" id="resultMeta"></div>
-
-            <!-- Generation History -->
-            <div class="history-strip" id="historyStrip" style="display:none">
-              <div class="history-header">
-                <span class="history-label">🕘 History <span class="history-count" id="historyCount">0</span></span>
-                <button class="btn btn-ghost btn-xs" id="historyClearBtn" onclick="clearHistory()">Clear</button>
-              </div>
-              <div class="history-scroll" id="historyScroll">
-                <!-- Thumbnails injected by JS -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Error state -->
-          <div class="output-error hidden" id="outputError">
-            <div class="error-icon">⚠️</div>
-            <h3>Something went wrong</h3>
-            <p id="errorMessage"></p>
-            <button class="btn btn-ghost" onclick="retryTransfer()">Try Again</button>
           </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║          GALLERY                 ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <section class="section" id="gallery">
-    <div class="container">
-      <div class="section-header">
-        <div class="section-tag">Showcase</div>
-        <h2 class="section-title">Style Gallery</h2>
-        <p class="section-subtitle">Explore the iconic art styles available in PicturaAI</p>
+    <!-- ── Styles collection ──────────────────────────────────────────── -->
+    <section class="section" id="styles" aria-labelledby="styles-title">
+      <div class="container">
+        <div class="section__head">
+          <h2 id="styles-title">The collection</h2>
+          <p class="muted">Every painting here is in the public domain. Choose one to use it in the studio, or read more about it.</p>
+        </div>
+        <ul class="collection" id="collection" role="list"></ul>
+        <p class="panel-status" id="collection-status" hidden></p>
       </div>
-      <div class="gallery-grid" id="galleryGrid">
-        <!-- Populated by JS -->
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║          TOAST                   ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <div class="toast-container" id="toastContainer"></div>
-
-  <!-- ╔══════════════════════════════════╗ -->
-  <!-- ║          FOOTER                  ║ -->
-  <!-- ╚══════════════════════════════════╝ -->
-  <footer class="footer">
-    <div class="footer-glow"></div>
-    <div class="container">
-      <div class="footer-inner">
-        <!-- Left: Brand -->
-        <div class="footer-brand">
-          <div class="footer-brand-row">
-            <img src="assets/logo-96.png" alt="PicturaAI" class="footer-logo-img" width="32" height="32" loading="lazy" />
-            <span class="footer-name">PicturaAI</span>
+    <!-- ── My gallery ─────────────────────────────────────────────────── -->
+    <section class="section section--deep" id="gallery" aria-labelledby="gallery-title">
+      <div class="container">
+        <div class="section__head section__head--row">
+          <div>
+            <h2 id="gallery-title">My gallery</h2>
+            <p class="muted" id="gallery-note">Saved on this device only. Clearing your browser data removes them.</p>
           </div>
-          <p class="footer-tagline"><em>Pictura</em> — Latin for "a painting."<br/>Your AI-powered art studio.</p>
+          <button class="btn btn--secondary" type="button" id="gallery-clear" hidden>Clear my gallery</button>
         </div>
-        <!-- Center: Links -->
-        <div class="footer-links">
-          <span class="footer-links-heading">Explore</span>
-          <a href="#studio">Studio</a>
-          <a href="#gallery">Gallery</a>
-          <a href="#how-it-works">How It Works</a>
+        <p class="gallery-empty" id="gallery-empty">Paintings you save appear here. They stay on this device.</p>
+        <ul class="my-gallery" id="my-gallery" role="list"></ul>
+      </div>
+    </section>
+
+    <!-- ── How it works ───────────────────────────────────────────────── -->
+    <section class="section" id="how-it-works" aria-labelledby="how-title">
+      <div class="container how">
+        <div class="how__steps">
+          <h2 id="how-title">How it works</h2>
+          <ol class="steps" role="list">
+            <li class="step">
+              <span class="step__num" aria-hidden="true">1</span>
+              <div>
+                <h3>Choose a photo</h3>
+                <p class="muted">Upload one of yours or try a sample. JPG, PNG or WEBP up to 25 MB.</p>
+              </div>
+            </li>
+            <li class="step">
+              <span class="step__num" aria-hidden="true">2</span>
+              <div>
+                <h3>Pick a painting</h3>
+                <p class="muted">Choose a masterpiece from the gallery, upload a painting you own, or describe a style in words.</p>
+              </div>
+            </li>
+            <li class="step">
+              <span class="step__num" aria-hidden="true">3</span>
+              <div>
+                <h3>Paint it and adjust</h3>
+                <p class="muted">Your picture appears in the frame. Drag the intensity slider until it looks right, then download, share or save it.</p>
+              </div>
+            </li>
+          </ol>
         </div>
-        <!-- Right: Tech -->
-        <div class="footer-tech">
-          <span class="footer-links-heading">Built With</span>
-          <div class="footer-tech-pills">
-            <span class="tech-pill">Magenta AI</span>
-            <span class="tech-pill">TensorFlow</span>
-            <span class="tech-pill">FastAPI</span>
-            <span class="tech-pill">Pure JS</span>
-          </div>
+        <div class="how__faq">
+          <h3 class="faq__title">Questions</h3>
+          <details class="faq">
+            <summary>Is my photo uploaded anywhere?</summary>
+            <p class="muted" id="faq-privacy">On most computers and recent phones the painting is made in your browser and your photo never leaves your device. On older devices the photo goes to our server, is used for that one picture, and is deleted within an hour.</p>
+          </details>
+          <details class="faq">
+            <summary>How big are the downloads?</summary>
+            <p class="muted">You can save the full size, a 1080 pixel wide version for Instagram, or a print size of 1754 pixels on the long side (A4 at 150 dpi). Painting on your device gives the sharpest results.</p>
+          </details>
+          <details class="faq">
+            <summary>Where do the paintings come from?</summary>
+            <p class="muted">Every painting in the gallery is in the public domain. Sources and licences are listed on the <a class="text-link" href="credits.html">credits page</a>. If you upload your own painting, make sure you have the right to use it.</p>
+          </details>
+          <details class="faq">
+            <summary>Does it work offline?</summary>
+            <p class="muted">Not yet. You need a connection to open the studio. After your first painting, the browser keeps the painting engine, so later visits start faster.</p>
+          </details>
+          <details class="faq">
+            <summary>Is it free?</summary>
+            <p class="muted">Yes. There is no sign-up and no watermark.</p>
+          </details>
         </div>
       </div>
-      <div class="footer-bottom">
-        <span>&copy; 2026 PicturaAI. All rights reserved.</span>
-        <span class="footer-bottom-sep">·</span>
-        <a href="https://github.com/shashankpc7746/PicturaAI" target="_blank" rel="noopener" class="footer-github">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub
-        </a>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <div class="site-footer__brand">
+        <span class="wordmark">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#frame-mark"/></svg>
+          PicturaAI
+        </span>
+        <p>Pictura is Latin for a painting.</p>
       </div>
+      <ul class="site-footer__links" role="list">
+        <li><a href="credits.html">Credits</a></li>
+        <li><a href="privacy.html">Privacy</a></li>
+        <li><a href="terms.html">Terms</a></li>
+        <li>
+          <a href="https://github.com/shashankpc7746/PicturaAI" rel="noopener" target="_blank">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#github"/></svg>
+            GitHub
+          </a>
+        </li>
+      </ul>
+      <p class="site-footer__small">Artworks are reproduced from public-domain sources. Sample photos are CC0.</p>
     </div>
   </footer>
 
-  <script src="assets/app.js?v=3"></script>
-</body>
+  <!-- Mobile and tablet action bar -->
+  <div class="action-bar" id="action-bar">
+    <div class="action-bar__inner">
+      <button class="action-bar__reason" type="button" id="bar-reason">Pick a painting first</button>
+      <div class="action-bar__buttons">
+        <button class="btn btn--primary" type="button" id="bar-paint">
+          <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#brush"/></svg>
+          Paint it
+        </button>
+        <button class="btn btn--secondary" type="button" id="bar-share" hidden>
+          <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#share"/></svg>
+          Share
+        </button>
+        <button class="btn btn--primary" type="button" id="bar-download" aria-haspopup="menu" aria-expanded="false" aria-controls="download-menu" hidden>
+          <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#download"/></svg>
+          Download
+        </button>
+      </div>
+    </div>
+  </div>
 
+  <div class="menu" id="download-menu" role="menu" aria-label="Download size" hidden>
+    <button class="menu__item" type="button" role="menuitem" data-size="full">
+      <span>Full size</span><span class="menu__meta" data-size-label="full"></span>
+    </button>
+    <button class="menu__item" type="button" role="menuitem" data-size="instagram">
+      <span>Instagram</span><span class="menu__meta" data-size-label="instagram"></span>
+    </button>
+    <button class="menu__item" type="button" role="menuitem" data-size="print">
+      <span>Print, A4</span><span class="menu__meta" data-size-label="print"></span>
+    </button>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <p class="visually-hidden" id="sr-status" aria-live="polite"></p>
+</body>
 </html>
