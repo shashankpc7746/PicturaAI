@@ -19,6 +19,13 @@ from xml.sax.saxutils import escape as xml_escape
 
 DEFAULT_SITE_URL = "https://picturaai-k7q6.onrender.com"
 JSDELIVR = "https://cdn.jsdelivr.net"
+# The app's only jsDelivr dependency is MediaPipe Tasks Vision ("Style the
+# subject"). The CSP allows just this pinned package path, not the whole CDN
+# (which would let injected markup load any npm package or GitHub file).
+# Keep MEDIAPIPE_VERSION equal to MP_VERSION in
+# frontend/assets/js/engine/segment.js (backend/tests/test_site.py checks it).
+MEDIAPIPE_VERSION = "0.10.35"
+MEDIAPIPE_CDN = f"{JSDELIVR}/npm/@mediapipe/tasks-vision@{MEDIAPIPE_VERSION}/"  # trailing / = path prefix
 SENTRY_CDN = "https://browser.sentry-cdn.com"
 SENTRY_INGEST = ("https://*.ingest.sentry.io", "https://*.ingest.us.sentry.io")
 CF_INSIGHTS_SCRIPT = "https://static.cloudflareinsights.com"
@@ -98,8 +105,8 @@ class SiteConfig:
 
     # ── Content-Security-Policy ───────────────────────────────────────────────
     def app_csp(self) -> str:
-        script = ["'self'", JSDELIVR, "'wasm-unsafe-eval'"]
-        connect = ["'self'", JSDELIVR]
+        script = ["'self'", MEDIAPIPE_CDN, "'wasm-unsafe-eval'"]
+        connect = ["'self'", MEDIAPIPE_CDN]
         if self.cf_web_analytics_token:
             script.append(CF_INSIGHTS_SCRIPT)
             connect.append(CF_INSIGHTS_CONNECT)

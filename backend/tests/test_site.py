@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 import main
 from conftest import BACKEND_DIR
-from site_config import DEFAULT_SITE_URL, SiteConfig, is_docs_path, is_https
+from site_config import DEFAULT_SITE_URL, MEDIAPIPE_CDN, MEDIAPIPE_VERSION, SiteConfig, is_docs_path, is_https
 
 
 @pytest.fixture(scope="module")
@@ -121,18 +121,30 @@ def test_app_csp_and_headers(client):
     assert "strict-transport-security" not in h  # plain http
     csp = _csp(h)
     assert csp["default-src"] == ["'self'"]
-    assert csp["script-src"] == ["'self'", "https://cdn.jsdelivr.net", "'wasm-unsafe-eval'"]
+    assert csp["script-src"] == ["'self'", MEDIAPIPE_CDN, "'wasm-unsafe-eval'"]
+    assert MEDIAPIPE_CDN == "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/"
     assert "'unsafe-inline'" not in " ".join(sum(csp.values(), []))
     assert "'unsafe-eval'" not in csp["script-src"]
     assert csp["style-src"] == ["'self'", "https://fonts.googleapis.com"]
     assert csp["font-src"] == ["'self'", "https://fonts.gstatic.com"]
     assert csp["img-src"] == ["'self'", "data:", "blob:"]
     assert csp["media-src"] == ["'self'", "blob:"]
-    assert csp["connect-src"] == ["'self'", "https://cdn.jsdelivr.net"]
+    assert csp["connect-src"] == ["'self'", MEDIAPIPE_CDN]
+    # Only the pinned MediaPipe path, never the whole CDN host.
+    assert "https://cdn.jsdelivr.net" not in csp["script-src"] + csp["connect-src"]
     assert csp["worker-src"] == ["'self'", "blob:"]
     assert csp["object-src"] == ["'none'"]
     assert csp["base-uri"] == ["'self'"]
     assert csp["frame-ancestors"] == ["'none'"]
+
+
+def test_mediapipe_version_matches_segment_js():
+    import re
+    segment = (BACKEND_DIR.parent / "frontend" / "assets" / "js" / "engine" / "segment.js").read_text(encoding="utf-8")
+    match = re.search(r"const MP_VERSION = '([^']+)'", segment)
+    assert match, "MP_VERSION not found in segment.js"
+    assert match.group(1) == MEDIAPIPE_VERSION
+    assert "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}" in segment
 
 
 def test_csp_also_on_api_responses(client):
@@ -159,7 +171,7 @@ def test_optional_third_parties_only_when_configured():
     assert "cloudflareinsights" not in plain and "sentry" not in plain
 
     cf = SiteConfig(cf_web_analytics_token="tok").app_csp()
-    assert "script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval' https://static.cloudflareinsights.com" in cf
+    assert f"script-src 'self' {MEDIAPIPE_CDN} 'wasm-unsafe-eval' https://static.cloudflareinsights.com" in cf
     assert "https://cloudflareinsights.com" in cf.split("connect-src", 1)[1].split(";")[0]
 
     sentry = SiteConfig(sentry_dsn_frontend="https://k@o1.ingest.us.sentry.io/2").app_csp()
