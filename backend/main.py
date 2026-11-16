@@ -29,8 +29,10 @@ _logging.getLogger("tensorflow").setLevel(_logging.ERROR)
 
 import asyncio
 import base64
+import inspect
 import json
 import logging
+import mimetypes
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -55,6 +57,12 @@ from slowapi.util import get_remote_address  # pyre-ignore[21]
 from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response  # pyre-ignore[21]
 from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
+from starlette.middleware.gzip import GZipMiddleware  # pyre-ignore[21]
+
+try:
+    from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES  # pyre-ignore[21]
+except ImportError:  # older Starlette: no per-type exclusions
+    DEFAULT_EXCLUDED_CONTENT_TYPES = ()
 
 from nst_engine import run_nst, pil_to_bytes, run_interpolation_gif, color_palette_transfer  # pyre-ignore[21]
 from describe_style import (  # pyre-ignore[21]
@@ -89,6 +97,13 @@ FRONTEND_DIR = BASE_DIR.parent / "frontend"
 
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+# Static file types, independent of the host's MIME registry (Windows can map
+# .js to text/plain, and some Python builds don't know .webp or .tflite).
+for _ext, _type in ((".js", "text/javascript"), (".mjs", "text/javascript"), (".webp", "image/webp"),
+                    (".webmanifest", "application/manifest+json"), (".tflite", "application/octet-stream"),
+                    (".bin", "application/octet-stream"), (".svg", "image/svg+xml")):
+    mimetypes.add_type(_type, _ext)
 
 # ── Optional error reporting (Sentry) ──────────────────────────────────────────
 # Only imported when SENTRY_DSN is set, so the app runs (and stays lighter on
@@ -311,6 +326,44 @@ PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=()"
 HSTS_VALUE = "max-age=31536000; includeSubDomains"
 
 
+# ── Static file caching ────────────────────────────────────────────────────────
+# The frontend has no build step, so HTML, ES modules, CSS and icons keep their
+# names across deploys: browsers must revalidate them (ETag, so usually a 304).
+# Model files are requested with ?v=<manifest version> and TF.js sits in a
+# versioned folder, so both can be cached for a year; a changed model file must
+# get a new name or a new manifest version. The two index files that carry the
+# version are revalidated. Artwork and sample images change rarely: one day.
+CACHE_IMMUTABLE = "public, max-age=31536000, immutable"
+CACHE_DAY = "public, max-age=86400"
+CACHE_REVALIDATE = "no-cache"
+MODEL_INDEX_FILES = ("manifest.json", "style-vectors.json")
+
+
+def static_cache_control(path: str, status: int = 200) -> Optional[str]:
+    """Cache-Control for a frontend path under /app (None: leave it unset)."""
+    if not path.startswith("/app") or status not in (200, 206, 304):
+        return None
+    if path.startswith("/app/models/"):
+        return CACHE_REVALIDATE if path.rsplit("/", 1)[-1] in MODEL_INDEX_FILES else CACHE_IMMUTABLE
+    if path.startswith("/app/vendor/"):
+        return CACHE_IMMUTABLE
+    if path.startswith(("/app/assets/styles/", "/app/assets/samples/")):
+        return CACHE_DAY
+    return CACHE_REVALIDATE
+
+
+# Compress text (HTML, JS, CSS, JSON: the model.json files are ~1 MB each), but
+# not formats that are already compressed (images, model weights). Starlette
+# adds Vary: Accept-Encoding and skips Range (206) responses. Registered before
+# the header middleware below, so it wraps the route's own (unstreamed) response
+# and `minimum_size` applies.
+GZIP_EXCLUDED_TYPES = DEFAULT_EXCLUDED_CONTENT_TYPES + ("application/octet-stream",)
+_gzip_options: Dict[str, Any] = {"minimum_size": 1000, "compresslevel": 6}
+if "exclude_content_types" in inspect.signature(GZipMiddleware.__init__).parameters:
+    _gzip_options["exclude_content_types"] = GZIP_EXCLUDED_TYPES
+app.add_middleware(GZipMiddleware, **_gzip_options)
+
+
 @app.middleware("http")
 async def _security_headers(request, call_next):
     response = await call_next(request)
@@ -325,10 +378,9 @@ async def _security_headers(request, call_next):
     # browsers ignore it on plain HTTP and it would pin localhost otherwise.
     if is_https(request.url.scheme, request.headers.get("x-forwarded-proto")):
         response.headers.setdefault("Strict-Transport-Security", HSTS_VALUE)
-    # The HTML references versioned assets (style.css?v=N); make browsers
-    # revalidate it so a deploy is picked up instead of a heuristically cached page.
-    if path.startswith("/app") and (path.endswith("/") or path.endswith(".html") or path == "/app"):
-        response.headers.setdefault("Cache-Control", "no-cache")
+    cache_control = static_cache_control(path, response.status_code)
+    if cache_control:
+        response.headers.setdefault("Cache-Control", cache_control)
     return response
 
 
@@ -418,7 +470,8 @@ async def root():
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     # Browsers request this path regardless of <link rel="icon">.
-    return FileResponse(FRONTEND_DIR / "assets" / "favicon.ico", media_type="image/x-icon")
+    return FileResponse(FRONTEND_DIR / "assets" / "favicon.ico", media_type="image/x-icon",
+                        headers={"Cache-Control": CACHE_DAY})
 
 @app.get("/robots.txt", include_in_schema=False)
 async def robots_txt():
