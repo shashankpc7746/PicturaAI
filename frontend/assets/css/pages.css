@@ -195,6 +195,10 @@ body > .page { flex: 1 0 auto; }
   padding: 0;
   list-style: none;
 }
+/* Phones: two across (one 328 px column of 160 px cards read as a long list) */
+@media (max-width: 599px) {
+  .related { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5) var(--s-3); }
+}
 @media (min-width: 900px) {
   .related { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-5); }
 }
