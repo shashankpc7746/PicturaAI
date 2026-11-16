@@ -1,0 +1,115 @@
+{
+  "_comment": "Notes for the per-style pages built by scripts/build_pages.py. One entry per key in data/styles.json: 'note' is a list of plain-text paragraphs (no HTML), 'meta' is the page's meta description (at most 160 characters). The 'How it comes out' paragraph describes what the Magenta model actually does with the painting (see docs/revamp/presets/contact-sheet.jpg).",
+  "starry_night": {
+    "meta": "The Starry Night by Vincent van Gogh (1889) as a photo style: deep blues, yellow stars and swirling brushwork. Free, no sign-up.",
+    "note": [
+      "Van Gogh painted The Starry Night in June 1889 at the asylum of Saint-Paul-de-Mausole in Saint-Rémy-de-Provence, where he had admitted himself after a breakdown. The view is the one from his east-facing window before sunrise, but the village is largely invented and the cypress is pulled up close so that it rises like a flame against the sky.",
+      "Everything is made of short, loaded strokes laid side by side: ultramarine and cobalt in the sky, chrome yellow in the stars and moon, and the large spiral at the centre that gives the painting its movement. The Museum of Modern Art in New York acquired it in 1941.",
+      "How it comes out: the model takes the dark blue and the yellow highlights, and turns flat areas such as skies and water into curving strokes. Landscapes and night scenes work best. On close-up faces the effect can be heavy, so try an intensity around 50 to 60%."
+    ]
+  },
+  "the_scream": {
+    "meta": "The Scream by Edvard Munch (1893) as a photo style: a blood-orange sky and wavering lines. Free, no sign-up.",
+    "note": [
+      "Munch made several versions of The Scream: two paintings, two pastels and a lithograph. This is the first painted version of 1893, in oil, tempera and pastel on cardboard, now in the National Museum in Oslo. He described the moment behind it in his notebook: walking on a road above the Oslofjord at sunset, the sky turning blood red, and sensing a great scream passing through nature.",
+      "The figure is reduced to a skull-like head and hands. The fjord, the sky and the figure are all drawn with the same long, wavering bands, while the straight diagonal of the railing cuts across them. Colour is used for feeling rather than description, which is why the painting became a reference point for Expressionism.",
+      "How it comes out: photos take on the orange and rust of the sky and the dark blue-black of the fjord, with soft, wavy banding over large areas. Sunsets, water and dramatic portraits suit it. Busy city scenes turn warm and murky at full intensity."
+    ]
+  },
+  "great_wave": {
+    "meta": "The Great Wave off Kanagawa by Hokusai (c. 1831) as a photo style: Prussian blue and white in a woodblock-print look. Free, no sign-up.",
+    "note": [
+      "The Great Wave is the best known print from Hokusai's series Thirty-six Views of Mount Fuji, published around 1831 by Nishimuraya Yohachi in Edo. A wave about to break over three boats frames a small Mount Fuji in the distance. Hokusai was in his early seventies when he designed it.",
+      "Each colour was printed from its own carved woodblock, so the image is built from flat areas and crisp outlines. The deep blue is Prussian blue, a synthetic pigment then newly available in Japan, which was part of the series' appeal. The file used here is a faithful recut impression made around 1930 from the original design.",
+      "How it comes out: the model brings the blue-and-cream palette and the claw-like curls of foam, and gives photos a flatter, printed look. It suits sea, sky and mountains. Fine detail such as fur and foliage turns into small, curling marks."
+    ]
+  },
+  "the_shipwreck": {
+    "meta": "The Wreck of a Transport Ship by J. M. W. Turner (c. 1810) as a photo style: amber, umber and smoky grey storm light. Free, no sign-up.",
+    "note": [
+      "Turner painted this storm scene around 1810. It has long been known as The Shipwreck of the Minotaur, after a British warship lost off the Dutch coast that year, although the ship in the picture is not clearly identified. It belongs to the Calouste Gulbenkian Museum in Lisbon.",
+      "The subject is the power of the sea against the people caught in it, a central theme of Romantic painting. Turner builds the waves and spray from loose, layered paint in amber, brown and grey, and lets the light break through the storm rather than drawing every rope and spar.",
+      "How it comes out: the softest style in the collection. Colours shift to warm amber and brown, edges soften, and skies take on a smoky, painted texture. It works well for moody landscapes and seascapes and for giving any photo an old varnished look."
+    ]
+  },
+  "udnie": {
+    "meta": "Udnie by Francis Picabia (1913) as a photo style: fragmented planes in grey, black, blue and green. Free, no sign-up.",
+    "note": [
+      "Picabia painted Udnie in Paris in 1913 after a trip to New York for the Armory Show. On the crossing he had watched the dancer Stacia Napierkowska perform, and the painting turns that memory into a whirl of interlocking shapes. It is a very large canvas, about three metres square, and was shown at the Salon d'Automne the same year. It is now in the Centre Pompidou in Paris.",
+      "Nothing in it is a recognisable body any more. Curved and angular planes in grey, black, white, blue and green overlap as if seen from several angles at once, close to Cubism and to Robert Delaunay's Orphism, and right at the edge of abstraction.",
+      "How it comes out: one of the strongest styles. Photos break into sharp grey, white and blue facets with flashes of green. Bold shapes and architecture take it well. At full intensity the subject can disappear, so lower the intensity if you want to keep it recognisable."
+    ]
+  },
+  "improvisation_27": {
+    "meta": "Improvisation 27 (Garden of Love II) by Wassily Kandinsky (1912) as a photo style: loose abstract shapes in soft colour. Free, no sign-up.",
+    "note": [
+      "Kandinsky sorted his paintings of these years into three kinds: Impressions, taken from nature; Improvisations, largely unconscious and spontaneous; and Compositions, worked out slowly. Improvisation 27 was painted in Munich in 1912, when he was leading the Blaue Reiter group with Franz Marc.",
+      "It was shown at the 1913 Armory Show in New York, where the photographer Alfred Stieglitz bought it. It came to the Metropolitan Museum of Art with his collection in 1949, and the museum publishes this image under CC0. Patches of red, yellow and blue float on a pale ground, held together by quick black lines.",
+      "How it comes out: a light, muted look. The model spreads soft red, yellow and slate-blue patches over the photo and adds loose dark strokes, while the shapes underneath mostly stay readable. It suits gardens, interiors and anything you want to look playful rather than dramatic."
+    ]
+  },
+  "blue_horses": {
+    "meta": "The Large Blue Horses by Franz Marc (1911) as a photo style: bold blue, red and yellow with rhythmic curves. Free, no sign-up.",
+    "note": [
+      "Franz Marc painted The Large Blue Horses in 1911, the year he and Kandinsky founded the Blaue Reiter group in Munich. Marc gave colours meanings of their own: in a letter to August Macke he called blue the male principle, stern and spiritual. Three horses fill the canvas, their curved backs echoing the red and yellow hills behind them.",
+      "Marc painted animals because he felt they lived more purely than people. He was killed at Verdun in 1916, at 36. The painting has been in the Walker Art Center in Minneapolis since 1942.",
+      "How it comes out: one of the most colourful styles. Photos turn deep blue and violet with red and yellow accents, and outlines become rounded, rhythmic curves. It is striking on animals and landscapes. At high intensity it overwhelms small detail."
+    ]
+  },
+  "the_kiss": {
+    "meta": "The Kiss by Gustav Klimt (1907–1908) as a photo style: gold leaf and ornament. Free, no sign-up.",
+    "note": [
+      "The Kiss is the high point of Klimt's golden period. Two lovers embrace at the edge of a flowering meadow, wrapped in robes that are almost pure pattern: black and white rectangles on his, coloured circles and flowers on hers. The square canvas is painted in oil, with layers of gold leaf laid onto it.",
+      "Klimt showed it at the 1908 Kunstschau in Vienna, and the Austrian state bought it during the exhibition. It has been in the Belvedere in Vienna ever since. The flat gold background recalls Byzantine mosaics, which Klimt had seen in Ravenna.",
+      "How it comes out: photos take on an olive-gold tone with a fine, flecked texture like gold leaf, and darker areas pick up small rectangular marks. Portraits and warmly lit scenes suit it best. Blues and greens in the photo are mostly replaced by gold."
+    ]
+  },
+  "grande_jatte": {
+    "meta": "A Sunday on La Grande Jatte by Georges Seurat (1884–1886) as a photo style: a fine, dotted texture in park greens. Free, no sign-up.",
+    "note": [
+      "Seurat spent two years on this view of Parisians relaxing on an island in the Seine. Instead of mixing colours on the palette, he placed small dots and dashes of separate colours side by side and let the viewer's eye mix them, a method later called pointillism. The canvas is about two by three metres.",
+      "It was the centrepiece of the eighth and last Impressionist exhibition in 1886, and it launched Neo-Impressionism. The painted border of dots was added a few years later. The Art Institute of Chicago has owned it since 1926.",
+      "How it comes out: a quiet style. Photos shift towards deep greens and sunlit yellow and gain a fine, grainy texture rather than large visible dots. It keeps detail well, so it works on almost anything, especially parks, water and people outdoors."
+    ]
+  },
+  "woman_with_a_hat": {
+    "meta": "Woman with a Hat by Henri Matisse (1905) as a photo style: Fauvist teal, green, orange and violet. Free, no sign-up.",
+    "note": [
+      "Woman with a Hat is a portrait of Matisse's wife, Amélie. He showed it at the Salon d'Automne in Paris in 1905, in the room that the critic Louis Vauxcelles mocked as a cage of fauves, wild beasts. The name stuck, and Fauvism became the first major art movement of the new century.",
+      "The scandal was the colour. Green and violet shadows run across the face, the background is a patchwork of teal, pink and orange, and nothing is blended. Leo and Gertrude Stein bought the painting from the exhibition. It is now in the San Francisco Museum of Modern Art.",
+      "How it comes out: photos break into patches of teal, green, orange and violet, with darker outlines around shapes. Portraits and street scenes respond well. The colour is deliberately unnatural, so skin tones change a lot at full intensity."
+    ]
+  },
+  "cafe_terrace": {
+    "meta": "Café Terrace at Night by Vincent van Gogh (1888) as a photo style: warm lamp light under a starry blue sky. Free, no sign-up.",
+    "note": [
+      "Van Gogh painted this café on the Place du Forum in Arles in September 1888, working outside at night. Writing to his sister, he said he wanted to paint a night picture without any black, using only blue, violet and green, with the lit square in pale sulphur yellow and citron green.",
+      "It is the first painting in which he shows a starry sky, a year before The Starry Night. The gas-lit yellow awning and terrace glow against the deep blue street, and the cobblestones are painted as small, separate dabs. It is in the Kröller-Müller Museum in Otterlo, in the Netherlands.",
+      "How it comes out: photos warm up with yellow and orange light set against blue shadows, with short, textured strokes. It is a good choice for streets, buildings and evening photos, and a gentler alternative to The Starry Night."
+    ]
+  },
+  "zodiac": {
+    "meta": "Zodiac by Alphonse Mucha (1896) as a photo style: Art Nouveau ornament in peach, terracotta and gold. Free, no sign-up.",
+    "note": [
+      "Mucha designed Zodiac in 1896 as a calendar for the Paris printer F. Champenois, and the magazine La Plume also issued it. A woman in profile wears an elaborate jewelled headdress, framed by a halo carrying the signs of the zodiac. It was printed as a colour lithograph, one stone per colour.",
+      "This is Art Nouveau at its most typical: flowing hair, a firm outline around every shape, flat areas of soft colour and dense ornament around the edges. Mucha's posters for Sarah Bernhardt had made him famous in Paris, and the look became so tied to him that people called it the Mucha style.",
+      "How it comes out: a warm style. Photos turn peach, terracotta and soft gold, with a light texture and slightly firmer edges. It flatters portraits and suits warm scenes. Cool colours such as sky blue are replaced by warm ones."
+    ]
+  },
+  "sloop_nassau": {
+    "meta": "Sloop, Nassau by Winslow Homer (1899) as a photo style: loose watercolour washes in teal, grey and white. Free, no sign-up.",
+    "note": [
+      "Winslow Homer painted Sloop, Nassau during a winter trip to the Bahamas in 1898 and 1899. A small sailing boat leans in a fresh wind on a choppy turquoise sea under grey clouds. The Metropolitan Museum of Art bought it in 1910, the year Homer died.",
+      "Homer was one of the great American watercolourists. Here he works fast and wet: transparent washes for the sea and sky, the white of the paper left bare for the sails and the foam, and a few darker strokes for the hull and the waves.",
+      "How it comes out: the model gives photos a soft, washed look in teal, grey and white, and dissolves fine detail into broad, watery areas. It suits seascapes, skies and calm landscapes. It is a gentle style, so try it at full intensity."
+    ]
+  },
+  "splashed_ink": {
+    "meta": "Splashed-Ink Landscape by Sesshū Tōyō (1495) as a photo style: a misty, monochrome ink wash. Free, no sign-up.",
+    "note": [
+      "Sesshū Tōyō, a Zen monk and the most celebrated Japanese ink painter of his time, painted this landscape in 1495 for his pupil Josui Sōen as a sign that his training was complete. Above the picture, Sesshū wrote about his own studies in China, and six Zen monks added poems. It is a National Treasure of Japan, in the Tokyo National Museum.",
+      "The technique is haboku, splashed or broken ink. Mountains, trees and a village are suggested with a few quick, wet washes and dark accents of ink, and the empty paper becomes mist. The whole scene is built from what is left out.",
+      "How it comes out: the only monochrome style here. Photos lose their colour and turn into soft grey and sepia washes with dark accents, like ink on old paper. It works well for landscapes, fog and architecture, and for portraits with a quiet mood."
+    ]
+  }
+}
