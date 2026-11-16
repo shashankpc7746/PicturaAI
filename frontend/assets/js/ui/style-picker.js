@@ -348,9 +348,11 @@ function initMix() {
     const open = toggle.getAttribute('aria-expanded') !== 'true';
     toggle.setAttribute('aria-expanded', String(open));
     body.hidden = !open;
+    if (!open) body.style.marginBottom = '';
     store.set({ mixOpen: open });
     // The opened rail and slider would otherwise sit below the stuck Paint it button.
-    if (open) requestAnimationFrame(() => revealInPanel(body));
+    // Wait for the gallery to re-cut itself (it shortens when Mix opens), then scroll.
+    if (open) requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => revealMixBody(body), 60)));
   });
   rovingRadios($('#mix-rail'), '.mix-thumb', (el) => {
     const s = store.get().styles.find((x) => x.key === el.dataset.key);
@@ -484,6 +486,48 @@ function revealInPanel(el) {
   if (p && p.contains(el) && panelScrolls(p)) revealInScrollers(el);
 }
 
+/**
+ * Opening Mix on a short screen: scroll the panel so the Mix body clears the stuck
+ * Paint it button, but stop only at a clean boundary (the top, the heading scrolled
+ * away, or the heading and tabs scrolled away), never halfway through the tab row.
+ */
+function revealMixBody(body) {
+  const p = panelEl();
+  if (!p || !panelScrolls(p) || p.scrollHeight <= p.clientHeight + 1) return;
+  const pr = p.getBoundingClientRect();
+  const offset = (el) => el.getBoundingClientRect().top - pr.top + p.scrollTop;
+  const cta = $('.style-panel__cta');
+  const fade = parseFloat(getComputedStyle(p).getPropertyValue('--more-fade')) || 0;
+  const usable = p.clientHeight - (cta ? cta.offsetHeight : 0) - fade;
+  body.style.marginBottom = '';
+  const need = Math.max(0, offset(body) + body.offsetHeight - usable);
+  if (need < 1) return;
+  const tabs = $('.tabs', p);
+  // Content at offset s sits at the panel's top edge when scrollTop = s.
+  const stops = [0];
+  if (tabs) {
+    stops.push(offset(tabs) - 4);                    // the heading scrolled away, tabs at the top
+    stops.push(offset(tabs) + tabs.offsetHeight);    // heading and tabs scrolled away
+  }
+  // The first clean stop that shows the body (a few px under the fade is fine);
+  // past the last stop only gallery cards are cut, which is a clean cut anyway.
+  const top = stops.find((s) => s >= need - 16) ?? need;
+  // If that stop is past the end of the scroll range, add the missing space under
+  // the Mix slider (it goes when Mix closes) rather than stopping mid-tab row.
+  const short = top - (p.scrollHeight - p.clientHeight);
+  if (short > 0) body.style.marginBottom = `${Math.ceil(short)}px`;
+  // The added space reaches the scroll range a little later than the style change
+  // (the gallery re-cuts itself in between), so scroll, then finish the scroll once
+  // the range allows it.
+  const behavior = prefersReducedMotion() ? 'auto' : 'smooth';
+  let tries = 0;
+  const go = () => {
+    p.scrollTo({ top, behavior });
+    if (++tries < 4) setTimeout(() => { if (Math.abs(p.scrollTop - top) > 1 && !body.hidden) go(); }, 120);
+  };
+  requestAnimationFrame(go);
+}
+
 function initPanelScroll() {
   const panel = panelEl();
   const cta = $('.style-panel__cta');
@@ -494,7 +538,9 @@ function initPanelScroll() {
     raf = 0;
     const scrolls = panelScrolls(panel);
     if (scrolls) panel.style.setProperty('--cta-h', `${Math.ceil(cta.offsetHeight)}px`);
-    const below = scrolls && panel.scrollHeight - panel.clientHeight - panel.scrollTop > 4;
+    // The spacer under an open Mix body (revealMixBody) is not content.
+    const spacer = parseFloat($('#mix-body').style.marginBottom) || 0;
+    const below = scrolls && panel.scrollHeight - panel.clientHeight - panel.scrollTop - spacer > 4;
     panel.classList.toggle('has-more-below', below);
     more.hidden = !below;
   };

@@ -742,6 +742,10 @@
     /* Focus and revealInScrollers() land clear of the top edge and of the stuck call
        to action and its fade. --cta-h is its measured height (style-picker.js). */
     scroll-padding-block: var(--s-3) calc(var(--cta-h, 12rem) + var(--more-fade));
+    /* The gallery re-cuts itself (and Mix opens) while the panel is scrolled; scroll
+       anchoring would then nudge scrollTop and leave the heading half in view. The
+       panel's own code chooses where it stops. */
+    overflow-anchor: none;
     scrollbar-width: thin;
     scrollbar-color: var(--linen-muted) transparent;
   }
@@ -1239,6 +1243,10 @@
 /* Room for a second line of title: "The Great Wave off Kanagawa", not "The Great Wav…" */
 @media (min-width: 1024px) and (min-height: 680px) and (max-height: 820px) {
   .style-panel { --title-lines: 2; }
+  /* With Mix open the panel is crowded: one line of title (full name in the tooltip)
+     and no "Scroll for more" line (the fade under the cut row says it) */
+  .style-panel:has(#mix-body:not([hidden])) { --title-lines: 1; }
+  .style-panel:has(#mix-body:not([hidden])) #gallery-hint { display: none; }
 }
 /* A mouse or trackpad does not need 44 px rows; 40 px is still a large target. */
 @media (min-width: 1024px) and (max-height: 820px) and (hover: hover) and (pointer: fine) {
@@ -1434,7 +1442,8 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 /* Tablet portrait: the studio above is a centred 640 px column, so the sections
    under it use the same column and the left edge does not jump while scrolling. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .section > .container { max-width: calc(640px + 2 * var(--gutter)); }
+  .section > .container,
+  .site-footer > .container { max-width: calc(640px + 2 * var(--gutter)); }
 }
 .section__head { margin-bottom: var(--s-6); }
 .section__head p { margin-top: var(--s-2); max-width: 60ch; }
