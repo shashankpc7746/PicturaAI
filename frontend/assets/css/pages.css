@@ -1,0 +1,155 @@
+/* Static pages: privacy, terms, credits and the per-style pages.
+   Load tokens.css + base.css + pages.css, and assets/js/page.js (menu sheet).
+
+   Markup this stylesheet expects (header and footer are the same as index.html,
+   with nav links pointing to /app/#studio and so on):
+
+   <main class="page">
+     <div class="container page__inner">
+       <nav class="breadcrumb" aria-label="Breadcrumb"><a href="/app/">Studio</a> <span aria-hidden="true">/</span> <span>Credits</span></nav>
+       <header class="page__head"><h1>Credits</h1><p class="page__lede">…</p></header>
+       <article class="prose"> h2, h3, p, ul, ol, a, table, dl … </article>
+     </div>
+   </main>
+
+   Style page (frontend/styles/<slug>/index.html):
+   <main class="page">
+     <div class="container page__inner">
+       <nav class="breadcrumb">…</nav>
+       <section class="artwork">
+         <figure class="artwork__hang"><img class="artwork__img" src="…" alt="…" width="…" height="…"></figure>
+         <div class="artwork__label">
+           <h1 class="artwork__title">The Starry Night</h1>
+           <p class="artwork__artist">Vincent van Gogh, 1889</p>
+           <p class="artwork__medium">Oil on canvas</p>
+           <p class="artwork__desc">…</p>
+           <a class="btn btn--primary" href="/app/?style=starry_night#studio">Use this style</a>
+           <p class="artwork__credit">…</p>
+         </div>
+       </section>
+       <article class="prose">…</article>
+       <ul class="related" role="list"> <li><a class="related__card" href="…"><img …><span class="related__title">…</span><span class="related__meta">…</span></a></li> </ul>
+     </div>
+   </main>
+*/
+
+.page {
+  padding-block: var(--s-6) var(--s-8);
+  background:
+    radial-gradient(ellipse 760px 420px at 50% -60px, rgba(243, 238, 227, .07), transparent 72%),
+    var(--wall);
+}
+.page__inner { display: grid; gap: var(--s-6); }
+.page__head { display: grid; gap: var(--s-3); max-width: 760px; }
+.page__lede { color: var(--linen-muted); font-size: 18px; }
+.page__updated { font-size: var(--fs-meta); color: var(--linen-muted); }
+
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-small);
+  color: var(--linen-muted);
+}
+.breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  color: var(--linen);
+  text-decoration: underline;
+  text-decoration-color: rgba(201, 164, 76, .6);
+  text-underline-offset: 3px;
+}
+
+/* Long-form text */
+.prose {
+  max-width: 72ch;
+  color: var(--linen);
+  font-size: 17px;
+  line-height: 1.65;
+}
+.prose > * + * { margin-top: var(--s-4); }
+.prose h2 { margin-top: var(--s-7); font-size: var(--fs-h2); }
+.prose h3 { margin-top: var(--s-6); font-size: var(--fs-h3); }
+.prose h2 + *, .prose h3 + * { margin-top: var(--s-3); }
+.prose ul, .prose ol { padding-left: 1.3em; }
+.prose li + li { margin-top: var(--s-2); }
+.prose li::marker { color: var(--gilt); }
+.prose a {
+  color: var(--linen);
+  text-decoration: underline;
+  text-decoration-color: rgba(201, 164, 76, .7);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  overflow-wrap: anywhere;
+}
+.prose strong { font-weight: 600; }
+.prose blockquote { padding-left: var(--s-4); border-left: 2px solid var(--gilt); color: var(--linen-muted); }
+.prose code { font-size: .92em; padding: 1px 5px; border-radius: 4px; background: var(--wall-raised); }
+.prose hr { border: 0; border-top: 1px solid var(--hairline); margin-block: var(--s-6); }
+.prose .table-wrap { overflow-x: auto; }
+.prose table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.prose th, .prose td { padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+.prose th { color: var(--linen-muted); font-weight: 600; }
+.prose dl { display: grid; gap: var(--s-1) var(--s-4); }
+.prose dt { font-weight: 600; }
+.prose dd { color: var(--linen-muted); }
+@media (hover: hover) {
+  .prose a:hover, .breadcrumb a:hover { color: var(--gilt-bright); }
+}
+
+/* A painting hung on the page, with its wall label */
+.artwork {
+  display: grid;
+  gap: var(--s-6);
+  align-items: end;
+}
+@media (min-width: 900px) {
+  .artwork { grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: var(--s-7); }
+}
+.artwork__hang { display: flex; justify-content: center; }
+.artwork__img {
+  max-height: min(70vh, 720px);
+  width: auto;
+  height: auto;
+  padding: clamp(10px, 2.5vw, 24px);
+  background: var(--label);
+  border: clamp(8px, 1.6vw, 18px) solid;
+  border-color: #D9BB69 #CAA753 #A3823A #B08E40;
+  outline: 3px solid var(--frame-edge);
+  box-shadow: var(--shadow-frame);
+}
+.artwork__label {
+  display: grid;
+  gap: var(--s-1);
+  padding: var(--s-5);
+  border-radius: var(--r-label);
+  background: var(--label);
+  color: var(--ink);
+  box-shadow: var(--shadow-label);
+}
+.artwork__title { font-size: var(--fs-h2); color: var(--ink); }
+.artwork__artist { font-size: var(--fs-body); }
+.artwork__medium { font-size: var(--fs-small); color: var(--ink-muted); }
+.artwork__desc { margin-top: var(--s-3); font-size: var(--fs-small); color: var(--ink); }
+.artwork__label .btn { margin-top: var(--s-4); justify-self: start; }
+.artwork__credit { margin-top: var(--s-3); font-size: var(--fs-meta); color: var(--ink-muted); }
+.artwork__credit a { color: var(--rust); }
+
+/* Other styles */
+.related {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+  gap: var(--s-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.related__card { display: grid; gap: var(--s-2); color: var(--linen); text-decoration: none; }
+.related__card img { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; }
+.related__title { font-size: var(--fs-small); font-weight: 600; }
+.related__meta { font-size: var(--fs-meta); color: var(--linen-muted); margin-top: -6px; }
+@media (hover: hover) {
+  .related__card:hover .related__title { color: var(--gilt-bright); }
+}
