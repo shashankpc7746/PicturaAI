@@ -40,6 +40,7 @@ from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import (  # pyre-ignore[21]
     FastAPI,
@@ -493,10 +494,36 @@ if "exclude_content_types" in inspect.signature(GZipMiddleware.__init__).paramet
 app.add_middleware(GZipMiddleware, **_gzip_options)
 
 
+# ── Same-origin redirects ──────────────────────────────────────────────────────
+# Starlette builds absolute Location URLs from request.url (StaticFiles adds the
+# trailing slash to /app and /app/styles/<slug>, the router strips it from
+# /docs/). Behind Render's proxy the peer is not in FORWARDED_ALLOW_IPS, so the
+# scheme stays "http" and an https visitor would be sent to http:// for one hop.
+# A path-only Location keeps whatever scheme and host the browser used, without
+# trusting X-Forwarded-* (which the rate limits deliberately don't trust either).
+def relative_location(location: str, scheme: str, netloc: str) -> str:
+    """Return `location` as a path (with query) if it points at this origin."""
+    try:
+        parts = urlsplit(location)
+    except ValueError:
+        return location
+    if parts.scheme.lower() != scheme.lower() or parts.netloc.lower() != netloc.lower():
+        return location
+    # "//evil.example" or "/\evil.example" would read as another host: collapse
+    # the leading slashes so the result can only ever be a path on this site.
+    path = "/" + parts.path.lstrip("/\\")
+    return urlunsplit(("", "", path, parts.query, parts.fragment))
+
+
 @app.middleware("http")
 async def _security_headers(request, call_next):
     response = await call_next(request)
     path = request.url.path
+    location = response.headers.get("location")
+    if location:
+        relative = relative_location(location, request.url.scheme, request.url.netloc)
+        if relative != location:
+            response.headers["location"] = relative
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
@@ -538,6 +565,12 @@ def resolve_style_from_text(prompt: str) -> Optional[str]:
     return preset.key if preset else None
 
 
+NO_TEXT_MATCH_MESSAGE = (
+    "We couldn't match those words to a painting. "
+    "Try words like 'starry night', 'ink wash' or 'gold'."
+)
+
+
 def _resolve_text_prompt(raw: str) -> str:
     """Validate a `text_prompt` form field like /api/describe-style does, then match it.
 
@@ -551,7 +584,7 @@ def _resolve_text_prompt(raw: str) -> str:
         raise HTTPException(400, too_long)
     key = resolve_style_from_text(prompt)
     if key is None:
-        raise HTTPException(400, "No matching style found for the provided text_prompt")
+        raise HTTPException(400, NO_TEXT_MATCH_MESSAGE)
     return key
 
 
@@ -610,7 +643,8 @@ def _sync_broadcast(job_id: str, payload: dict):
 @app.get("/", include_in_schema=False)
 @app.head("/", include_in_schema=False)
 async def root():
-    return RedirectResponse(url="/app", status_code=301)
+    # Straight to /app/ (the /app mount would otherwise add a second hop).
+    return RedirectResponse(url="/app/", status_code=301)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

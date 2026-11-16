@@ -101,6 +101,11 @@ def test_text_prompt_resolves_with_catalogue_title(_app_client, calls):
     r = _app_client.post("/api/transfer", data={"text_prompt": "neon cyberpunk"},
                          files={"content_image": ("c.jpg", _jpeg(), "image/jpeg")})
     assert r.status_code == 400
+    assert r.json()["detail"] == main.NO_TEXT_MATCH_MESSAGE
+    assert "couldn't match those words" in r.json()["detail"] and "text_prompt" not in r.json()["detail"]
+    r = _app_client.post("/api/palette-transfer", data={"text_prompt": "neon cyberpunk"},
+                         files={"content_image": ("c.jpg", _jpeg(), "image/jpeg")})
+    assert r.status_code == 400 and r.json()["detail"] == main.NO_TEXT_MATCH_MESSAGE
 
 
 def test_unknown_preset_404(_app_client, calls):

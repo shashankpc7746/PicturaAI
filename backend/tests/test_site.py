@@ -1,4 +1,4 @@
-"""Styles API, health, config.js, security headers, robots/sitemap, docs toggle."""
+"""Styles API, health, config.js, security headers, redirects, robots/sitemap, docs toggle."""
 import json
 import os
 import subprocess
@@ -157,6 +157,59 @@ def test_hsts_only_over_https(client):
     assert r.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
     r = client.get("/api/health", headers={"x-forwarded-proto": "http"})
     assert "strict-transport-security" not in r.headers
+
+
+# ── Redirects stay on the visitor's scheme ─────────────────────────────────────
+# On Render the proxy is not a trusted peer, so request.url.scheme is "http"
+# even for https visitors; an absolute http:// Location would downgrade them.
+
+@pytest.fixture(scope="module")
+def proxied_client():
+    """The app behind uvicorn's proxy-header middleware, as `python main.py` runs
+    it, with the test client as an untrusted peer (FORWARDED_ALLOW_IPS default)."""
+    from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+    wrapped = ProxyHeadersMiddleware(main.app, trusted_hosts=main.uvicorn_options()["forwarded_allow_ips"])
+    with TestClient(wrapped, base_url="http://picturaai.example") as c:
+        yield c
+
+
+HTTPS_FROM_PROXY = {"x-forwarded-proto": "https", "x-forwarded-for": "203.0.113.9"}
+
+
+@pytest.mark.parametrize("path, status, location", [
+    ("/", 301, "/app/"),
+    ("/app", 307, "/app/"),
+    ("/app/styles/van-gogh-starry-night", 307, "/app/styles/van-gogh-starry-night/"),
+    ("/docs/", 307, "/docs"),
+    ("/app?from=share", 307, "/app/?from=share"),
+])
+def test_redirects_are_relative_for_untrusted_proxy(proxied_client, path, status, location):
+    r = proxied_client.get(path, headers=HTTPS_FROM_PROXY, follow_redirects=False)
+    assert r.status_code == status
+    assert r.headers["location"] == location
+    # HSTS still comes from X-Forwarded-Proto directly.
+    assert r.headers["strict-transport-security"] == main.HSTS_VALUE
+
+
+def test_root_redirect_is_a_single_hop(client):
+    r = client.get("/", follow_redirects=True)
+    assert r.status_code == 200 and len(r.history) == 1
+    assert str(r.url).endswith("/app/")
+    assert client.head("/", follow_redirects=False).headers["location"] == "/app/"
+
+
+@pytest.mark.parametrize("location, expected", [
+    ("http://host/app/", "/app/"),
+    ("HTTP://HOST/app/?a=1&b=2#top", "/app/?a=1&b=2#top"),
+    ("http://host//evil.example/", "/evil.example/"),
+    ("http://host/\\evil.example", "/evil.example"),
+    ("http://host", "/"),
+    ("https://host/app/", "https://host/app/"),       # other scheme: left alone
+    ("http://other.example/app/", "http://other.example/app/"),
+    ("/app/", "/app/"),
+])
+def test_relative_location_helper(location, expected):
+    assert main.relative_location(location, "http", "host") == expected
 
 
 def test_is_https_helper():
