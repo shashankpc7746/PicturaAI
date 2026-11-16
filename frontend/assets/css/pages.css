@@ -147,13 +147,15 @@ body > .page { flex: 1 0 auto; }
     row-gap: var(--s-6);
   }
   .artwork__label { align-self: start; }
+  /* never stretched: a stretched hang inflates the fit-content column and the
+     notes row, and on short screens the notes spilled out of .artwork */
+  .artwork__hang { align-self: start; }
   .artwork__notes > h2:first-child { margin-top: 0; }
 }
 @media (min-width: 1200px) and (min-height: 700px) {
   .artwork__hang {
     position: sticky;
     top: calc(var(--header-h) + var(--s-6));
-    align-self: start;
   }
 }
 .artwork__img {
