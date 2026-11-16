@@ -259,9 +259,9 @@ def render(page: Page, site: str) -> str:
   <title>{e(page.title)}</title>
   <meta name="description" content="{e(page.description)}">{robots}{canonical_tag}
   <meta name="theme-color" content="#142622">
-  <link rel="icon" href="/app/assets/favicon.ico" sizes="32x32">
-  <link rel="icon" type="image/svg+xml" href="/app/assets/icons/favicon.svg">
-  <link rel="apple-touch-icon" href="/app/assets/apple-touch-icon.png">{manifest}
+  <link rel="icon" href="/app/assets/favicon.ico?v=2" sizes="32x32">
+  <link rel="icon" type="image/svg+xml" href="/app/assets/icons/favicon.svg?v=2">
+  <link rel="apple-touch-icon" href="/app/assets/apple-touch-icon.png?v=2">{manifest}
   <meta property="og:site_name" content="PicturaAI">
   <meta property="og:type" content="{page.og_type}">
   <meta property="og:title" content="{e(page.title)}">
