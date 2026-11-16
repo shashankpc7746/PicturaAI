@@ -160,6 +160,18 @@ jobs:
             echo "::error::stylization failed"; exit 1
           fi
           docker stats --no-stream pictura
+          # docker stats shows current use; the cgroup's peak shows how close the
+          # model load plus one stylization came to the 512 MB limit.
+          peak=$(docker exec pictura cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo "")
+          if [ -n "$peak" ] && [ "$peak" -eq "$peak" ] 2>/dev/null; then
+            peak_mb=$((peak / 1024 / 1024))
+            echo "cgroup memory.peak: ${peak_mb} MB (${peak} bytes)"
+            if [ "$peak_mb" -gt 460 ]; then
+              echo "::warning::peak memory ${peak_mb} MB is above 460 MB, close to Render's 512 MB limit"
+            fi
+          else
+            echo "cgroup memory.peak not available (cgroup v1 or older kernel)"
+          fi
 
       - name: Container diagnostics
         if: failure()
