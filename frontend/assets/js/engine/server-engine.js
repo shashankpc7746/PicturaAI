@@ -1,6 +1,8 @@
 // Server engine: the same model, run by the PicturaAI backend.
 // POST /api/transfer with output=raw returns the raw stylization (no intensity
 // blend), so the browser compositor finishes both engines identically.
+// Styles: { key } (preset), { image } (custom), or { prompt } (words the server
+// matches to a preset; engine.resolvedStyle says which).
 
 import { resizeImageData } from './composite.js';
 import { EngineError } from './errors.js';
@@ -88,6 +90,7 @@ export function createServerEngine(options = {}) {
     if (!style) return;
     if (style.key) form.append(presetField, style.key);
     else if (style.image) form.append(field, await toJpegBlob(style.image, STYLE_UPLOAD_SIDE, 0.9), 'style.jpg');
+    else if (style.prompt && field === 'style_image') form.append('text_prompt', style.prompt);   // matched on the server
     else throw new EngineError('Unknown style.', 'ENGINE_INPUT');
   }
 
