@@ -6,10 +6,17 @@ export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SPRITE = 'assets/icons/icons.svg';
 
+// Attributes that start a fetch go last, after `loading`/`decoding`/`sizes`: an <img>
+// whose src is set before loading="lazy" starts downloading at once whenever the
+// file is already in the HTTP cache (every repeat visit).
+const FETCH_ATTRS = ['srcset', 'src'];
+
 /** Create an element: h('button', { class: 'btn', text: 'Save', onclick: fn }, child...) */
 export function h(tag, attrs = {}, ...children) {
   const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
+  const entries = Object.entries(attrs);
+  entries.sort(([a], [b]) => FETCH_ATTRS.indexOf(a) - FETCH_ATTRS.indexOf(b));
+  for (const [k, v] of entries) {
     if (v == null || v === false) continue;
     if (k === 'class') el.className = v;
     else if (k === 'text') el.textContent = v;
