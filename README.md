@@ -11,6 +11,8 @@ public-domain masters. Free, with no sign-up and no watermark.
 [The collection](https://picturaai-k7q6.onrender.com/app/styles/) ·
 [API docs](https://picturaai-k7q6.onrender.com/docs)
 
+[![CI](https://github.com/shashankpc7746/PicturaAI/actions/workflows/ci.yml/badge.svg)](https://github.com/shashankpc7746/PicturaAI/actions/workflows/ci.yml)
+
 </div>
 
 *Pictura* is Latin for "a painting". PicturaAI is a small neural style transfer
@@ -20,7 +22,7 @@ phones the painting is made **in your browser**, so the photo never leaves your 
 
 | Desktop | Phone |
 |---|---|
-| ![The studio on a desktop: a dog photo painted in the style of The Starry Night, with the painting picker beside the frame](docs/revamp/after/pages/studio-1440.jpg) | ![The studio on a phone, with the result in the frame and a Download button in the bottom bar](docs/revamp/after/pages/studio-390.jpg) |
+| ![The studio on a desktop: a dog photo painted in the style of The Starry Night, with the painting picker beside the frame](docs/revamp/after/final/1440-13-on-device-result.jpg) | ![The studio on a phone, with the result in the frame and a Download button in the bottom bar](docs/revamp/after/final/390-04-result.jpg) |
 
 ![A style page: The Kiss by Gustav Klimt hung in a frame with its wall label](docs/revamp/after/pages/1440-styles-klimt-the-kiss.jpg)
 
@@ -96,13 +98,26 @@ venv\Scripts\python scripts\build_pages.py --check   # fail if a generated page 
 `privacy.html` and `terms.html` are written by hand between their `page-content`
 markers; the script keeps their header, footer and meta tags in step with the rest.
 
-## Tests
+## Testing
 
 ```bash
+venv\Scripts\pip install -r requirements-dev.txt                   # pytest, Playwright, ruff, pip-audit
+venv\Scripts\python -m playwright install chromium                 # once, for the browser tests
 venv\Scripts\python -m pytest backend/tests                        # API, catalogue, site config
+venv\Scripts\python -m pytest tests/e2e                            # studio in headless Chromium (~80 s)
+venv\Scripts\python -m pytest tests/e2e -m slow                    # on-device engine smoke test (minutes)
 venv\Scripts\python docs\revamp\engine\parity\composite_parity.py  # browser compositor vs run_nst (needs Node 18+)
 venv\Scripts\python scripts\build_pages.py --check                  # generated pages up to date
 ```
+
+The end-to-end tests start their own server and use the server engine
+(`?engine=server`), because WebGL is very slow in headless Chromium. What each suite
+covers, timings and how to write new tests:
+[`docs/revamp/TESTING.md`](docs/revamp/TESTING.md). GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the backend tests, lint and
+dependency audit, the e2e tests, a Docker build and start inside 512 MB, compositor
+parity and the generated-files checks on every push to `main` or `revamp/**` and on pull
+requests.
 
 ## Deployment
 
