@@ -4,6 +4,9 @@ For each style it reads images/style_image/<file> and writes into
 frontend/assets/styles/:
 
     <key>-512.jpg    long side 512 px, JPEG q90   (input for the in-browser engine)
+    <key>-1024.webp  exactly twice the 512 file's size (the source size if that is
+                     smaller), WebP q80: the HiDPI copy of the hero on the style pages
+                     (scripts/build_pages.py adds it to the srcset when it exists)
     <key>-480.webp   480 px wide, WebP q80        (gallery card; height capped at 720)
     <key>-160.webp   160 px on the short side, WebP q80  (small picker; crops cleanly
                      to a square with CSS object-fit: cover)
@@ -34,7 +37,7 @@ OUT_DIR = FRONTEND / "assets" / "styles"
 
 REQUIRED = ("key", "slug", "title", "artist", "year", "medium", "description", "tags", "file",
             "image", "card", "thumb", "aspect", "credit", "source_url", "license")
-GENERATED = re.compile(r"^(?P<key>[a-z0-9_]+)-(512\.jpg|480\.webp|160\.webp)$")
+GENERATED = re.compile(r"^(?P<key>[a-z0-9_]+)-(512\.jpg|1024\.webp|480\.webp|160\.webp)$")
 LANCZOS = Image.Resampling.LANCZOS
 
 
@@ -88,6 +91,16 @@ def resized(im: Image.Image, size: tuple[int, int]) -> Image.Image:
     return im.resize(size, LANCZOS) if im.size != size else im.copy()
 
 
+def hidpi_path(key: str) -> Path:
+    return OUT_DIR / f"{key}-1024.webp"
+
+
+def hidpi_size(source: tuple[int, int], base: tuple[int, int]) -> tuple[int, int]:
+    """Twice the 512 file's size, or the source size when the source is smaller."""
+    w2, h2 = base[0] * 2, base[1] * 2
+    return (w2, h2) if w2 <= source[0] and h2 <= source[1] else source
+
+
 def build_one(style: dict, force: bool) -> list[Path]:
     src = SOURCE_DIR / style["file"]
     key = style["key"]
@@ -95,6 +108,7 @@ def build_one(style: dict, force: bool) -> list[Path]:
         "512": OUT_DIR / f"{key}-512.jpg",
         "480": OUT_DIR / f"{key}-480.webp",
         "160": OUT_DIR / f"{key}-160.webp",
+        "1024": hidpi_path(key),
     }
     src_mtime = src.stat().st_mtime
     if not force and all(t.exists() and t.stat().st_mtime >= src_mtime for t in targets.values()):
@@ -110,6 +124,11 @@ def build_one(style: dict, force: bool) -> list[Path]:
     big = resized(im, (max(1, round(w * scale)), max(1, round(h * scale))))
     big.save(targets["512"], "JPEG", quality=90, optimize=True, progressive=True)
     written.append(targets["512"])
+
+    # 1024: the 512 file at 2x (never upscaled), for HiDPI screens on the style pages.
+    hidpi = resized(im, hidpi_size((w, h), big.size))
+    hidpi.save(targets["1024"], "WEBP", quality=80, method=6)
+    written.append(targets["1024"])
 
     # 480: 480 wide, but keep very tall works at most 720 high.
     scale = min(480 / w, 720 / h, 1.0)
@@ -152,10 +171,22 @@ def main() -> int:
     if args.check:
         missing = [str(FRONTEND / s[f]) for s in styles for f in ("image", "card", "thumb")
                    if not (FRONTEND / s[f]).is_file()]
+        missing += [str(hidpi_path(s["key"])) for s in styles if not hidpi_path(s["key"]).is_file()]
         if missing:
             print("missing outputs:", *missing, sep="\n  ")
             return 1
-        print(f"ok: {len(styles)} styles, all outputs present")
+        wrong = []
+        for s in styles:
+            with Image.open(SOURCE_DIR / s["file"]) as src, Image.open(FRONTEND / s["image"]) as base, \
+                    Image.open(hidpi_path(s["key"])) as hi:
+                want = hidpi_size(ImageOps.exif_transpose(src).size, base.size)
+                if hi.size != want or hi.format != "WEBP":
+                    wrong.append(f"{hidpi_path(s['key']).name} is {hi.format} {hi.width}x{hi.height}, "
+                                 f"expected WEBP {want[0]}x{want[1]}")
+        if wrong:
+            print("outdated outputs (run without --check):", *wrong, sep="\n  ")
+            return 1
+        print(f"ok: {len(styles)} styles, all outputs present (with the 1024 px HiDPI copies)")
         return 0
 
     written = [p for s in styles for p in build_one(s, args.force)]
