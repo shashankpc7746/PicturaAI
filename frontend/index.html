@@ -5,15 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>PicturaAI: turn a photo into a painting</title>
   <meta name="description" content="Turn a photo into a painting in the style of Van Gogh, Hokusai, Klimt and other public-domain masters. Free, with no sign-up and no watermark.">
+  <link rel="canonical" href="https://picturaai-k7q6.onrender.com/app/">
   <meta name="theme-color" content="#142622">
   <link rel="icon" href="assets/favicon.ico" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta property="og:site_name" content="PicturaAI">
   <meta property="og:type" content="website">
   <meta property="og:title" content="PicturaAI: turn a photo into a painting">
   <meta property="og:description" content="Pick a photo and a famous painting. Free, with no sign-up and no watermark.">
-  <meta property="og:image" content="https://picturaai-k7q6.onrender.com/app/assets/logo.png">
+  <meta property="og:url" content="https://picturaai-k7q6.onrender.com/app/">
+  <meta property="og:image" content="https://picturaai-k7q6.onrender.com/app/assets/og/og-default.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A photo of a dog turned into a painting, hanging in a gilt frame on a green wall">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PicturaAI: turn a photo into a painting">
+  <meta name="twitter:description" content="Pick a photo and a famous painting. Free, with no sign-up and no watermark.">
+  <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/og/og-default.jpg">
+  <meta name="twitter:image:alt" content="A photo of a dog turned into a painting, hanging in a gilt frame on a green wall">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "PicturaAI",
+    "url": "https://picturaai-k7q6.onrender.com/app/",
+    "description": "Turn a photo into a painting in the style of Van Gogh, Hokusai, Klimt and other public-domain masters.",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Any (runs in a web browser)",
+    "browserRequirements": "Requires JavaScript. WebGL 2 for painting on your device.",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "image": "https://picturaai-k7q6.onrender.com/app/assets/og/og-default.jpg",
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,10 +49,9 @@
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/app.css">
 
-  <!-- TODO(integration): load the server-built public config before main.js, once
-       GET /app/config.js exists everywhere:
-       <script src="config.js"></script>
-       main.js reads window.PICTURA_CONFIG when present and works without it. -->
+  <!-- Public config built by the server (window.PICTURA_CONFIG); deferred scripts run
+       in order, so it is set before main.js, which also works without it. -->
+  <script defer src="config.js"></script>
   <script type="module" src="assets/js/main.js"></script>
 </head>
 <body>

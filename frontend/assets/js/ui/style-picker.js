@@ -188,6 +188,11 @@ function initDescribe() {
   const img = $('#describe-img');
   const titleEl = $('#describe-title');
   const textEl = $('#describe-text');
+  // Without Workers AI the server only matches words to a preset: say so.
+  const generates = (window.PICTURA_CONFIG || {}).describeGenerates !== false;
+  const idleLabel = generates ? 'Create style' : 'Find a style';
+  submit.textContent = idleLabel;
+  if (!generates) $('label[for="describe-input"]').textContent = "Describe a style in a few words. We'll find the closest painting.";
 
   input.addEventListener('input', () => { count.textContent = `${input.value.length} of 200 characters`; });
   input.addEventListener('keydown', (e) => {
@@ -217,7 +222,7 @@ function initDescribe() {
       return;
     }
     submit.disabled = true;
-    submit.textContent = 'Creating style';
+    submit.textContent = generates ? 'Creating style' : 'Finding a style';
     submit.classList.add('is-busy');
     box.setAttribute('aria-busy', 'true');
     const styles = store.get().styles;
@@ -251,7 +256,7 @@ function initDescribe() {
       }
     } finally {
       submit.disabled = false;
-      submit.textContent = 'Create style';
+      submit.textContent = idleLabel;
       submit.classList.remove('is-busy');
       box.removeAttribute('aria-busy');
     }
