@@ -51,3 +51,6 @@ pyrightconfig.json
 
 # ── Playwright MCP session artifacts ──────────────────────────────────────────
 .playwright-mcp/
+
+# Local pointer for Claude Code; the real file is docs/CLAUDE.md
+/CLAUDE.md
