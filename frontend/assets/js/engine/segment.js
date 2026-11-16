@@ -7,18 +7,12 @@
 //   // "Style the background" = the same mask inverted.
 
 import { EngineError } from './errors.js';
-import { isMobileLike } from './browser-engine.js';
 
 const MP_VERSION = '0.10.35';
 const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
 const DEFAULT_MODEL_URL = new URL('../../../models/deeplab_v3/deeplab_v3.tflite', import.meta.url).href;
 // Classes smaller than this share of the picture are not reported as "found".
 const MIN_LABEL_SHARE = 0.005;
-
-function isAppleTouch() {
-  const ua = navigator.userAgent || '';
-  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-}
 
 function sizeOf(image) {
   return [image.naturalWidth || image.videoWidth || image.width, image.naturalHeight || image.videoHeight || image.height];
@@ -39,6 +33,16 @@ function loadVision() {
   return visionPromise;
 }
 
+// MediaPipe's wasm prints status lines ("INFO: Created TensorFlow Lite XNNPACK
+// delegate for CPU.") through console.error. Drop those while it runs; real
+// errors still get through.
+const INFO_LINE = /^(INFO:|[IW]\d{4} )/;
+async function quiet(fn) {
+  const original = console.error;
+  console.error = (...args) => { if (!(typeof args[0] === 'string' && INFO_LINE.test(args[0]))) original.apply(console, args); };
+  try { return await fn(); } finally { console.error = original; }
+}
+
 async function createTask(vision, fileset, modelUrl, delegate) {
   return vision.ImageSegmenter.createFromOptions(fileset, {
     baseOptions: { modelAssetPath: modelUrl, delegate },
@@ -55,25 +59,27 @@ async function createTask(vision, fileset, modelUrl, delegate) {
  */
 export async function createSegmenter(options = {}) {
   const modelUrl = options.modelUrl || DEFAULT_MODEL_URL;
-  // iOS/iPadOS Safari returns wrong labels with the GPU delegate
-  // (google-ai-edge/mediapipe#6142), so use the CPU there.
-  let delegate = options.delegate || (isAppleTouch() ? 'CPU' : 'GPU');
+  // CPU by default: the GPU delegate's first run compiles shaders on the main
+  // thread (a 4 s freeze on an integrated GPU, 8 s with software GL, against
+  // 1.3 s on the CPU), and iOS Safari returns wrong labels on the GPU
+  // (google-ai-edge/mediapipe#6142). One tap is the usual use, so CPU wins.
+  let delegate = options.delegate || 'CPU';
   let task;
   try {
     const { vision, fileset } = await loadVision();
     try {
-      task = await createTask(vision, fileset, modelUrl, delegate);
+      task = await quiet(() => createTask(vision, fileset, modelUrl, delegate));
     } catch (e) {
       if (delegate !== 'GPU') throw e;
       delegate = 'CPU';
-      task = await createTask(vision, fileset, modelUrl, delegate);
+      task = await quiet(() => createTask(vision, fileset, modelUrl, delegate));
     }
   } catch (e) {
     throw new EngineError('Automatic selection is not available in this browser. You can still paint the area by hand.', 'ENGINE_UNAVAILABLE', e);
   }
   const labels = task.getLabels ? task.getLabels() : [];
-  // Mobile: segment a smaller copy (DeepLab works at 257 px anyway).
-  const maxSide = isMobileLike() ? 1024 : 1600;
+  // Segment a smaller copy: DeepLab works at 257 px, so more is wasted work.
+  const maxSide = 768;
 
   async function segment(image) {
     const [w, h] = sizeOf(image);
@@ -97,7 +103,7 @@ export async function createSegmenter(options = {}) {
     }
     let result;
     try {
-      result = task.segment(input);
+      result = await quiet(() => task.segment(input));
     } catch (e) {
       throw new EngineError('Automatic selection failed on this picture. You can paint the area by hand.', 'ENGINE_FAILED', e);
     }
