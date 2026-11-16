@@ -13,6 +13,7 @@ import { initStudio } from './ui/studio.js';
 const config = window.PICTURA_CONFIG || {};
 
 initHeader();
+keepHashTarget();
 const picker = initStylePicker();
 const studio = initStudio();
 const gallery = initMyGallery({
@@ -23,6 +24,38 @@ studio.setGallery(gallery);
 
 if (config.describeEnabled === false) {
   $('#tab-describe').hidden = true;
+}
+
+// ── Deep links (/app/#gallery, /app/#how-it-works) ───────────────────────
+// The collection and my gallery are filled in after load, above those sections, so
+// the browser's own jump to the fragment ends up ~2000 px short of it. Until the
+// visitor scrolls, clicks or types, put the target back at the top each time the
+// page's height changes. A later in-page link (hashchange) re-arms it.
+function keepHashTarget() {
+  if (typeof ResizeObserver !== 'function') return;
+  let target = null;
+  const arm = () => {
+    target = null;
+    if (location.hash.length < 2) return;
+    try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { /* bad escape */ }
+  };
+  const settle = () => {
+    if (!target || !target.isConnected) return;
+    try { target.scrollIntoView({ block: 'start', behavior: 'instant' }); }
+    catch { target.scrollIntoView(true); } // browsers without 'instant'
+  };
+  const stop = () => { target = null; };
+  for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown']) {
+    addEventListener(ev, stop, { passive: true, capture: true });
+  }
+  addEventListener('hashchange', arm);
+  let raf = 0;
+  new ResizeObserver(() => {
+    if (target && !raf) raf = requestAnimationFrame(() => { raf = 0; settle(); });
+  }).observe(document.body);
+  // Reload and Back/Forward restore the visitor's own scroll position: leave it be.
+  const nav = performance.getEntriesByType?.('navigation')[0];
+  if (!nav || nav.type === 'navigate') arm();
 }
 
 // ── Styles: retry with backoff while a sleeping server wakes up ───────────
