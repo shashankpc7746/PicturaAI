@@ -172,6 +172,14 @@
                 </div>
               </div>
             </figure>
+            <!-- Intensity sits on the frame's own ledge, so the picture and the slider
+                 that changes it are always in view together -->
+            <div class="frame-ledge">
+              <label class="control-label" for="intensity">Intensity</label>
+              <input class="range" type="range" id="intensity" min="0" max="100" step="1" value="75" aria-describedby="intensity-hint">
+              <output class="control-value" id="intensity-value" for="intensity">75%</output>
+              <p class="visually-hidden" id="intensity-hint">Changes the picture in the frame as you drag.</p>
+            </div>
           </div>
 
           <!-- Wall label + photo source -->
@@ -296,15 +304,6 @@
                 <button class="segmented__item" type="button" role="radio" aria-checked="false" data-mode="region" tabindex="-1">Paint a region</button>
               </div>
               <p class="control-hint" id="mode-hint">The painting's brushwork and colours across the whole photo.</p>
-            </div>
-
-            <div class="plinth__group plinth__group--intensity">
-              <div class="control-head">
-                <label class="control-label" for="intensity">Intensity</label>
-                <output class="control-value" id="intensity-value" for="intensity">75%</output>
-              </div>
-              <input class="range" type="range" id="intensity" min="0" max="100" step="1" value="75" aria-describedby="intensity-hint">
-              <p class="control-hint" id="intensity-hint">Changes the picture in the frame as you drag.</p>
             </div>
 
             <div class="plinth__group plinth__group--region" id="region-tools" hidden>

@@ -22,6 +22,10 @@
   .studio {
     --band: 22px;
     --mat: 28px;
+    /* leave room under the frame for its intensity ledge on short screens
+       (e.g. 1536x690 at 125 % scaling): header, gaps and the 56 px ledge */
+    --frame-max-h: min(70vh, 760px, calc(100vh - var(--header-h) - 56px - 3 * var(--s-4)));
+    --frame-max-h: min(70svh, 760px, calc(100svh - var(--header-h) - 56px - 3 * var(--s-4)));
     background:
       radial-gradient(ellipse 880px 480px at 30% -80px, rgba(243, 238, 227, .09), transparent 72%),
       var(--wall);
@@ -81,7 +85,23 @@
 /* The frame is height-capped (--frame-max-h), so on short screens or with portrait
    photos it is narrower than its column. Hang it on the same left edge as the
    intro text and the wall label instead of centring it. */
-.studio__frame { display: flex; justify-content: flex-start; }
+.studio__frame { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); }
+
+/* The frame's ledge: the intensity slider directly under the picture it changes.
+   Same width as the frame (at least a usable slider width for portrait photos). */
+.frame-ledge {
+  --ledge-h: 56px;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  width: max(min(100%, 340px), min(100%, calc((var(--frame-max-h) - 2 * var(--chrome)) * var(--ar) + 2 * var(--chrome))));
+  min-height: var(--ledge-h);
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-panel);
+  background: var(--wall-deep);
+}
+.frame-ledge .range { flex: 1 1 auto; min-width: 0; }
+.frame-ledge .control-value { min-width: 4ch; text-align: right; }
 .frame {
   position: relative;
   width: min(100%, calc((var(--frame-max-h) - 2 * var(--chrome)) * var(--ar) + 2 * var(--chrome)));
@@ -496,11 +516,9 @@
     justify-self: center;
   }
 }
-/* Tablet portrait: two columns, Mode | Intensity, in the 640 px plinth (Mode
-   gets the wider one so its three segments stay on one line) */
+/* Tablet portrait: one column (intensity lives on the frame's ledge now) */
 @media (min-width: 768px) and (max-width: 1023px) {
-  .plinth { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: var(--s-5); }
-  .plinth__group--mode .segmented__item { padding-inline: var(--s-2); }
+  .plinth { grid-template-columns: minmax(0, 1fr); }
 }
 @media (min-width: 1024px) {
   .plinth { max-width: none; }

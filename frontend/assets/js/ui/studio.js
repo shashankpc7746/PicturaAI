@@ -56,9 +56,17 @@ function setAriaDisabled(btn, on) {
 const isAriaDisabled = (btn) => btn.getAttribute('aria-disabled') === 'true';
 
 /** Bring the frame into view when most of it is off screen (phones paint from the rail). */
+// Bring the frame and its intensity ledge fully into view (above the phone action
+// bar, below the sticky header) when they are not, so the person can watch the
+// picture while dragging the slider.
 function revealFrame() {
-  const r = frame.el.getBoundingClientRect();
-  if (r.top < 0 || r.top > innerHeight * 0.5) frame.el.scrollIntoView({ block: 'start', behavior: smoothScroll() });
+  const box = frame.el.parentElement;   // .studio__frame: the frame + its ledge
+  const r = box.getBoundingClientRect();
+  const header = $('.site-header');
+  const top = header && getComputedStyle(header).position === 'sticky' ? header.offsetHeight : 0;
+  const bar = $('#action-bar');
+  const bottom = bar && bar.offsetParent ? innerHeight - bar.getBoundingClientRect().top : 0;
+  if (r.top < top || r.bottom > innerHeight - bottom) box.scrollIntoView({ block: 'start', behavior: smoothScroll() });
 }
 
 /** Show the painting gallery tab and put focus on its selected (or first) card. */
