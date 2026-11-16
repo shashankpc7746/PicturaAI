@@ -79,7 +79,9 @@ export function rovingRadios(container, selector, onPick) {
     else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onPick(items[i]); return; }
     if (!next) return;
     e.preventDefault();
-    next.focus();
+    // focus() alone leaves a partly visible item half cut off in a scrolling rail.
+    next.focus({ preventScroll: true });
+    next.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     onPick(next);
   });
   container.addEventListener('click', (e) => {
