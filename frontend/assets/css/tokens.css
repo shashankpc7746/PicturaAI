@@ -1,0 +1,82 @@
+/* PicturaAI design tokens: "Salon Wall" (docs/revamp/BUILD-PLAN.md section 1).
+   Every other stylesheet uses these names; change a value here, not at the call site. */
+:root {
+  /* Colour (contrast ratios measured against the wall tones) */
+  --wall: #1D3530;
+  --wall-deep: #142622;
+  --wall-raised: #24423B;
+  --linen: #ECE5D6;
+  --linen-muted: #B8B2A2;
+  --gilt: #C9A44C;
+  --gilt-bright: #DDBB66;
+  --on-gilt: #26221D;
+  --label: #F3EEE3;
+  --ink: #26221D;
+  --ink-muted: #6B6357;
+  --rust: #8A3B22;
+  --vermilion: #E0613F;
+  --vermilion-text: #F08A6C;
+  --hairline: rgba(236, 229, 214, .14);
+
+  /* Frame materials: three close gilt tones for the bevel, and the dark outer edge */
+  --gilt-shade: #A9863A;
+  --gilt-light: #D8B865;
+  --frame-edge: #0F1C19;
+
+  /* Type */
+  --font-display: 'Libre Caslon Display', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-ui: 'Schibsted Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fs-meta: 13px;
+  --fs-small: 14px;
+  --fs-body: 16px;
+  --fs-h3: 20px;
+  --fs-h2: 28px;
+  --fs-h1: 44px;
+  --fs-h1-mobile: 34px;
+  --fs-hero: 64px;
+  --lh-body: 1.55;
+  --lh-display: 1.15;
+  --measure: 70ch;
+
+  /* Spacing (4 px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+
+  /* Radius by hierarchy */
+  --r-frame: 0;
+  --r-label: 2px;
+  --r-control: 8px;
+  --r-pill: 999px;
+  --r-panel: 12px;
+
+  /* Shadows: only the frame and the paper labels get one */
+  --shadow-frame: 0 40px 70px -30px rgba(0, 0, 0, .65), 0 2px 0 rgba(0, 0, 0, .4);
+  --shadow-label: 0 10px 24px -14px rgba(0, 0, 0, .6);
+
+  /* Motion */
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-reveal: 700ms;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  /* Layout */
+  --gutter: 16px;
+  --content-max: 1320px;
+  --header-h: 60px;
+  --touch: 44px;
+  --focus-ring: 2px solid var(--gilt);
+}
+
+@media (min-width: 768px) {
+  :root { --gutter: 32px; --header-h: 64px; }
+}
+@media (min-width: 1100px) {
+  :root { --gutter: 40px; }
+}
