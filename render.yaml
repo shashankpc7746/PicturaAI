@@ -7,7 +7,8 @@ services:
     name: picturaai
     runtime: docker
     plan: free
-    healthCheckPath: /api/styles
+    # Cheap liveness check (no model, no disk). /api/styles still works too.
+    healthCheckPath: /api/health
     envVars:
       - key: TF_CPP_MIN_LOG_LEVEL
         value: "2"
@@ -31,3 +32,25 @@ services:
         value: "1"
       - key: TF_NUM_INTEROP_THREADS
         value: "1"
+      # ── Public site & SEO ──
+      - key: PUBLIC_SITE_URL
+        value: "https://picturaai-k7q6.onrender.com"
+      - key: ENABLE_API_DOCS
+        value: "true"
+      # ── "Describe it" (Cloudflare Workers AI). Leave the two secrets unset to
+      #    use keyword matching only; set their values in the Render dashboard.
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: DESCRIBE_DAILY_LIMIT
+        value: "50"
+      - key: RATE_LIMIT_DESCRIBE
+        value: "5/minute"
+      # ── Optional monitoring / analytics (leave unset to disable) ──
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_DSN_FRONTEND
+        sync: false
+      - key: CF_WEB_ANALYTICS_TOKEN
+        sync: false
