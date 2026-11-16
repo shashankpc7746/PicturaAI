@@ -8,7 +8,7 @@
 
 import { EngineError } from './errors.js';
 
-const MP_VERSION = '0.10.35';
+const MP_VERSION = '0.10.35';   // = MEDIAPIPE_VERSION in backend/site_config.py (the CSP path)
 const MP_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}`;
 const DEFAULT_MODEL_URL = new URL('../../../models/deeplab_v3/deeplab_v3.tflite', import.meta.url).href;
 // Classes smaller than this share of the picture are not reported as "found".
@@ -22,7 +22,10 @@ let visionPromise = null;
 function loadVision() {
   if (!visionPromise) {
     // ES module import from the pinned CDN build (dynamic import() cannot carry
-    // SRI; the version is exact and the CSP limits scripts to this host).
+    // SRI; the version is exact). The CSP allows only this package path on
+    // jsDelivr (script-src and connect-src .../npm/@mediapipe/tasks-vision@<version>/),
+    // so MP_VERSION must equal MEDIAPIPE_VERSION in backend/site_config.py
+    // (backend/tests/test_site.py checks it), or the import is blocked.
     visionPromise = import(/* webpackIgnore: true */ `${MP_BASE}/vision_bundle.mjs`)
       .then(async (vision) => {
         const fileset = await vision.FilesetResolver.forVisionTasks(`${MP_BASE}/wasm`);

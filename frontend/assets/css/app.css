@@ -135,7 +135,9 @@
   clip-path: inset(0 0 0 var(--pos, 0%));
 }
 .frame__mask {
-  opacity: .55;
+  /* .7: the brushed area reads on light fur and dark foliage alike, while the
+     gaps between the hatch lines still show the painted pixels under it */
+  opacity: .7;
   cursor: crosshair;
   touch-action: none;
   transition: opacity var(--t-base) var(--ease);
@@ -246,8 +248,9 @@
 @media (hover: hover) {
   .compare__handle:hover { background: var(--gilt-bright); }
 }
-/* Held / dragged: brighter, a touch larger, and a heavier line (frame.js may also
-   set .is-dragging on .compare while the pointer is captured) */
+/* Held / dragged: brighter, a touch larger, and a heavier line (frame.js sets
+   .is-dragging on .compare while the pointer is captured, so the state holds
+   when the pointer leaves the handle during a drag) */
 .compare__handle:active,
 .compare.is-dragging .compare__handle { background: var(--gilt-bright); }
 .compare:has(.compare__handle:active) .compare__line,
@@ -660,6 +663,19 @@
   /* Reserve the hang's height before the cards arrive, so Paint it does not jump down */
   .style-grid[aria-busy="true"] { min-height: 100vh; }
 }
+/* "14 paintings. Scroll for more." under a gallery that scrolls (style-picker.js
+   sets [hidden] when nothing is cut off, and .is-done at the end of the list,
+   where it keeps its line so the panel does not jump). */
+.gallery-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin-top: calc(-1 * var(--s-2));
+  font-size: var(--fs-meta);
+  color: var(--linen-muted);
+}
+.gallery-hint[hidden] { display: none; }
+.gallery-hint.is-done { visibility: hidden; }
 @keyframes gallery-fade {
   from, 90% { --gallery-fade: 64px; }
   to { --gallery-fade: 0px; }
@@ -1128,7 +1144,10 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
 @media (max-width: 559px) {
   .my-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5) var(--s-3); }
 }
-.saved { display: grid; grid-template-rows: auto 1fr auto; gap: var(--s-2); animation: fade-in var(--t-base) var(--ease); }
+.saved { display: grid; grid-template-rows: auto 1fr auto; gap: var(--s-2); }
+/* Only a painting saved (or restored by Undo) during this visit fades in;
+   my-gallery.js adds .is-new, so the first load does not replay it for every item. */
+.saved.is-new { animation: fade-in var(--t-base) var(--ease); }
 .saved.is-leaving { animation: fade-out var(--t-base) var(--ease) forwards; }
 .saved__open {
   display: grid;

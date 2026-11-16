@@ -71,6 +71,7 @@ export function renderStyles(styles) {
   g.setAttribute('aria-busy', 'false');
   renderMixRail(styles);
   syncSelection(store.get());
+  scheduleHint();
 }
 
 function syncSelection(state) {
@@ -356,9 +357,48 @@ function initMix() {
   paintRange(ratio);
 }
 
+// ── "More below" hint ────────────────────────────────────────────────────
+// On wide screens the gallery tab is a fixed-height scroller and its last visible
+// row fades out. A quiet line under it says how many paintings there are, while
+// some are cut off; at the end of the list it hides (keeping its line, so the
+// panel does not jump) and .is-scrolled-end drops the fade. On tablets and phones
+// the gallery is not a vertical scroller, so the hint stays hidden. Plain text in
+// reading order, not a live region: it is not announced as it changes.
+let scheduleHint = () => {};
+function initScrollHint() {
+  const panel = $('#panel-gallery');
+  const hint = $('#gallery-hint');
+  const text = $('#gallery-hint-text');
+  if (!panel || !hint || !text) return;
+  let raf = 0;
+  const update = () => {
+    raf = 0;
+    const count = $$('.style-card[role="radio"]', grid()).length;
+    const overflow = panel.scrollHeight - panel.clientHeight;
+    const scrolls = !panel.hidden && count > 0 && overflow > 4
+      && getComputedStyle(panel).overflowY !== 'visible';
+    const atEnd = !scrolls || panel.scrollTop >= overflow - 4;
+    panel.classList.toggle('is-scrolled-end', atEnd);
+    hint.hidden = !scrolls;
+    hint.classList.toggle('is-done', atEnd);
+    if (count) text.textContent = `${count} ${count === 1 ? 'painting' : 'paintings'}. Scroll for more.`;
+  };
+  scheduleHint = () => { if (!raf) raf = requestAnimationFrame(update); };
+  panel.addEventListener('scroll', scheduleHint, { passive: true });
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(scheduleHint);
+    ro.observe(panel);
+    ro.observe(grid());
+  } else {
+    window.addEventListener('resize', scheduleHint);
+  }
+  scheduleHint();
+}
+
 // ── Public ────────────────────────────────────────────────────────────────
 export function initStylePicker() {
   const tabs = initTabs();
+  initScrollHint();
   rovingRadios(grid(), '.style-card[role="radio"]', (el) => {
     const s = store.get().styles.find((x) => x.key === el.dataset.key);
     if (s) store.set({ style: presetStyle(s) });

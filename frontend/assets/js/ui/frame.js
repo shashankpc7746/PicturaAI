@@ -64,15 +64,20 @@ export function createFrame({ onFiles }) {
     e.preventDefault();
     handle.setPointerCapture(e.pointerId);
     compare.classList.remove('is-intro');
+    // .is-dragging (app.css) keeps the held look while the pointer is off the handle.
+    compare.classList.add('is-dragging');
     const move = (ev) => setCompare(pctFromEvent(ev));
     const up = () => {
+      compare.classList.remove('is-dragging');
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);
       handle.removeEventListener('pointercancel', up);
+      handle.removeEventListener('lostpointercapture', up);
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', up);
     handle.addEventListener('pointercancel', up);
+    handle.addEventListener('lostpointercapture', up);
   });
   handle.addEventListener('keydown', (e) => {
     const step = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5, PageDown: -25, PageUp: 25 }[e.key];
@@ -206,13 +211,16 @@ export function createFrame({ onFiles }) {
   function showError(message, { smaller = false, retryLabel = 'Try again' } = {}) {
     errorSmaller.hidden = !smaller;
     $('#error-retry-text').textContent = retryLabel;
+    // The role="alert" element is the message itself. Empty it, show the card, then
+    // set the text: inserting text into a shown alert is what screen readers announce
+    // (the same message twice in a row is announced again, too).
+    errorText.textContent = '';
     error.hidden = false;
-    // Text set after the card is shown, so the alert is announced reliably.
     errorText.textContent = message;
     syncOverlay();
     $('#error-retry').focus({ preventScroll: true });
   }
-  const hideError = () => { error.hidden = true; syncOverlay(); };
+  const hideError = () => { error.hidden = true; errorText.textContent = ''; syncOverlay(); };
   // Esc dismisses the card, like its Dismiss button.
   error.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;

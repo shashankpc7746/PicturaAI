@@ -73,6 +73,33 @@ def test_studio_loads_with_sample(open_page, server_url):
     expect(page.get_by_role("navigation", name="Main").first).to_be_visible()
 
 
+@pytest.mark.parametrize("width,height", [(1440, 900), (1024, 768)])
+def test_gallery_scroll_hint(open_page, server_url, width, height):
+    """Where the gallery is a scroller with paintings cut off, a quiet line says so."""
+    _, _, styles_body = _get(server_url + "/api/styles")
+    count = len(json.loads(styles_body))
+    page = open_page(width, height=height).page
+    hint = page.locator("#gallery-hint")
+    expect(hint).to_be_visible()
+    expect(hint).to_have_text(f"{count} paintings. Scroll for more.")
+    assert hint.get_attribute("aria-live") is None and hint.get_attribute("role") is None
+    panel = page.locator("#panel-gallery")
+    panel.evaluate("(el) => { el.scrollTop = el.scrollHeight; }")
+    expect(hint).to_be_hidden()
+    expect(panel).to_have_class(re.compile(r"\bis-scrolled-end\b"))
+    panel.evaluate("(el) => { el.scrollTop = 0; }")
+    expect(hint).to_be_visible()
+    page.get_by_role("tab", name="Your painting").click()
+    expect(hint).to_be_hidden()
+
+
+@pytest.mark.parametrize("width", [390, 768])
+def test_no_gallery_scroll_hint_on_narrow_screens(open_page, width):
+    """The phone rail and the tablet grid show their own overflow; no extra line."""
+    page = open_page(width, has_touch=True).page
+    expect(page.locator("#gallery-hint")).to_be_hidden()
+
+
 @pytest.mark.parametrize("width", list(VIEWPORTS))
 def test_no_horizontal_overflow(open_page, width):
     w = open_page(width, has_touch=width < 1024)

@@ -258,13 +258,18 @@ def test_server_error_shows_message_in_frame(open_page):
         status=503, content_type="text/html", body="<html><body>Service Unavailable</body></html>"))
     _pick(page, "The Scream")
     paint_button(page).click()
-    alert = page.locator("#frame-error").get_by_role("alert")
+    card = page.locator("#frame-error")
+    # The alert is the message alone (no button names read with it).
+    alert = card.get_by_role("alert")
     expect(alert).to_be_visible(timeout=30_000)
-    text = page.locator("#frame-error-text").inner_text()
+    text = alert.inner_text()
     assert text.strip() and "<html" not in text.lower(), f"error message: {text!r}"
-    expect(alert.get_by_role("button", name="Try again")).to_be_visible()
-    alert.get_by_role("button", name="Dismiss").click()
-    expect(page.locator("#frame-error")).to_be_hidden()
+    expect(alert.get_by_role("button")).to_have_count(0)
+    expect(card.get_by_role("button", name="Try again")).to_be_visible()
+    expect(card.get_by_role("button", name="Try again")).to_be_focused()
+    card.get_by_role("button", name="Dismiss").click()
+    expect(card).to_be_hidden()
+    expect(page.locator("#frame-error-text")).to_have_text("")
     expect(label_title(page)).to_have_text("Sample photo")
 
     # Try again after the server recovers.
@@ -313,11 +318,12 @@ def test_upload_validation_and_custom_painting(open_page):
 
     photo_input.set_input_files({"name": "notes.pdf", "mimeType": "application/pdf",
                                  "buffer": b"%PDF-1.4 not an image"})
-    alert = page.locator("#frame-error").get_by_role("alert")
+    card = page.locator("#frame-error")
+    alert = card.get_by_role("alert")
     expect(alert).to_be_visible()
-    expect(page.locator("#frame-error-text")).to_contain_text("isn't supported")
-    expect(alert.get_by_role("button", name="Choose another photo")).to_be_visible()
-    alert.get_by_role("button", name="Dismiss").click()
+    expect(alert).to_contain_text("isn't supported")
+    expect(card.get_by_role("button", name="Choose another photo")).to_be_visible()
+    card.get_by_role("button", name="Dismiss").click()
 
     photo_input.set_input_files({"name": "me.png", "mimeType": "image/png", "buffer": png_bytes((900, 1200))})
     expect(label_title(page)).to_have_text("Your photo")
