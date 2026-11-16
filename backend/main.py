@@ -2,13 +2,18 @@
 FastAPI Backend — PicturaAI
 ============================
 Endpoints:
-  POST /api/transfer        – Start a new NST job, returns job_id
-  GET  /api/jobs/{job_id}   – Poll job status & result
-  WS   /ws/{job_id}         – WebSocket stream for real-time progress
-  GET  /api/styles           – List built-in style presets
-  POST /api/styles/preview  – Quick low-res style preview
-  GET  /api/result/{job_id} – Download final image
-  DELETE /api/jobs/{job_id} – Cancel / cleanup
+  POST /api/transfer         – Stylize a photo (synchronous; base64 JPEG in the response)
+  POST /api/palette-transfer – Colour-only transfer (synchronous)
+  POST /api/interpolate      – Start a 0→100% style GIF job, returns job_id
+  POST /api/describe-style   – Text → generated style swatch (Workers AI) or closest preset
+  GET  /api/jobs/{job_id}    – Poll job status & result
+  WS   /ws/{job_id}          – WebSocket stream for real-time progress
+  GET  /api/styles           – List built-in style presets (from data/styles.json)
+  GET  /api/health           – Cheap liveness check
+  GET  /api/result/{job_id}  – Download final image
+  DELETE /api/jobs/{job_id}  – Cancel / cleanup
+  GET  /app/config.js        – Public browser config (window.PICTURA_CONFIG)
+  GET  /robots.txt, /sitemap.xml
 """
 
 import os
@@ -26,15 +31,13 @@ import asyncio
 import base64
 import json
 import logging
-import re
-import shutil
 import time
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import (  # pyre-ignore[21]
     FastAPI,
@@ -50,10 +53,20 @@ from slowapi import Limiter, _rate_limit_exceeded_handler  # pyre-ignore[21]
 from slowapi.errors import RateLimitExceeded  # pyre-ignore[21]
 from slowapi.util import get_remote_address  # pyre-ignore[21]
 from fastapi.middleware.cors import CORSMiddleware  # pyre-ignore[21]
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse  # pyre-ignore[21]
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response  # pyre-ignore[21]
 from fastapi.staticfiles import StaticFiles  # pyre-ignore[21]
 
 from nst_engine import run_nst, pil_to_bytes, run_interpolation_gif, color_palette_transfer  # pyre-ignore[21]
+from describe_style import (  # pyre-ignore[21]
+    PROMPT_MAX_CHARS,
+    DailyQuota,
+    DescribeUnavailable,
+    WorkersAIConfig,
+    clean_prompt,
+    generate_swatch,
+)
+from site_config import SiteConfig, env_bool, is_docs_path, is_https  # pyre-ignore[21]
+from style_catalog import StyleCatalog, StyleCatalogError, StylePreset, load_catalog  # pyre-ignore[21]
 from PIL import Image  # pyre-ignore[21]
 import io
 
@@ -76,6 +89,47 @@ FRONTEND_DIR = BASE_DIR.parent / "frontend"
 
 for d in (UPLOAD_DIR, OUTPUT_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+# ── Optional error reporting (Sentry) ──────────────────────────────────────────
+# Only imported when SENTRY_DSN is set, so the app runs (and stays lighter on
+# the 512 MB tier) without it. No request bodies, PII or local variables are
+# sent: uploads are people's photos.
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+
+
+def _init_sentry() -> bool:
+    if not SENTRY_DSN:
+        return False
+    try:
+        import sentry_sdk  # pyre-ignore[21]
+    except ImportError:
+        logger.warning("SENTRY_DSN is set but sentry-sdk is not installed; error reporting is off")
+        return False
+    try:
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+            traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0")),
+            send_default_pii=False,
+            max_request_body_size="never",
+            include_local_variables=False,
+        )
+    except Exception:
+        logger.exception("Sentry could not be initialised; error reporting is off")
+        return False
+    logger.info("Sentry error reporting enabled")
+    return True
+
+
+SENTRY_ENABLED = _init_sentry()
+
+# ── Style presets (data/styles.json) ───────────────────────────────────────────
+STYLES_FILE = Path(os.environ.get("STYLES_FILE") or (BASE_DIR.parent / "data" / "styles.json"))
+try:
+    CATALOG: StyleCatalog = load_catalog(STYLES_FILE, STYLES_DIR)
+except StyleCatalogError as _exc:
+    # Fail at startup with one clear line instead of serving a broken studio.
+    raise RuntimeError(f"PicturaAI cannot start: {_exc}") from None
 
 # ── Upload limits & validation ─────────────────────────────────────────────────
 MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "10"))
@@ -174,24 +228,38 @@ _main_loop: asyncio.AbstractEventLoop | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Modern lifespan handler (replaces deprecated on_event)."""
-    global _main_loop
+    global _main_loop, executor
     _main_loop = asyncio.get_running_loop()
+    # A fresh worker per lifespan: shutdown below closes it, and a closed pool
+    # can't be reused (matters when the app is started more than once in-process).
+    executor = ThreadPoolExecutor(max_workers=1)
     logger.info("Event loop captured for thread-safe WS broadcasting.")
     _cleanup_expired_jobs()
     cleanup_task = asyncio.create_task(_cleanup_loop())
     port = int(os.environ.get("PORT", 8000))
-    logger.info(f"\n\n    🎨 PicturaAI is running!\n    ➜  Frontend:  http://localhost:{port}/app\n    ➜  API docs:  http://localhost:{port}/docs\n")
+    docs_line = f"    ➜  API docs:  http://localhost:{port}/docs\n" if ENABLE_API_DOCS else ""
+    logger.info(f"\n\n    🎨 PicturaAI is running!\n    ➜  Frontend:  http://localhost:{port}/app\n{docs_line}")
+    logger.info("Loaded %d style presets from %s", len(CATALOG), CATALOG.source)
     yield
     # Shutdown: clean up background task and executor
     cleanup_task.cancel()
     executor.shutdown(wait=False)
 
+# ── Public config, describe-style settings ─────────────────────────────────────
+DESCRIBE_CFG = WorkersAIConfig.from_env()
+DESCRIBE_QUOTA = DailyQuota(int(os.environ.get("DESCRIBE_DAILY_LIMIT", "50")))
+SITE = SiteConfig.from_env(describe_generates=DESCRIBE_CFG.configured)
+ENABLE_API_DOCS = env_bool("ENABLE_API_DOCS", True)
+
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="PicturaAI — Neural Style Transfer",
     description="Instant Neural Style Transfer powered by Google Magenta's pre-trained model. *Pictura* — Latin for 'a painting'.",
-    version="2.1.0",
+    version="2.2.0",
     lifespan=lifespan,
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
 )
 
 # ── Per-IP rate limiting ───────────────────────────────────────────────────────
@@ -201,6 +269,7 @@ app = FastAPI(
 RATE_LIMIT_TRANSFER    = os.environ.get("RATE_LIMIT_TRANSFER", "10/minute")
 RATE_LIMIT_INTERPOLATE = os.environ.get("RATE_LIMIT_INTERPOLATE", "3/minute")
 RATE_LIMIT_PALETTE     = os.environ.get("RATE_LIMIT_PALETTE", "20/minute")
+RATE_LIMIT_DESCRIBE    = os.environ.get("RATE_LIMIT_DESCRIBE", "5/minute")
 
 # Which request header carries the real visitor IP. Render sits behind
 # Cloudflare, which *overwrites* CF-Connecting-IP with the connecting address,
@@ -235,101 +304,87 @@ app.add_middleware(
 )
 
 
+# No `interest-cohort` (FLoC was removed from browsers in 2022): Chromium logs
+# "Unrecognized feature: 'interest-cohort'" on every page load, and its
+# successor `browsing-topics` triggers the same warning in plain Chromium.
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=()"
+HSTS_VALUE = "max-age=31536000; includeSubDomains"
+
+
 @app.middleware("http")
 async def _security_headers(request, call_next):
     response = await call_next(request)
+    path = request.url.path
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", PERMISSIONS_POLICY)
+    csp = SiteConfig.docs_csp() if is_docs_path(path) else SITE.app_csp()
+    response.headers.setdefault(SITE.csp_header_name(), csp)
+    # HSTS only over HTTPS (Render terminates TLS and sets X-Forwarded-Proto);
+    # browsers ignore it on plain HTTP and it would pin localhost otherwise.
+    if is_https(request.url.scheme, request.headers.get("x-forwarded-proto")):
+        response.headers.setdefault("Strict-Transport-Security", HSTS_VALUE)
     # The HTML references versioned assets (style.css?v=N); make browsers
     # revalidate it so a deploy is picked up instead of a heuristically cached page.
-    path = request.url.path
     if path.startswith("/app") and (path.endswith("/") or path.endswith(".html") or path == "/app"):
         response.headers.setdefault("Cache-Control", "no-cache")
     return response
 
+
+# Must be registered before the /app mount, which would otherwise shadow it.
+@app.get("/app/config.js", include_in_schema=False)
+async def public_config_js():
+    return Response(
+        SITE.config_js(),
+        media_type="application/javascript; charset=utf-8",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 # Serve frontend static files
 app.mount("/app", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
+
 # ── Style presets ──────────────────────────────────────────────────────────────
-STYLE_PRESETS = {
-    "starry_night":        {"file": "starry_night.jpg",        "name": "Starry Night",        "artist": "Van Gogh",     "description": "Swirling cosmic energy and deep blues"},
-    "the_scream":          {"file": "the_scream.jpg",          "name": "The Scream",          "artist": "Munch",        "description": "Anguished expressionist curves"},
-    "great_wave":          {"file": "The_Great_Wave_off_Kanagawa.jpg", "name": "The Great Wave", "artist": "Hokusai",  "description": "Bold Japanese woodblock print"},
-    "la_muse":             {"file": "la_muse.jpg",             "name": "La Muse",             "artist": "Picasso",      "description": "Cubist fragments and vivid tones"},
-    "rain_princess":       {"file": "rain_princess.jpg",       "name": "Rain Princess",       "artist": "Afremov",      "description": "Rainy street reflected in warm colour"},
-    "udnie":               {"file": "udnie.jpg",               "name": "Udnie",               "artist": "Picabia",      "description": "Abstract art-deco swirls"},
-    "the_shipwreck":       {"file": "the_shipwreck_of_the_minotaur.jpg", "name": "The Shipwreck", "artist": "Turner",  "description": "Dramatic seascape in oils"},
-    "aquarelle":           {"file": "aquarelle.jpg",           "name": "Aquarelle",           "artist": "Unknown",      "description": "Soft watercolour washes"},
-    "chinese_style":       {"file": "chinese_style.jpg",       "name": "Chinese Ink",         "artist": "Traditional",  "description": "Delicate ink brush strokes"},
-    "space":               {"file": "space.jpg",               "name": "Space",               "artist": "Digital",      "description": "Nebulae and cosmic textures"},
-    "hampson":             {"file": "hampson.jpg",             "name": "Hampson",             "artist": "Hampson",      "description": "Bold illustrative style"},
-    "mountain":            {"file": "mountain.jpg",            "name": "Mountain",            "artist": "Nature",       "description": "Rugged mountain textures"},
-    "paris":               {"file": "paris.jpg",               "name": "Paris",               "artist": "Photography",  "description": "Parisian street atmosphere"},
-}
-
-STYLE_TEXT_TAGS: Dict[str, set[str]] = {
-    "starry_night": {"starry", "night", "swirl", "swirling", "van", "gogh", "impressionist", "postimpressionist", "cosmic", "dreamy", "sky"},
-    "the_scream": {"scream", "expressionist", "dramatic", "anguish", "munch", "emotional", "intense"},
-    "great_wave": {"wave", "ocean", "sea", "japanese", "hokusai", "ukiyoe", "water", "coast", "kanagawa"},
-    "la_muse": {"cubist", "cubism", "picasso", "geometric", "fragments", "portrait", "modern"},
-    "rain_princess": {"rain", "rainy", "street", "lights", "reflection", "afremov", "city", "evening"},
-    "udnie": {"abstract", "artdeco", "deco", "dynamic", "picabia", "energetic", "surreal"},
-    "the_shipwreck": {"ship", "shipwreck", "storm", "sea", "turner", "dramatic", "oil", "seascape"},
-    "aquarelle": {"watercolor", "watercolour", "soft", "wash", "pastel", "aquarelle", "delicate"},
-    "chinese_style": {"ink", "brush", "chinese", "traditional", "minimal", "monochrome", "calligraphy"},
-    "space": {"space", "galaxy", "nebula", "cosmic", "sci", "fi", "stars", "universe", "futuristic"},
-    "hampson": {"illustration", "graphic", "bold", "comic", "linework", "hampson"},
-    "mountain": {"mountain", "nature", "landscape", "forest", "rocks", "earthy", "outdoor"},
-    "paris": {"paris", "street", "city", "romantic", "european", "photography", "urban"},
-}
-
-def get_style_path(style_key: str) -> Optional[Path]:
-    if style_key not in STYLE_PRESETS:
-        return None
-    return STYLES_DIR / STYLE_PRESETS[style_key]["file"]
+def get_style_path(style_key: Optional[str]) -> Optional[Path]:
+    return CATALOG.image_path(style_key)
 
 
 def resolve_style_from_text(prompt: str) -> Optional[str]:
-    """Map free-text style prompt to the best matching built-in style preset."""
-    text = prompt.strip().lower()
-    if not text:
-        return None
+    """Map a free-text style prompt to the best matching preset key (or None)."""
+    preset = CATALOG.match_text(prompt)
+    return preset.key if preset else None
 
-    tokens = [t for t in re.findall(r"[a-z0-9]+", text) if len(t) > 1]
-    if not tokens:
-        return None
 
-    best_key: Optional[str] = None
-    best_score = 0
+def _style_title(style_key: Optional[str]) -> Optional[str]:
+    preset = CATALOG.get(style_key)
+    return preset.title if preset else None
 
-    for key, info in STYLE_PRESETS.items():
-        searchable = " ".join([
-            key.replace("_", " "),
-            str(info.get("name", "")).lower(),
-            str(info.get("artist", "")).lower(),
-            str(info.get("description", "")).lower(),
-        ])
-        tags = STYLE_TEXT_TAGS.get(key, set())
 
-        score = 0
-        for token in tokens:
-            if token in tags:
-                score += 4
-            if token in searchable:
-                score += 2
+def _web_url(asset: str) -> Optional[str]:
+    return f"/app/{asset}" if asset else None
 
-        if key.replace("_", " ") in text:
-            score += 4
 
-        if score > best_score:
-            best_score = score
-            best_key = key
-
-    # If nothing matches, avoid surprising random picks.
-    if best_score <= 0:
-        return None
-    return best_key
+def _style_summary(preset: StylePreset) -> Dict[str, Any]:
+    return {
+        "key": preset.key,
+        "slug": preset.slug,
+        "title": preset.title,
+        "name": preset.title,  # legacy field (the old UI reads `name`)
+        "artist": preset.artist,
+        "year": preset.year,
+        "medium": preset.medium,
+        "description": preset.description,
+        "image": _web_url(preset.image),
+        "card": _web_url(preset.card),
+        "thumb": _web_url(preset.thumb),
+        "page": f"/app/styles/{preset.slug}/",
+        "aspect": preset.aspect,
+        "credit": preset.credit,
+        "source_url": preset.source_url,
+        "license": preset.license,
+    }
 
 # ── Helper: broadcast via WS ───────────────────────────────────────────────────
 async def _broadcast(job_id: str, payload: dict):
@@ -354,8 +409,8 @@ def _sync_broadcast(job_id: str, payload: dict):
         pass
 
 # ── Routes ─────────────────────────────────────────────────────────────────────
-@app.get("/")
-@app.head("/")
+@app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/app", status_code=301)
 
@@ -365,31 +420,64 @@ async def favicon():
     # Browsers request this path regardless of <link rel="icon">.
     return FileResponse(FRONTEND_DIR / "assets" / "favicon.ico", media_type="image/x-icon")
 
-_styles_cache: Optional[List[dict]] = None
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    return Response(SITE.robots_txt(), media_type="text/plain; charset=utf-8",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    has_styles_index = (FRONTEND_DIR / "styles" / "index.html").is_file()
+    body = SITE.sitemap_xml((p.slug for p in CATALOG), include_styles_index=has_styles_index)
+    return Response(body, media_type="application/xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/api/health")
+@app.head("/api/health", include_in_schema=False)
+async def health():
+    """Cheap liveness check for the host and uptime monitors (no model, no disk)."""
+    return {"status": "ok"}
+
+
+STYLES_CACHE_CONTROL = "public, max-age=3600"
+_styles_list: Optional[List[dict]] = None
+_styles_with_thumbs: Optional[List[dict]] = None
+
+
+def _legacy_thumbnail(preset: StylePreset) -> Optional[str]:
+    path = CATALOG.image_path(preset.key)
+    if not path or not path.exists():
+        return None
+    with Image.open(path) as src:
+        img = src.convert("RGB")
+    img.thumbnail((200, 200), _LANCZOS)
+    return base64.b64encode(pil_to_bytes(img, quality=70)).decode()
+
 
 @app.get("/api/styles")
-async def list_styles():
-    # Presets are static — build the thumbnail list once and reuse it
-    # (this endpoint doubles as the health check, so it is called often).
-    global _styles_cache
-    if _styles_cache is None:
-        result = []
-        for key, info in STYLE_PRESETS.items():
-            style_path = get_style_path(key)
-            thumbnail_b64 = None
-            if style_path and style_path.exists():
-                img = Image.open(style_path).convert("RGB")
-                img.thumbnail((200, 200), _LANCZOS)
-                thumbnail_b64 = base64.b64encode(pil_to_bytes(img, quality=70)).decode()
-            result.append({
-                "key": key,
-                "name": info["name"],
-                "artist": info["artist"],
-                "description": info["description"],
-                "thumbnail": thumbnail_b64,
-            })
-        _styles_cache = result
-    return JSONResponse(_styles_cache)
+async def list_styles(include: Optional[str] = None):
+    """Built-in presets. Image URLs point at static files under /app/.
+
+    `?include=thumbnail` adds the old base64 `thumbnail` field (200 px JPEG),
+    kept for older clients; it makes the response ~150 KB larger.
+    """
+    # Presets are static: build each variant once and reuse it.
+    global _styles_list, _styles_with_thumbs
+    wants_thumbs = "thumbnail" in {p.strip() for p in (include or "").split(",")}
+    if wants_thumbs:
+        if _styles_with_thumbs is None:
+            def build() -> List[dict]:
+                return [{**_style_summary(p), "thumbnail": _legacy_thumbnail(p)} for p in CATALOG]
+            # Decoding the paintings is slow-ish: keep it off the event loop.
+            _styles_with_thumbs = await asyncio.get_running_loop().run_in_executor(None, build)
+        body = _styles_with_thumbs
+    else:
+        if _styles_list is None:
+            _styles_list = [_style_summary(p) for p in CATALOG]
+        body = _styles_list
+    return JSONResponse(body, headers={"Cache-Control": STYLES_CACHE_CONTROL})
 
 @app.post("/api/transfer")
 @limiter.limit(RATE_LIMIT_TRANSFER)
@@ -399,16 +487,30 @@ async def start_transfer(
     style_image: Optional[UploadFile] = File(None),
     style_preset: Optional[str] = Form(None),
     text_prompt: Optional[str] = Form(None),
-    style_weight: float = Form(1e-2),
-    content_weight: float = Form(1e4),
-    tv_weight: float = Form(30.0),
-    num_steps: int = Form(300),
-    learning_rate: float = Form(0.02),
+    intensity: Optional[float] = Form(
+        None, ge=0.0, le=1.0,
+        description="Style intensity 0–1 (0 = photo, 1 = full style). Alias of style_weight; wins if both are sent.",
+    ),
+    output: Literal["final", "raw"] = Form(
+        "final",
+        description="`final` (default): the finished image with intensity blend, detail and sharpening. "
+                    "`raw`: the stylized image only, at the output size (JPEG q95), for clients that "
+                    "composite intensity and masks themselves; intensity, style_weight and mask_image are ignored.",
+    ),
+    style_weight: float = Form(1e-2, description="Legacy name for `intensity` (0–1). Prefer `intensity`."),
+    content_weight: float = Form(1e4, description="Ignored. Accepted so older clients keep working."),
+    tv_weight: float = Form(30.0, description="Ignored. Accepted so older clients keep working."),
+    num_steps: int = Form(300, description="Ignored. Accepted so older clients keep working."),
+    learning_rate: float = Form(0.02, description="Ignored. Accepted so older clients keep working."),
     style_image_2: Optional[UploadFile] = File(None),
     style_preset_2: Optional[str] = Form(None),
-    style_mix_ratio: float = Form(0.5),
-    mask_image: Optional[UploadFile] = File(None),
+    style_mix_ratio: float = Form(0.5, description="Mix of the second style, 0 = only style 1, 1 = only style 2."),
+    mask_image: Optional[UploadFile] = File(None, description="White = styled. Ignored when output=raw."),
 ):
+    if intensity is not None:
+        style_weight = intensity
+    raw_output = output == "raw"
+
     # Validate
     resolved_style_key: Optional[str] = None
     if style_image is None and style_preset is None:
@@ -441,15 +543,15 @@ async def start_transfer(
         if style_path_2 and style_path_2.exists():
             style_bytes_2 = style_path_2.read_bytes()
 
-    # ── Optional region mask (regional styling) ──────────────────────────
-    mask_bytes = await read_image_upload(mask_image, "mask_image")
+    # ── Optional region mask (regional styling; the client masks raw output) ─
+    mask_bytes = None if raw_output else await read_image_upload(mask_image, "mask_image")
 
     job_id = str(uuid.uuid4())
 
     # ── Run synchronously to avoid OOM-restart losing job state ──────────
     # On constrained environments (free tier), the async worker pattern fails
     # because the process can be killed mid-inference and the job store is lost.
-    resolved_style_name = STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None
+    resolved_style_name = _style_title(resolved_style_key)
 
     _acquire_job_slot()
     try:
@@ -466,6 +568,7 @@ async def start_transfer(
                 style_bytes_2=style_bytes_2,
                 style_mix_ratio=style_mix_ratio,
                 mask_bytes=mask_bytes,
+                raw=raw_output,
             )
         )
     except Exception:
@@ -498,6 +601,7 @@ async def start_transfer(
         "job_id": job_id,
         "status": "done",
         "result": result_b64,
+        "output": output,
         "resolved_style_key": resolved_style_key,
         "resolved_style_name": resolved_style_name,
     })
@@ -710,8 +814,128 @@ async def palette_transfer(
     return JSONResponse({
         "result": result_b64,
         "resolved_style_key": resolved_style_key,
-        "resolved_style_name": STYLE_PRESETS[resolved_style_key]["name"] if resolved_style_key else None,
+        "resolved_style_name": _style_title(resolved_style_key),
     })
+
+
+# ── Describe it: text → generated swatch, or the closest preset ────────────────
+DESCRIBE_MAX_BODY_BYTES = 16 * 1024
+# Why generation was skipped, shown before the fallback (none when it is simply off).
+_DESCRIBE_REASONS = {
+    "not_configured": "",
+    "daily_limit": "Today's describe limit is used up.",
+    "quota": "Today's describe limit is used up.",
+    "failed": "The style generator isn't available right now.",
+}
+_DESCRIBE_NO_MATCH = (
+    "No classic style matches that description. "
+    "Try a painter, a colour or a mood, like \"Van Gogh\", \"gold\" or \"stormy sea\"."
+)
+
+
+async def _read_describe_prompt(request: Request) -> Any:
+    """Accept `prompt` as a form field or as JSON {"prompt": "..."}."""
+    length = request.headers.get("content-length")
+    if length and length.isdigit() and int(length) > DESCRIBE_MAX_BODY_BYTES:
+        raise HTTPException(413, "Request is too large")
+    ctype = request.headers.get("content-type", "").lower()
+    if ctype.startswith("application/json"):
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > DESCRIBE_MAX_BODY_BYTES:
+                raise HTTPException(413, "Request is too large")
+        try:
+            data = json.loads(bytes(body) or b"null")
+        except ValueError:
+            raise HTTPException(400, "Body must be JSON like {\"prompt\": \"...\"}")
+        return data.get("prompt") if isinstance(data, dict) else None
+    form = await request.form(max_files=0, max_fields=8, max_part_size=DESCRIBE_MAX_BODY_BYTES)
+    return form.get("prompt")
+
+
+@app.post(
+    "/api/describe-style",
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                media: {
+                    "schema": {
+                        "type": "object",
+                        "required": ["prompt"],
+                        "properties": {"prompt": {
+                            "type": "string", "minLength": 1, "maxLength": PROMPT_MAX_CHARS,
+                            "description": "What the style should look like, e.g. \"neon city at night\".",
+                        }},
+                    }
+                }
+                for media in ("application/x-www-form-urlencoded", "multipart/form-data", "application/json")
+            },
+        }
+    },
+)
+@limiter.limit(RATE_LIMIT_DESCRIBE)
+async def describe_style(request: Request):
+    """Turn a short description into a style.
+
+    With Cloudflare Workers AI configured (and under the daily cap) this returns
+    `{"source": "generated", "image": <base64 JPEG ≤512 px>, "media_type": "image/jpeg"}`.
+    Otherwise, or when generation fails, it returns the closest built-in preset:
+    `{"source": "matched", "key", "title", "artist", "message", "reason"}`.
+    404 when nothing matches either.
+    """
+    if not SITE.describe_enabled:
+        raise HTTPException(404, "Describe it is turned off on this server.")
+
+    raw_prompt = await _read_describe_prompt(request)
+    if not isinstance(raw_prompt, str) or len(raw_prompt) > PROMPT_MAX_CHARS * 4:
+        raise HTTPException(400, f"Describe the style in 1 to {PROMPT_MAX_CHARS} characters.")
+    prompt = clean_prompt(raw_prompt)
+    if not 1 <= len(prompt) <= PROMPT_MAX_CHARS:
+        raise HTTPException(400, f"Describe the style in 1 to {PROMPT_MAX_CHARS} characters.")
+
+    no_store = {"Cache-Control": "no-store"}
+    if not DESCRIBE_CFG.configured:
+        reason = "not_configured"
+    elif not DESCRIBE_QUOTA.try_acquire():
+        reason = "daily_limit"
+    else:
+        try:
+            # Network I/O: default thread pool, not the single TF worker.
+            jpeg = await asyncio.get_running_loop().run_in_executor(
+                None, lambda: generate_swatch(DESCRIBE_CFG, prompt)
+            )
+            return JSONResponse({
+                "source": "generated",
+                "image": base64.b64encode(jpeg).decode(),
+                "media_type": "image/jpeg",
+                "prompt": prompt,
+            }, headers=no_store)
+        except DescribeUnavailable as exc:
+            reason = exc.reason
+            if reason == "quota":
+                DESCRIBE_QUOTA.exhaust()
+        except Exception:
+            logger.exception("Describe-style generation failed unexpectedly")
+            reason = "failed"
+
+    why = _DESCRIBE_REASONS.get(reason, _DESCRIBE_REASONS["failed"])
+    preset = CATALOG.match_text(prompt)
+    if preset is None:
+        raise HTTPException(404, f"{why} {_DESCRIBE_NO_MATCH}".strip())
+    if why:
+        message = f"{why} We matched the closest classic style instead: {preset.title}."
+    else:
+        message = f"We matched the closest classic style: {preset.title}."
+    return JSONResponse({
+        "source": "matched",
+        "key": preset.key,
+        "title": preset.title,
+        "artist": preset.artist,
+        "message": message,
+        "reason": reason,
+    }, headers=no_store)
 
 @app.websocket("/ws/{job_id}")
 async def websocket_endpoint(websocket: WebSocket, job_id: str):

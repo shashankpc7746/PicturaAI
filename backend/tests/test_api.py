@@ -37,14 +37,14 @@ def _palette(client, headers=None):
     return client.post(
         "/api/palette-transfer",
         files={"content_image": ("c.jpg", _jpeg(), "image/jpeg")},
-        data={"style_preset": "space"},
+        data={"style_preset": "starry_night"},
         headers=headers or {},
     )
 
 
 def test_html_is_revalidated_but_assets_are_not_forced(client):
     assert client.get("/app/").headers.get("cache-control") == "no-cache"
-    assert "cache-control" not in client.get("/app/assets/app.js").headers
+    assert "cache-control" not in client.get("/app/assets/favicon.ico").headers
 
 
 def test_favicon_served_at_root(client):
@@ -63,7 +63,7 @@ def test_rejects_non_image(client):
     r = client.post(
         "/api/palette-transfer",
         files={"content_image": ("x.jpg", b"not an image", "image/jpeg")},
-        data={"style_preset": "space"},
+        data={"style_preset": "starry_night"},
     )
     assert r.status_code == 400
 
