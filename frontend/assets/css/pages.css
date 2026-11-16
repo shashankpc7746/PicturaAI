@@ -1,5 +1,7 @@
-/* Static pages: privacy, terms, credits and the per-style pages.
+/* Static pages: privacy, terms, credits, the collection and the per-style pages.
    Load tokens.css + base.css + pages.css, and assets/js/page.js (menu sheet).
+   The collection's .collection / .piece wall labels are in base.css (the studio
+   shows the same list), so no static page needs app.css.
 
    Markup this stylesheet expects (header and footer are the same as index.html,
    with nav links pointing to /app/#studio and so on):
@@ -32,6 +34,16 @@
      </div>
    </main>
 */
+
+/* Sticky footer: on a short page (404, privacy on a tall screen) the footer sits
+   at the bottom of the window instead of halfway up. */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+body > .page { flex: 1 0 auto; }
 
 .page {
   padding-block: var(--s-6) var(--s-8);
@@ -140,8 +152,8 @@
 /* Other styles */
 .related {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
-  gap: var(--s-5);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  gap: var(--s-5) var(--s-4);
   margin: 0;
   padding: 0;
   list-style: none;

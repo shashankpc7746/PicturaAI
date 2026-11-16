@@ -115,6 +115,31 @@ def image_size(asset: str) -> Tuple[int, int]:
     return _size_cache[asset]
 
 
+# Smallest horizontal chrome around the hung painting on a one-column layout:
+# 2 x 16 px gutter + 2 x 10 px mat padding + 2 x 8 px frame border (pages.css
+# .artwork__img clamps). Using the minimum makes ``sizes`` an overestimate, which only
+# picks a slightly larger file; layout is unchanged because img has max-width: 100%.
+HERO_CHROME_MIN = 68
+
+
+def hero_srcset(s: Style, w: int) -> str:
+    """srcset/sizes for the hung painting, or "" when no sharper copy exists.
+
+    ``<key>-512.jpg`` stays the src (the engine and /api/styles use it). A
+    ``<key>-1024.webp`` beside it (long side 1024, from scripts/build_style_assets.py)
+    is offered to HiDPI screens so the hero is not upscaled 2x. ``sizes`` never exceeds
+    the 512 file's width, so the rendered size is the same as without a srcset.
+    """
+    large = s.image.rsplit("/", 1)[0] + f"/{s.key}-1024.webp"
+    if not (FRONTEND / large).is_file():
+        return ""
+    lw, _ = image_size(large)
+    if lw <= w:
+        return ""
+    return (f' srcset="{app_url(s.image)} {w}w, {app_url(large)} {lw}w"'
+            f' sizes="(max-width: {w + HERO_CHROME_MIN}px) calc(100vw - {HERO_CHROME_MIN}px), {w}px"')
+
+
 def related_styles(style: Style, styles: List[Style]) -> List[Style]:
     """Paintings that share the most tags, then catalogue order (deterministic)."""
     order = {s.key: i for i, s in enumerate(styles)}
@@ -390,7 +415,7 @@ def style_page(s: Style, styles: List[Style], site: str) -> Page:
         breadcrumb(("Studio", "/app/"), ("Styles", "/app/styles/"), (s.title, None))
         + f"""      <section class="artwork" aria-labelledby="artwork-title">
         <figure class="artwork__hang">
-          <img class="artwork__img" src="{app_url(s.image)}" alt="{e(alt)}" width="{w}" height="{h}" fetchpriority="high" decoding="async">
+          <img class="artwork__img" src="{app_url(s.image)}"{hero_srcset(s, w)} alt="{e(alt)}" width="{w}" height="{h}" fetchpriority="high" decoding="async">
         </figure>
         <div class="artwork__label">
           <h1 class="artwork__title" id="artwork-title">{e(s.title)}</h1>
@@ -515,11 +540,15 @@ def collection_page(styles: List[Style], site: str) -> Page:
 
 
 def collection_css() -> Tuple[str, ...]:
-    """The .collection / .piece wall-label rules are in the studio's app.css. Load it
-    only until pages.css carries them, because app.css also pads the body for the
-    studio's mobile action bar (a gap under the footer on a static page)."""
-    pages_css = (FRONTEND / "assets" / "css" / "pages.css").read_text(encoding="utf-8")
-    return () if re.search(r"^\.piece\s*\{", pages_css, re.M) else ("assets/css/app.css",)
+    """The .collection / .piece wall-label rules live in base.css (shared with the
+    studio) or pages.css. Fall back to the studio's app.css only if neither has them:
+    app.css also pads the body for the studio's mobile action bar (a gap under the
+    footer on a static page)."""
+    css_dir = FRONTEND / "assets" / "css"
+    for name in ("base.css", "pages.css"):
+        if re.search(r"^\.piece\s*\{", (css_dir / name).read_text(encoding="utf-8"), re.M):
+            return ()
+    return ("assets/css/app.css",)
 
 
 # ── Credits ────────────────────────────────────────────────────────────────────
@@ -660,7 +689,7 @@ CONTENT_END = "<!-- page-content:end -->"
 HAND_PAGES = (
     ("privacy.html", "privacy", "Privacy | PicturaAI",
      "What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our "
-     "server and deleted within about an hour. No accounts, no cookies, no tracking."),
+     "server and deleted after about an hour. No accounts, no cookies, no tracking."),
     ("terms.html", "terms", "Terms | PicturaAI",
      "The short terms for using PicturaAI: a free service with no warranty. Your photos stay yours; "
      "only upload what you have the right to use."),
