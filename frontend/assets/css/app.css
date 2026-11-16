@@ -587,6 +587,10 @@
   border-radius: var(--r-panel);
   background: var(--wall-deep);
 }
+/* Only the gallery scroller may shrink to fit the panel's height cap (rule below);
+   every other block keeps its natural height, otherwise a short screen squeezes the
+   "Your painting" / "Describe it" panels and their content spills under "Mix". */
+.style-panel > * { flex-shrink: 0; }
 @media (min-width: 768px) {
   .style-panel { padding: var(--s-5); }
 }
