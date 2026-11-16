@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Privacy | PicturaAI</title>
-  <meta name="description" content="What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our server and deleted within about an hour. No accounts, no cookies, no tracking.">
+  <meta name="description" content="What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our server and deleted after about an hour. No accounts, no cookies, no tracking.">
   <link rel="canonical" href="https://picturaai-k7q6.onrender.com/app/privacy.html">
   <meta name="theme-color" content="#142622">
   <link rel="icon" href="/app/assets/favicon.ico" sizes="32x32">
@@ -15,7 +15,7 @@
   <meta property="og:site_name" content="PicturaAI">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Privacy | PicturaAI">
-  <meta property="og:description" content="What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our server and deleted within about an hour. No accounts, no cookies, no tracking.">
+  <meta property="og:description" content="What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our server and deleted after about an hour. No accounts, no cookies, no tracking.">
   <meta property="og:url" content="https://picturaai-k7q6.onrender.com/app/privacy.html">
   <meta property="og:image" content="https://picturaai-k7q6.onrender.com/app/assets/og/og-default.jpg">
   <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
   <meta property="og:image:alt" content="A photo of a dog turned into a painting, hanging in a gilt frame on a green wall">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Privacy | PicturaAI">
-  <meta name="twitter:description" content="What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our server and deleted within about an hour. No accounts, no cookies, no tracking.">
+  <meta name="twitter:description" content="What happens to your photos on PicturaAI: painted on your device when it can, otherwise on our server and deleted after about an hour. No accounts, no cookies, no tracking.">
   <meta name="twitter:image" content="https://picturaai-k7q6.onrender.com/app/assets/og/og-default.jpg">
   <meta name="twitter:image:alt" content="A photo of a dog turned into a painting, hanging in a gilt frame on a green wall">
 
@@ -92,22 +92,23 @@
         <h2>The short version</h2>
         <ul>
           <li>On most computers and recent phones, your photo is painted in your browser and never leaves your device.</li>
-          <li>On devices that can’t do that, a smaller copy of your photo is sent to our server, painted, and the result is deleted within about an hour. The photo itself is never saved there.</li>
+          <li>On devices that can’t do that, when painting on the device fails, and in one “Describe it” case explained below, a smaller copy of your photo is sent to our server and painted there. The result is kept for about an hour (at most 70 minutes) and then deleted. The photo itself is never saved there.</li>
           <li>Paintings you save to “My gallery” are kept only in your browser, on your device.</li>
           <li>No sign-up, no cookies, no advertising, and we don’t sell or share data.</li>
         </ul>
 
         <h2>Your photos</h2>
         <h3>Painted on your device</h3>
-        <p>When your browser supports it (WebGL 2), the studio downloads the painting model once and runs it in your browser. Your photo, the result, the intensity slider, “Colours only”, “Paint a region”, “Style the subject” and “Animate” all work on your device. Nothing about the photo is sent to us. The studio tells you which mode it is using under its heading.</p>
+        <p>When your browser supports it (WebGL 2), the studio downloads the painting model once and runs it in your browser. Your photo, the result, the intensity slider, “Colours only”, “Paint a region”, “Style the subject” and “Animate” all work on your device. Nothing about the photo is sent to us. The studio tells you which mode it is using under its heading. The one exception, even on a device that can paint by itself, is a “Describe it” style that could not be looked up in advance (see “Describe it” below).</p>
         <h3>Painted on our server</h3>
-        <p>On older devices, or if painting on the device fails, the studio sends the photo to our server instead. Before it is sent, it is scaled down to at most 1024 pixels on the long side. If you use a painting of your own as the style, that painting is sent too, scaled to at most 512 pixels.</p>
-        <p>The server paints the picture in memory and sends it straight back. The photo you sent is not written to disk. The painted result is stored on the server under a random identifier for up to an hour, so that it can be downloaded again, and is then deleted automatically (a clean-up runs every ten minutes). It is never listed anywhere or used for anything else, and it is not used to train any model.</p>
+        <p>On older devices, if painting on the device fails (or failed recently), or for the “Describe it” case below, the studio sends the photo to our server instead. Before it is sent, it is scaled down to at most 1024 pixels on the long side. If you use a painting of your own as the style, that painting is sent too, scaled to at most 512 pixels.</p>
+        <p>The server paints the picture in memory and sends it straight back. The photo you sent is not written to disk. The painted result is stored on the server under a random identifier for about an hour, so that it can be downloaded again, and is then deleted automatically: a clean-up runs every ten minutes and removes results older than an hour, so none is kept longer than about 70 minutes. It is never listed anywhere or used for anything else, and it is not used to train any model.</p>
         <h3>Region masks and adjustments</h3>
         <p>Brushed regions, intensity changes, colour-only transfers, animations and downloads are made in your browser in both modes. They are not sent to us.</p>
 
         <h2>“Describe it”</h2>
-        <p>When you describe a style in words, the text you type (up to 200 characters) is sent to our server. If image generation is switched on, the server forwards it to <a href="https://developers.cloudflare.com/workers-ai/">Cloudflare Workers AI</a>, which generates a small picture of the style and sends it back; Cloudflare handles the text under its own privacy policy. If generation is off or unavailable, the server matches your words to the closest painting in the collection. We don’t store what you type. The server only counts how many pictures were generated each day, without the text.</p>
+        <p>When you describe a style in words, the text you type (up to 200 characters) is sent to our server. If image generation is switched on, the server forwards it to <a href="https://developers.cloudflare.com/workers-ai/">Cloudflare Workers AI</a>, which generates a small picture of the style and sends it back; Cloudflare handles the text under its own privacy policy. If generation is off or unavailable, the server matches your words to the closest painting in the collection. A generated style or a matched painting is then painted like any other, on your device when it can.</p>
+        <p>If our server can’t answer the request at all (for example while it is waking up, or when it is busy) and your browser can’t match your words to a painting by itself, the studio keeps your words selected instead. When you then paint, your photo (scaled down as described above) and your words are sent to our server together; the server matches the words to the closest painting and paints the picture there, even on a device that could paint by itself. We don’t store what you type. The server only counts how many pictures were generated each day, without the text.</p>
 
         <h2>What is stored on your device</h2>
         <p>PicturaAI sets no cookies. It uses your browser’s own storage for these things, which never leave your device:</p>
@@ -134,7 +135,7 @@
         </ul>
 
         <h2>Your choices</h2>
-        <p>Because there are no accounts and we keep nothing that identifies you, there is no profile to download or delete. You can remove everything PicturaAI stores on your device by clearing the site’s data in your browser. Server results are deleted automatically within about an hour.</p>
+        <p>Because there are no accounts and we keep nothing that identifies you, there is no profile to download or delete. You can remove everything PicturaAI stores on your device by clearing the site’s data in your browser. Server results are deleted automatically after about an hour (at most 70 minutes).</p>
 
         <h2>Questions</h2>
         <p>PicturaAI is an open-source project. You can read exactly what the code does, or ask a question, on <a href="https://github.com/shashankpc7746/PicturaAI">GitHub</a>. If this policy changes, the date at the top of this page changes too.</p>
