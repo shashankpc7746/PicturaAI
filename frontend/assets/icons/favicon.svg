@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#1D3530"/>
-  <rect x="5" y="5" width="22" height="22" fill="#C9A44C"/>
-  <rect x="8" y="8" width="16" height="16" fill="#F3EEE3"/>
-  <rect x="10.5" y="10.5" width="11" height="11" fill="#24423B"/>
-  <path d="M10.5 18.5 14 15l2.5 2.5 2-2 3 3v3h-11z" fill="#C9A44C"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- PicturaAI favicon: the brand mark simplified for 16-32 px (flat gilt frame). -->
+  <rect width="16" height="16" rx="1" fill="#C9A44C"/>
+  <rect x="3" y="3" width="10" height="10" fill="#1D3530"/>
+  <circle cx="6.2" cy="6.1" r="1.7" fill="#ECE5D6"/>
+  <path d="M4.2 10.6C6 9.4 7.6 10.2 9.4 9.2 11.2 8.2 12.6 6.2 15.8 4.8 13.8 7.6 12.2 10 10.2 11.2 8.2 12.4 6.6 12 5 12.8 3.8 13.4 2.9 11.4 4.2 10.6z" fill="#E0613F"/>
 </svg>
