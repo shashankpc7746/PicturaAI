@@ -40,6 +40,7 @@ export function createFrame({ onFiles }) {
     result.hidden = true;
     compare.hidden = true;
     tag.hidden = true;
+    clearResultLabel();
   }
 
   // ── Compare ──────────────────────────────────────────────────────────
@@ -81,8 +82,23 @@ export function createFrame({ onFiles }) {
   });
 
   // ── Result ───────────────────────────────────────────────────────────
-  function showResult({ unveil = false, compareEnabled = true } = {}) {
+  // The canvas covers the photo, so it carries the text alternative and the photo
+  // is hidden from assistive tech while it is covered.
+  function setResultLabel(label) {
+    if (result.hidden || !label) return;
+    result.setAttribute('role', 'img');
+    result.setAttribute('aria-label', label);
+    photo.setAttribute('aria-hidden', 'true');
+  }
+  function clearResultLabel() {
+    result.removeAttribute('role');
+    result.removeAttribute('aria-label');
+    photo.removeAttribute('aria-hidden');
+  }
+
+  function showResult({ unveil = false, compareEnabled = true, label = '' } = {}) {
     result.hidden = false;
+    setResultLabel(label);
     setCompareEnabled(compareEnabled);
     if (unveil) {
       result.classList.remove('is-unveiling');
@@ -101,6 +117,7 @@ export function createFrame({ onFiles }) {
     result.hidden = true;
     compare.hidden = true;
     tag.hidden = true;
+    clearResultLabel();
   }
 
   function setCompareEnabled(on) {
@@ -109,13 +126,38 @@ export function createFrame({ onFiles }) {
     else setCompare(pos, { announce: true });
   }
 
+  // ── Overlays ─────────────────────────────────────────────────────────
+  // While the veil or the error card covers the frame, the compare handle under it
+  // must not be focusable or operable.
+  function syncOverlay() {
+    compare.inert = !error.hidden || (!veil.hidden && !veil.classList.contains('is-leaving'));
+  }
+
   // ── Veil (generating) ────────────────────────────────────────────────
+  // It fades out as the brush wipe starts instead of vanishing in one frame. The
+  // duration and easing come from the motion tokens; reduced motion hides it at once.
+  let veilFade = null;
+  function token(name, fallback) {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+  function endVeilFade() {
+    if (!veilFade) return;
+    const a = veilFade;
+    veilFade = null;
+    a.onfinish = null;
+    a.cancel();
+    veil.classList.remove('is-leaving');
+    veil.inert = false;
+  }
   const veilApi = {
     show(text = 'Painting') {
+      endVeilFade();
       veil.hidden = false;
       veilText.textContent = text;
       veilSub.textContent = '';
       this.progress(null);
+      syncOverlay();
     },
     text(main, sub = '') {
       if (main != null) veilText.textContent = main;
@@ -134,18 +176,49 @@ export function createFrame({ onFiles }) {
         veilProgress.setAttribute('aria-valuenow', String(p));
       }
     },
-    hide() { veil.hidden = true; },
+    hide() {
+      if (veil.hidden || veilFade) return;
+      const ms = parseFloat(token('--t-base', '200ms')) || 0;
+      if (prefersReducedMotion() || !ms || typeof veil.animate !== 'function') {
+        veil.hidden = true;
+        syncOverlay();
+        return;
+      }
+      veil.classList.add('is-leaving');
+      veil.inert = true;   // Cancel can't be pressed while it fades
+      syncOverlay();
+      const a = veil.animate([{ opacity: 1 }, { opacity: 0 }],
+        { duration: ms, easing: token('--ease', 'ease-out'), fill: 'forwards' });
+      veilFade = a;
+      const done = () => {
+        if (veilFade !== a) return;   // a new show() took over
+        endVeilFade();
+        veil.hidden = true;
+        syncOverlay();
+      };
+      a.onfinish = done;
+      setTimeout(done, ms + 80);   // finish events can stall in a background tab
+    },
+    get visible() { return !veil.hidden && !veilFade; },
   };
 
   // ── Error ────────────────────────────────────────────────────────────
   function showError(message, { smaller = false, retryLabel = 'Try again' } = {}) {
-    errorText.textContent = message;
     errorSmaller.hidden = !smaller;
     $('#error-retry-text').textContent = retryLabel;
     error.hidden = false;
+    // Text set after the card is shown, so the alert is announced reliably.
+    errorText.textContent = message;
+    syncOverlay();
     $('#error-retry').focus({ preventScroll: true });
   }
-  const hideError = () => { error.hidden = true; };
+  const hideError = () => { error.hidden = true; syncOverlay(); };
+  // Esc dismisses the card, like its Dismiss button.
+  error.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    $('#error-dismiss').click();
+  });
 
   // ── Drag and drop anywhere on the frame ──────────────────────────────
   let depth = 0;
@@ -178,7 +251,7 @@ export function createFrame({ onFiles }) {
 
   return {
     el: frame, stage, photo, result,
-    setAspect, showPhoto, showEmpty, showResult, hideResult, setCompare, setCompareEnabled,
+    setAspect, showPhoto, showEmpty, showResult, hideResult, setResultLabel, setCompare, setCompareEnabled,
     veil: veilApi, showError, hideError,
     get comparePos() { return pos; },
   };

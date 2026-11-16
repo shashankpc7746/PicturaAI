@@ -14,9 +14,13 @@ export function renderCollection(styles, { onUse }) {
       h('h3', { class: 'piece__title', text: s.title }),
       h('p', { class: 'piece__artist', text: artistLine(s) }),
       s.description ? h('p', { class: 'piece__desc', text: s.description }) : null,
+      // The painting's name is added for screen readers after the visible words, so
+      // the accessible name still starts with what is on screen (WCAG 2.5.3).
       h('div', { class: 'piece__actions' },
-        h('button', { class: 'btn btn--on-label', type: 'button', text: 'Use this style', onclick: () => onUse(s.key) }),
-        s.page ? h('a', { class: 'piece__link', href: s.page, text: 'About this painting', 'aria-label': `About ${s.title}` }) : null)))));
+        h('button', { class: 'btn btn--on-label', type: 'button', onclick: () => onUse(s.key) },
+          'Use this style', h('span', { class: 'visually-hidden', text: `: ${s.title}` })),
+        s.page ? h('a', { class: 'piece__link', href: s.page },
+          'About this painting', h('span', { class: 'visually-hidden', text: `: ${s.title}` })) : null)))));
   $('#collection-status').hidden = true;
 }
 

@@ -26,12 +26,49 @@ let frame;
 let mask;
 let current = null;        // { kind: 'nst'|'palette', content, stylized, compositor?, meta, sig }
 let abortCtl = null;
+let paintSeq = 0;          // each paint() run's number; only the latest may touch the frame
+let barProgress = '';      // "Painting, 12 s" for the phone bar while painting
 let photoSeq = 0;
 let warm = { promise: null, last: null, listener: null };
 let gallery = null;
+let galleryIds = null;     // ids saved in My gallery (null until it reports)
+let galleryAvailable = true;
+let saving = false;
+let maskRev = 0;           // bumped on every committed mask edit
 let shareOk = false;
 const canvasIds = new WeakMap();
 let canvasSeq = 0;
+
+// ── Small helpers ───────────────────────────────────────────────────────
+const smoothScroll = () => (prefersReducedMotion() ? 'auto' : 'smooth');
+const isShown = (el) => !!el && !el.hidden && !el.disabled && el.getClientRects().length > 0;
+/** Focus the first of these that is on screen and usable. */
+function focusFirst(...sels) {
+  const el = sels.map((s) => $(s)).find(isShown);
+  if (el) el.focus({ preventScroll: true });
+  return el;
+}
+// Busy and done states use aria-disabled: a button that disables itself while
+// focused drops keyboard and screen-reader focus to <body>.
+function setAriaDisabled(btn, on) {
+  if (on) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
+}
+const isAriaDisabled = (btn) => btn.getAttribute('aria-disabled') === 'true';
+
+/** Bring the frame into view when most of it is off screen (phones paint from the rail). */
+function revealFrame() {
+  const r = frame.el.getBoundingClientRect();
+  if (r.top < 0 || r.top > innerHeight * 0.5) frame.el.scrollIntoView({ block: 'start', behavior: smoothScroll() });
+}
+
+/** Show the painting gallery tab and put focus on its selected (or first) card. */
+function goToGallery() {
+  const tab = $('#tab-gallery');
+  if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
+  $('#style-panel').scrollIntoView({ block: 'start', behavior: smoothScroll() });
+  const card = $('.style-card[tabindex="0"]') || $('.style-card[data-key]');
+  if (card) card.focus({ preventScroll: true });
+}
 
 // ── Signatures: has anything changed since the result was painted? ─────────
 function styleSig(s) {
@@ -49,13 +86,17 @@ function blocker(st) {
   if (st.phase === 'generating') return 'Painting';
   if (!st.photo) return 'Add a photo first';
   if (!st.style) return 'Pick a painting first';
+  if (st.mode === 'palette' && st.style.source === 'prompt') return 'Colours only needs a painting';
   if (st.mode === 'region' && !st.maskHasContent) return 'Brush over the area to paint first';
   return '';
 }
 
 // ── Photo ───────────────────────────────────────────────────────────────
 function setPhoto(img, info) {
-  const canvas = toCanvas(img, WORK_SIDE);
+  // A painting of the previous photo must never land on this one.
+  if (abortCtl) { abortCtl.why = 'photo'; abortCtl.abort(); }
+  // Transparent PNG areas are flattened onto white (JPEG and the compositor would make them black).
+  const canvas = toCanvas(img, WORK_SIDE, { background: '#fff' });
   const prev = store.get().photo;
   if (prev && prev.url && prev.url.startsWith('blob:') && prev.url !== info.url) URL.revokeObjectURL(prev.url);
   const photo = { id: ++photoSeq, canvas, width: info.width || img.naturalWidth, height: info.height || img.naturalHeight, ...info };
@@ -111,7 +152,9 @@ function markSample(key) {
 // ── Engine warm-up (lazy: only once someone shows intent) ────────────────
 // Skipped on touch devices and data saver (the model is about 8 MB; phones load it
 // on the first "Paint it" with visible progress), and when the engine would run on
-// the page's main thread, where compiling shaders would freeze the page.
+// the page's main thread, where compiling shaders would freeze the page. The worker
+// engine is asked not to fall back to the page ({ allowInPage: false }); "Paint it"
+// does that later, with visible progress.
 function prefetchEngine() {
   if (warm.promise || navigator.connection?.saveData || matchMedia('(pointer: coarse)').matches) return;
   const run = async () => {
@@ -119,7 +162,7 @@ function prefetchEngine() {
       const engine = await getEngine();
       store.set({ engineKind: engine.kind });
       if (engine.kind !== 'browser' || engine.ready || !engine.offMainThread) return;
-      warm.promise = engine.warmup((p) => { warm.last = p; if (warm.listener) warm.listener(p); });
+      warm.promise = engine.warmup((p) => { warm.last = p; }, { allowInPage: false });
       await warm.promise;
     } catch { warm.promise = null; /* painting will retry and fall back to the server */ }
   };
@@ -169,22 +212,34 @@ async function runStyle(st, signal, onProgress) {
     ({ stylized, resolved } = await stylizeFromPrompt({ content, prompt: st.style.prompt, signal }));
     store.set({ engineKind: 'server' });
   } else {
-    let engine = await getEngine();
-    store.set({ engineKind: engine.kind });
+    let engine = null;
     const attempt = async (eng) => {
       if (eng.kind === 'browser' && !eng.ready) {
-        const wp = warm.promise || eng.warmup((p) => { warm.last = p; if (warm.listener) warm.listener(p); });
-        warm.promise = wp;
+        // Joins a warm-up already running (e.g. the idle prefetch) and may fall back
+        // to the in-page engine, which the prefetch never does.
         if (warm.last) onProgress(warm.last);
+        const wp = eng.warmup((p) => { warm.last = p; if (warm.listener) warm.listener(p); });
+        warm.promise = wp;
         await Promise.race([wp, new Promise((_, rej) => signal.addEventListener('abort',
           () => rej(new DOMException('Cancelled', 'AbortError')), { once: true }))]);
       }
       return eng.stylize({ content, style: styleArg(st.style), style2, mix: st.mix, signal, onProgress });
     };
     try {
+      // Getting the engine is part of the attempt: if the on-device engine's code
+      // cannot load (ENGINE_UNAVAILABLE), the server paints instead.
+      engine = await getEngine();
+      store.set({ engineKind: engine.kind });
       ({ stylized } = await attempt(engine));
     } catch (e) {
-      if (e.name === 'AbortError' || engine.kind !== 'browser' || e.code === 'ENGINE_INPUT') throw e;
+      if (!e || e.name === 'AbortError' || e.code === 'ENGINE_INPUT' || (engine && engine.kind !== 'browser')) throw e;
+      if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+      // Offline, the server can't help either: say so instead of promising it.
+      if (navigator.onLine === false) {
+        const err = new Error("You're offline. The studio needs a connection the first time, to download its brushes.");
+        err.code = 'ENGINE_OFFLINE';
+        throw err;
+      }
       warm.promise = null;
       engine = await getEngine({ prefer: 'server' });
       store.set({ engineKind: engine.kind });
@@ -201,7 +256,18 @@ async function styleImageData(s, styles) {
   if (s.canvas) return canvasToImageData(toCanvas(s.canvas, 512));
   const preset = styles.find((x) => x.key === s.key);
   if (!preset) throw new Error('Pick a painting from the gallery for colours only.');
-  return canvasToImageData(toCanvas(await loadImageUrl(preset.image), 512));
+  let img;
+  try {
+    img = await loadImageUrl(preset.image);
+  } catch {
+    // A code marks it as expected, so paint() shows it without logging a stack.
+    const err = new Error(navigator.onLine === false
+      ? 'You appear to be offline. Check your connection and try again.'
+      : "We couldn't load that painting. Check your connection and try again.");
+    err.code = 'STYLE_LOAD';
+    throw err;
+  }
+  return canvasToImageData(toCanvas(img, 512));
 }
 
 async function runPalette(st) {
@@ -215,68 +281,135 @@ async function runPalette(st) {
   return { kind: 'palette', content, stylized, styleData: sData, opts, meta: metaFor(st) };
 }
 
+const NO_MATCH = "We couldn't match those words to a painting. Try other words or pick one from the gallery.";
+
 export async function paint() {
   const st = store.get();
   if (blocker(st)) return;
-  abortCtl = new AbortController();
-  const { signal } = abortCtl;
+  const run = ++paintSeq;
+  const ctl = new AbortController();
+  abortCtl = ctl;
+  const { signal } = ctl;
   const t0 = performance.now();
   const vstate = { sub: '', downloading: false };
+  // The button that started this is disabled while painting, which would drop
+  // keyboard focus to <body>: hand it to Cancel instead.
+  const ae = document.activeElement;
+  const fromBar = ae === $('#bar-paint');
+  const takeFocus = !ae || ae === document.body || ae === $('#paint-btn') || fromBar;
   frame.hideError();
-  frame.veil.show(st.mode === 'palette' ? 'Matching colours' : 'Painting');
+  const first = st.mode === 'palette' ? 'Matching colours' : 'Painting';
+  frame.veil.show(first);
+  barProgress = first;
   store.set({ phase: 'generating', error: null });
+  if (takeFocus) (fromBar ? $('#bar-cancel') : $('#cancel-paint')).focus({ preventScroll: true });
+  revealFrame();
   announce('Painting started.');
-  const onProgress = (p) => veilForProgress(p, vstate);
+  // The phone bar mirrors the veil's status, since the frame may be out of view.
+  let secs = 0;
+  const barTick = () => {
+    barProgress = secs ? `${$('#veil-text').textContent}, ${secs} s` : $('#veil-text').textContent;
+    $('#bar-reason').textContent = barProgress;
+  };
+  const onProgress = (p) => { if (run === paintSeq) { veilForProgress(p, vstate); barTick(); } };
   warm.listener = onProgress;
   const timer = setInterval(() => {
+    if (run !== paintSeq) return;
+    secs = Math.round((performance.now() - t0) / 1000);
+    barTick();
     if (vstate.downloading) return;
-    const secs = Math.round((performance.now() - t0) / 1000);
-    const asleep = store.get().engineKind === 'server' && secs >= 8;
+    const slow = store.get().engineKind === 'server' && secs >= 8;
     const elapsed = `${secs} ${secs === 1 ? 'second' : 'seconds'}`;
-    frame.veil.text(null, asleep ? `${elapsed}. The server was asleep, so the first picture can take up to a minute.` : elapsed);
+    frame.veil.text(null, slow ? `${elapsed}. The server may be waking up, so the first picture can take up to a minute.` : elapsed);
   }, 1000);
+  let finished = false;
   try {
     const out = st.mode === 'palette' ? await runPalette(st) : await runStyle(st, signal, onProgress);
     if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
+    // A newer run, or a new photo, made this painting out of date.
+    if (run !== paintSeq || store.get().photo?.id !== st.photo.id) throw new DOMException('Superseded', 'AbortError');
     out.sig = signature(st);
     showResult(out, { unveil: true });
+    finished = true;
   } catch (e) {
+    if (run !== paintSeq) return;   // superseded: the newer run owns the frame
     if (e && e.name === 'AbortError') {
       store.set({ phase: current ? 'result' : 'idle' });
-      toast('Painting cancelled.');
+      toast(ctl.why === 'photo' ? 'Painting cancelled, because the photo changed.' : 'Painting cancelled.');
     } else {
       if (!e || (!e.code && !e.status)) console.error(e);   // expected server/engine errors are shown, not logged
-      const message = (e && e.message) || 'Something went wrong. Please try again.';
-      const smaller = e && (e.code === 'ENGINE_RESOURCE' || e.status === 413 || /too large|memory/i.test(message));
-      store.set({ phase: 'error', error: { message, smaller } });
-      frame.showError(message, { smaller });
+      // Words that match no preset: the server's 400 can't be fixed by trying again.
+      const choose = st.style.source === 'prompt' && !!e && e.code === 'SERVER_REJECTED';
+      const message = choose ? NO_MATCH : (e && e.message) || 'Something went wrong. Please try again.';
+      const smaller = !choose && !!e && (e.code === 'ENGINE_RESOURCE' || e.status === 413 || /too large|memory/i.test(message));
+      store.set({ phase: 'error', error: { message, smaller, choose } });
+      frame.showError(message, { smaller, retryLabel: choose ? 'Choose a painting' : 'Try again' });
+      revealFrame();   // the person may have scrolled away during a long wait
     }
   } finally {
     clearInterval(timer);
-    warm.listener = null;
-    frame.veil.hide();
-    abortCtl = null;
+    if (run === paintSeq) {
+      warm.listener = null;
+      barProgress = '';
+      // Focus was on Cancel (inside the veil or the bar), which is going away.
+      const now = document.activeElement;
+      if (!now || now === document.body || $('#veil').contains(now) || now === $('#bar-cancel')) {
+        const ph = store.get().phase;
+        if (ph === 'result') focusFirst('#panel-download', '#bar-download', '#download-btn');
+        else if (ph !== 'error') focusFirst('#paint-btn', '#bar-paint');
+      }
+      frame.veil.hide();
+      if (abortCtl === ctl) abortCtl = null;
+      updateButtons();
+    }
+  }
+  // Switched between Colours only and a full style while painting: paint what is asked now.
+  const now = store.get();
+  if (finished && run === paintSeq && current && now.phase === 'result'
+      && (now.mode === 'palette') !== (current.kind === 'palette') && !blocker(now)) {
+    paint();
   }
 }
+
+/** What the result canvas shows, for screen readers (kept in step with the wall label). */
+function resultLabel() {
+  const st = store.get();
+  const r = st.result;
+  if (!r) return '';
+  const m = r.meta;
+  const pct = `${Math.round(st.intensity * 100)}%`;
+  const what = m.source === 'custom' ? 'your painting' : m.title;
+  // Worded without the controls' names ("Intensity"), so label lookups stay unambiguous.
+  if (r.kind === 'palette') return `Your photo in the colours of ${what}, at ${pct}`;
+  return `Your photo painted after ${what}, style at ${pct}${st.mode === 'region' ? ', brushed areas only' : ''}`;
+}
+
+const saveSnapshot = (st) => ({ intensity: st.intensity, mode: st.mode, maskRev });
 
 function showResult(out, { unveil = false, saved = null } = {}) {
   current = out;
   const st = store.get();
+  frame.hideError();
   store.set({
     phase: 'result',
     error: null,
-    result: { sig: out.sig, kind: out.kind, meta: out.meta, savedId: saved, mode: st.mode },
+    result: {
+      sig: out.sig,
+      kind: out.kind,
+      meta: out.meta,
+      savedId: saved,
+      savedAt: saved ? saveSnapshot(st) : null,
+      // The mode this painting was made for (the control may have moved meanwhile).
+      mode: out.kind === 'palette' ? 'palette' : st.mode === 'palette' ? 'full' : st.mode,
+    },
   });
   render(true);
-  frame.showResult({ unveil, compareEnabled: st.mode !== 'region' });
+  frame.showResult({ unveil, compareEnabled: st.mode !== 'region', label: resultLabel() });
   frame.setCompare(0);
   updateLabel(true);
   updateSizes();
   announce(`Your painting is ready: after ${out.meta.title}.`);
-  const r = frame.el.getBoundingClientRect();
-  if (r.top < 0 || r.top > innerHeight * 0.5) {
-    frame.el.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-  }
+  revealFrame();
 }
 
 // ── Rendering (live) ─────────────────────────────────────────────────────
@@ -334,8 +467,18 @@ function updateLabel(fresh = false) {
     }
     const who = m.source === 'preset' ? artistLine(m) : m.source === 'custom' ? 'Your own painting' : 'A style made from your words';
     l1.textContent = m.mixWith ? `${who}, mixed with ${m.mixWith}` : who;
-    l2.textContent = st.result.kind === 'palette' ? `Colour strength ${pct}`
-      : st.mode === 'region' ? `Intensity ${pct}, brushed areas only` : `Intensity ${pct}`;
+    const palette = st.result.kind === 'palette';
+    // The mode moved between Colours only and a full style: this painting no longer
+    // matches it until the next Paint it.
+    const stale = st.phase !== 'generating' && palette !== (st.mode === 'palette');
+    if (stale) {
+      l2.textContent = st.mode === 'palette' ? 'Paint it to keep only the colours'
+        : st.mode === 'region' ? 'Paint it to apply the full style to the brushed areas' : 'Paint it to apply the full style';
+    } else {
+      l2.textContent = palette ? `Colour strength ${pct}`
+        : st.mode === 'region' ? `Intensity ${pct}, brushed areas only` : `Intensity ${pct}`;
+    }
+    frame.setResultLabel(resultLabel());
   } else if (st.photo) {
     if (st.photo.sample) {
       title.textContent = 'Sample photo';
@@ -359,27 +502,47 @@ function updateLabel(fresh = false) {
 }
 
 // ── Buttons and bar ──────────────────────────────────────────────────────
+/** True when the painting in the frame, as it looks now, is in My gallery. */
+function isSavedNow(st = store.get()) {
+  const r = st.result;
+  if (!r || !r.savedId || !r.savedAt) return false;
+  if (galleryIds && !galleryIds.has(r.savedId)) return false;   // deleted from My gallery
+  const s = r.savedAt;
+  return s.intensity === st.intensity && s.mode === st.mode && (st.mode !== 'region' || s.maskRev === maskRev);
+}
+
 function updateButtons() {
   const st = store.get();
   const reason = blocker(st);
   const generating = st.phase === 'generating';
   const dirty = isDirty(st);
+  const showActions = !!current && !!st.result && !generating;
+  // A painting is ready and nothing has changed: Download leads, Paint it steps back
+  // (painting the same inputs again would give the same picture).
+  const fresh = showActions && !dirty && st.phase === 'result';
+
   const paintBtn = $('#paint-btn');
   paintBtn.disabled = !!reason;
-  $('#paint-reason').textContent = generating ? '' : reason;
+  paintBtn.classList.toggle('btn--primary', !fresh);
+  paintBtn.classList.toggle('btn--secondary', fresh);
+  $('#panel-download').hidden = !fresh;
+  $('#paint-reason').textContent = generating ? ''
+    : reason || (fresh ? 'Change the photo, painting or mode to paint again.' : '');
 
-  const showActions = !!current && st.result && st.phase !== 'generating';
   $('#result-actions').hidden = !showActions;
-  const barShowsResult = showActions && !dirty && st.phase === 'result';
-  $('#bar-paint').hidden = barShowsResult;
+  $('#bar-paint').hidden = fresh || generating;
   $('#bar-paint').disabled = !!reason;
-  $('#bar-download').hidden = !barShowsResult;
-  $('#bar-share').hidden = !barShowsResult || !shareOk;
-  $('#bar-reason').textContent = barShowsResult || generating ? '' : reason;
+  $('#bar-cancel').hidden = !generating;
+  $('#bar-download').hidden = !fresh;
+  $('#bar-share').hidden = !fresh || !shareOk;
+  $('#bar-reason').textContent = generating ? barProgress : fresh ? '' : reason;
+
   const save = $('#save-btn');
-  const saved = !!(st.result && st.result.savedId);
-  save.disabled = saved;
-  save.querySelector('span').textContent = saved ? 'Saved' : 'Save to my gallery';
+  const saved = isSavedNow(st);
+  save.hidden = !galleryAvailable;
+  setAriaDisabled(save, saved || saving);
+  save.classList.toggle('is-busy', saving);
+  save.querySelector('span').textContent = saving ? 'Saving' : saved ? 'Saved' : 'Save to my gallery';
 }
 
 function updateRegion() {
@@ -398,7 +561,8 @@ function updateSizes() {
   const sizes = exportSizes(c.width, c.height);
   for (const [k, v] of Object.entries(sizes)) {
     const el = document.querySelector(`[data-size-label="${k}"]`);
-    if (el) el.textContent = `${v.width} × ${v.height}${v.crop ? ', cropped' : ''}`;
+    // "enlarged": the server paints at 320 px, so Print would be a 5x blow-up.
+    if (el) el.textContent = `${v.width} × ${v.height}${v.crop ? ', cropped' : ''}${v.enlarged ? ', enlarged' : ''}`;
   }
 }
 
@@ -441,7 +605,7 @@ function initDownloadMenu() {
   }
   function outside(e) { if (!menu.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close(false); }
 
-  for (const btn of [$('#download-btn'), $('#bar-download')]) {
+  for (const btn of [$('#download-btn'), $('#bar-download'), $('#panel-download')]) {
     btn.addEventListener('click', () => (menu.hidden ? open(btn) : close()));
   }
   menu.addEventListener('keydown', (e) => {
@@ -449,7 +613,9 @@ function initDownloadMenu() {
     if (e.key === 'Escape') { e.preventDefault(); close(); }
     else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
-    else if (e.key === 'Tab') close(false);
+    // The menu is the last thing in <body>: hand focus back to the trigger first, so
+    // the browser's own Tab (or Shift+Tab) moves on from there, not to the page top.
+    else if (e.key === 'Tab') close(true);
   });
   menu.addEventListener('click', async (e) => {
     const item = e.target.closest('[data-size]');
@@ -479,7 +645,9 @@ async function download(kind) {
     const size = exportSizes(src.width, src.height)[kind];
     const blob = await exportBlob(src, size);
     saveBlob(blob, fileName(resultTitle(), kind === 'full' ? '' : kind));
-    toast(`Downloaded, ${size.width} × ${size.height} pixels.`);
+    toast(size.enlarged
+      ? `Downloaded, ${size.width} × ${size.height} pixels, enlarged from ${Math.max(src.width, src.height)} px.`
+      : `Downloaded, ${size.width} × ${size.height} pixels.`);
   } catch (e) {
     toast(e.message || "The download couldn't be created.", { type: 'error' });
   }
@@ -499,9 +667,9 @@ async function share() {
 
 // ── Animate ──────────────────────────────────────────────────────────────
 async function animate(btn) {
-  if (!current || btn.disabled) return;
+  if (!current || isAriaDisabled(btn)) return;
   const label = btn.querySelector('span');
-  btn.disabled = true;
+  setAriaDisabled(btn, true);
   btn.classList.add('is-busy');
   try {
     const st = store.get();
@@ -529,7 +697,7 @@ async function animate(btn) {
     toast(e.message || "The video couldn't be recorded.", { type: 'error' });
   } finally {
     label.textContent = 'Animate';
-    btn.disabled = false;
+    setAriaDisabled(btn, false);
     btn.classList.remove('is-busy');
   }
 }
@@ -537,7 +705,12 @@ async function animate(btn) {
 // ── Save to my gallery / open from it ────────────────────────────────────
 async function save() {
   const st = store.get();
-  if (!current || !st.result || st.result.savedId) return;
+  // `saving` is set before the first await, so a double click saves once.
+  if (saving || !current || !st.result || isSavedNow(st)) return;
+  saving = true;
+  updateButtons();
+  const painting = current;
+  const at = saveSnapshot(st);
   try {
     const src = await finalCanvas();
     const id = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -561,11 +734,17 @@ async function save() {
       styleData: current.kind === 'palette' ? await toBlob(current.styleData) : null,
     };
     await putPainting(rec);
-    store.set({ result: { ...store.get().result, savedId: id } });
+    if (galleryIds) galleryIds.add(id);
+    // Mark it saved only if the frame still shows the painting that was saved.
+    const r = store.get().result;
+    if (current === painting && r) store.set({ result: { ...r, savedId: id, savedAt: at } });
     if (gallery) gallery.refresh();
-    toast('Saved to my gallery.', { action: { label: 'View', run: () => $('#gallery').scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth' }) } });
+    toast('Saved to my gallery.', { action: { label: 'View', run: () => $('#gallery').scrollIntoView({ behavior: smoothScroll() }) } });
   } catch (e) {
     toast(e.message || "The painting couldn't be saved.", { type: 'error' });
+  } finally {
+    saving = false;
+    updateButtons();
   }
 }
 
@@ -624,6 +803,9 @@ function setMode(mode, { silent = false } = {}) {
   if ((mode === 'palette') !== (prev === 'palette')) {
     const st = store.get();
     if (mode === 'palette' && !blocker(st)) paint();
+    // Otherwise the painting stays until Paint it; the label says it is out of step.
+    // (A paint already running repaints in the new mode when it finishes.)
+    else updateLabel();
     return;
   }
   render(true);
@@ -663,29 +845,33 @@ function initControls() {
 
   $('#paint-btn').addEventListener('click', paint);
   $('#bar-paint').addEventListener('click', paint);
-  // The reason in the bar takes you to what is missing.
+  // The reason in the bar takes you to what is missing (or, while painting, to the frame).
   $('#bar-reason').addEventListener('click', () => {
     const st = store.get();
-    const smooth = prefersReducedMotion() ? 'auto' : 'smooth';
     if (!st.photo) { $('#photo-input').click(); return; }
-    if (!st.style) {
-      $('#style-panel').scrollIntoView({ block: 'start', behavior: smooth });
-      const card = $('.style-card[tabindex="0"]') || $('.style-card[data-key]');
-      if (card) card.focus({ preventScroll: true });
-      return;
-    }
-    frame.el.scrollIntoView({ block: 'center', behavior: smooth });
+    if (!st.style || (st.mode === 'palette' && st.style.source === 'prompt')) { goToGallery(); return; }
+    frame.el.scrollIntoView({ block: 'center', behavior: smoothScroll() });
   });
-  $('#cancel-paint').addEventListener('click', () => abortCtl && abortCtl.abort());
+  const cancel = () => abortCtl && abortCtl.abort();
+  $('#cancel-paint').addEventListener('click', cancel);
+  $('#bar-cancel').addEventListener('click', cancel);
   $('#error-retry').addEventListener('click', () => {
     const err = store.get().error;
     frame.hideError();
     if (err && err.input) { store.set({ error: null }); $('#photo-input').click(); return; }
+    if (err && err.choose) {
+      store.set({ phase: current ? 'result' : 'idle', error: null });
+      goToGallery();
+      return;
+    }
     paint();
   });
   $('#error-dismiss').addEventListener('click', () => {
     frame.hideError();
+    // A photo error can appear while a painting is still running: leave that alone.
+    if (store.get().phase === 'generating') { store.set({ error: null }); return; }
     store.set({ phase: current ? 'result' : 'idle', error: null });
+    focusFirst('#paint-btn', '#bar-paint', '#upload-photo');   // the card that had focus is gone
   });
   $('#error-smaller').addEventListener('click', () => {
     const st = store.get();
@@ -716,10 +902,10 @@ function initControls() {
 
 async function segment(btn, invert) {
   const st = store.get();
-  if (!st.photo) return;
+  if (!st.photo || isAriaDisabled(btn)) return;
   const label = btn.lastChild;
   const original = label.textContent;
-  btn.disabled = true;
+  setAriaDisabled(btn, true);
   btn.classList.add('is-busy');
   label.textContent = ' Finding the subject';
   try {
@@ -736,7 +922,7 @@ async function segment(btn, invert) {
     console.warn(e);
     toast("Subject detection isn't available in this browser. Brush over the area instead.", { type: 'error' });
   } finally {
-    btn.disabled = false;
+    setAriaDisabled(btn, false);
     btn.classList.remove('is-busy');
     label.textContent = original;
   }
@@ -775,12 +961,17 @@ async function initSamples() {
 
 async function initFirstPhoto() {
   const img = frame.photo;
+  const seq = photoSeq;
+  const initialSrc = img.getAttribute('src');
   const loaded = img.complete ? img.naturalWidth > 0
     : await new Promise((resolve) => {
       img.addEventListener('load', () => resolve(true), { once: true });
       img.addEventListener('error', () => resolve(false), { once: true });
     });
   await samplesReady;
+  // On a slow connection the person may have chosen a photo while the samples were
+  // checked: never relabel (or clear) their photo as the dog sample.
+  if (photoSeq !== seq || store.get().photo || img.getAttribute('src') !== initialSrc) return;
   if (loaded && samples.dog) {
     setPhoto(img, { url: img.getAttribute('src'), name: samples.dog.title, bytes: 0, sample: 'dog', caption: samples.dog.title, credit: samples.dog.credit, alt: img.alt });
   } else {
@@ -798,6 +989,7 @@ export function initStudio({ galleryApi } = {}) {
   mask = createMaskPainter($('#frame-mask'), {
     onChange: () => { if (current && current.kind === 'nst') renderSoon(); },
     onCommit: () => {
+      maskRev++;   // before the store update, so "Saved" is re-checked against the new mask
       store.set({ maskHasContent: mask.hasContent });
       if (current && current.kind === 'nst') render(true);
     },
@@ -814,5 +1006,15 @@ export function initStudio({ galleryApi } = {}) {
   });
   updateButtons();
   updateRegion();
-  return { paint, openSaved, setGallery: (g) => { gallery = g; } };
+  return {
+    paint,
+    openSaved,
+    setGallery: (g) => { gallery = g; },
+    /** My gallery reports which paintings it holds, so "Saved" can't outlive a delete. */
+    setGalleryIds: (ids, { available = true } = {}) => {
+      galleryIds = ids;
+      galleryAvailable = available;
+      updateButtons();
+    },
+  };
 }

@@ -263,6 +263,12 @@
             </div>
 
             <div class="style-panel__cta">
+              <!-- Shown once a painting is ready and nothing has changed (desktop), like the phone bar. -->
+              <button class="btn btn--primary btn--paint" type="button" id="panel-download" aria-haspopup="menu" aria-expanded="false" aria-controls="download-menu" hidden>
+                <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#download"/></svg>
+                Download
+                <svg class="icon icon--sm" aria-hidden="true"><use href="assets/icons/icons.svg#chevron-down"/></svg>
+              </button>
               <button class="btn btn--primary btn--paint" type="button" id="paint-btn" aria-describedby="paint-reason">
                 <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#brush"/></svg>
                 Paint it
@@ -359,9 +365,12 @@
     <!-- ── Styles collection ──────────────────────────────────────────── -->
     <section class="section" id="styles" aria-labelledby="styles-title">
       <div class="container">
-        <div class="section__head">
-          <h2 id="styles-title">The collection</h2>
-          <p class="muted">Every painting here is in the public domain. Choose one to use it in the studio, or read more about it.</p>
+        <div class="section__head section__head--row">
+          <div>
+            <h2 id="styles-title">The collection</h2>
+            <p class="muted">Every painting here is in the public domain. Choose one to use it in the studio, or read more about it.</p>
+          </div>
+          <a class="btn btn--secondary" href="styles/">See all paintings</a>
         </div>
         <ul class="collection" id="collection" role="list"></ul>
         <p class="panel-status" id="collection-status" hidden></p>
@@ -472,6 +481,8 @@
           <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#brush"/></svg>
           Paint it
         </button>
+        <!-- Replaces Paint it while painting, so Cancel is in reach when the frame is scrolled away. -->
+        <button class="btn btn--secondary" type="button" id="bar-cancel" hidden>Cancel</button>
         <button class="btn btn--secondary" type="button" id="bar-share" hidden>
           <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#share"/></svg>
           Share

@@ -15,7 +15,10 @@ const config = window.PICTURA_CONFIG || {};
 initHeader();
 const picker = initStylePicker();
 const studio = initStudio();
-const gallery = initMyGallery({ onOpen: (rec) => studio.openSaved(rec) });
+const gallery = initMyGallery({
+  onOpen: (rec) => studio.openSaved(rec),
+  onChange: (ids, info) => studio.setGalleryIds(ids, info),
+});
 studio.setGallery(gallery);
 
 if (config.describeEnabled === false) {
