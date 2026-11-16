@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Engine harness</title>
+<link rel="stylesheet" href="dev-harness.css">
+</head>
+<body>
+<main>
+  <h1>Engine harness</h1>
+  <p class="note">Developer page for the PicturaAI engine modules. Add <code>?engine=browser</code> or
+    <code>?engine=server</code> to force an engine.</p>
+
+  <section aria-labelledby="h-engine">
+    <h2 id="h-engine">Engine</h2>
+    <div class="row">
+      <button id="btn-create" type="button">Create engine</button>
+      <button id="btn-warmup" type="button">Warm up</button>
+      <button id="btn-server" type="button">Switch to server</button>
+    </div>
+    <progress id="warm-progress" max="1" value="0"></progress>
+    <pre id="engine-info">No engine yet.</pre>
+  </section>
+
+  <section aria-labelledby="h-inputs">
+    <h2 id="h-inputs">Inputs</h2>
+    <div class="row">
+      <label>Photo
+        <select id="sel-photo">
+          <option value="/app/assets/samples/dog.jpg">Dog</option>
+          <option value="/app/assets/samples/city.jpg">City</option>
+          <option value="/app/assets/samples/lake.jpg">Lake</option>
+        </select>
+      </label>
+      <label>or file <input id="file-photo" type="file" accept="image/*"></label>
+    </div>
+    <div class="row">
+      <label>Style <select id="sel-style"></select></label>
+      <label>or file <input id="file-style" type="file" accept="image/*"></label>
+    </div>
+    <div class="row">
+      <label>Second style <select id="sel-style2"><option value="">None</option></select></label>
+      <label>Mix <input id="rng-mix" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-run">
+    <h2 id="h-run">Stylize and composite</h2>
+    <div class="row">
+      <button id="btn-stylize" type="button">Stylize</button>
+      <button id="btn-cancel" type="button">Cancel</button>
+      <button id="btn-leak" type="button">Leak test (5 runs)</button>
+    </div>
+    <div class="row">
+      <label>Intensity <input id="rng-intensity" type="range" min="0" max="1" step="0.01" value="0.75"></label>
+      <label><input id="chk-sharpen" type="checkbox" checked> Sharpen</label>
+      <label><input id="chk-mask" type="checkbox"> Use subject mask</label>
+      <label><input id="chk-invert" type="checkbox"> Invert mask</label>
+    </div>
+    <div class="row">
+      <button id="btn-segment" type="button">Find subject</button>
+      <button id="btn-palette" type="button">Colours only</button>
+      <label>Palette strength <input id="rng-palette" type="range" min="0" max="1" step="0.05" value="1"></label>
+    </div>
+    <div class="canvases">
+      <figure><canvas id="cv-raw" width="1" height="1"></canvas><figcaption>Raw stylization</figcaption></figure>
+      <figure><canvas id="cv-out" width="1" height="1"></canvas><figcaption>Composite</figcaption></figure>
+      <figure><canvas id="cv-mask" width="1" height="1"></canvas><figcaption>Subject mask</figcaption></figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-log">
+    <h2 id="h-log">Log</h2>
+    <pre id="log" aria-live="polite"></pre>
+  </section>
+</main>
+<script type="module" src="dev-harness.js"></script>
+</body>
+</html>
