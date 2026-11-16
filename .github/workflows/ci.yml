@@ -1,6 +1,10 @@
 # PicturaAI CI: backend tests + lint + dependency audit, browser e2e tests,
 # Docker image smoke test, browser/server compositor parity, generated-pages check.
 # How to run the same things locally: docs/revamp/TESTING.md.
+# Actions are pinned to full commit SHAs (tag in the trailing comment) so a moved
+# tag cannot change what runs; .github/dependabot.yml keeps the pins current.
+# Checkouts use persist-credentials: false because no job needs git auth after
+# checkout, and the jobs pip-install and run code from the branch.
 name: CI
 
 on:
@@ -30,9 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -41,7 +47,7 @@ jobs:
             requirements-dev.txt
 
       - name: Cache the style model
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tfhub_cache
           key: ${{ env.MODEL_CACHE_KEY }}
@@ -67,9 +73,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -78,7 +86,7 @@ jobs:
             requirements-dev.txt
 
       - name: Cache the style model
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .tfhub_cache
           key: ${{ env.MODEL_CACHE_KEY }}
@@ -100,37 +108,65 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build the image (no push)
         run: docker build -t picturaai:ci .
 
       # 512 MB is Render's free-tier limit: an out-of-memory start fails here first.
+      # --memory-swap equal to --memory means no swap at all. Without it the container
+      # may also use as much swap as RAM, and GitHub runners have a swapfile, so a
+      # process that would be OOM-killed on Render could pass here.
       - name: Start the container and wait for /api/health
         run: |
-          docker run -d --name pictura -p 8000:8000 --memory 512m picturaai:ci
+          docker run -d --name pictura -p 8000:8000 --memory 512m --memory-swap 512m picturaai:ci
+          echo "limits: $(docker inspect -f 'memory={{.HostConfig.Memory}} memory+swap={{.HostConfig.MemorySwap}}' pictura)"
+          swap_max=$(docker exec pictura cat /sys/fs/cgroup/memory.swap.max 2>/dev/null || echo unknown)
+          echo "cgroup memory.swap.max: $swap_max"
+          if [ "$swap_max" != "0" ]; then
+            echo "::warning::swap is not limited to 0 in the container (memory.swap.max=$swap_max), so the 512 MB check is weaker"
+          fi
           for i in $(seq 1 90); do
-            if curl -fsS http://127.0.0.1:8000/api/health | grep -q '"ok"'; then
+            if curl -fsS http://127.0.0.1:8000/api/health 2>/dev/null | grep -q '"ok"'; then
               echo "healthy after ~$((i * 2))s"
               curl -fsS -o /dev/null -w 'GET /app/ -> %{http_code}\n' http://127.0.0.1:8000/app/
               exit 0
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' pictura)" != "true" ]; then
-              echo "container exited"; docker logs pictura; exit 1
+              echo "::error::the container exited during startup"; exit 1
             fi
             sleep 2
           done
-          echo "not healthy after 180s"; docker logs pictura; exit 1
+          echo "::error::not healthy after 180s"; exit 1
 
       - name: One real stylization inside the memory limit
         run: |
+          # curl fails (exit 52 empty reply, 28 timeout) when the server is killed
+          # mid-request; keep going so the checks below can say why.
+          rc=0
           code=$(curl -sS -o /tmp/transfer.json -w '%{http_code}' --max-time 180 \
             -F content_image=@frontend/assets/samples/dog.jpg \
             -F style_preset=starry_night -F output=raw \
-            http://127.0.0.1:8000/api/transfer)
-          echo "POST /api/transfer -> $code"
-          if [ "$code" != "200" ]; then head -c 500 /tmp/transfer.json; echo; docker logs pictura; exit 1; fi
+            http://127.0.0.1:8000/api/transfer) || rc=$?
+          echo "POST /api/transfer -> HTTP ${code:-000} (curl exit $rc)"
+          oom=$(docker inspect -f '{{.State.OOMKilled}}' pictura)
+          running=$(docker inspect -f '{{.State.Running}}' pictura)
+          echo "container running=$running OOMKilled=$oom"
+          if [ "$oom" = "true" ]; then echo "::error::the container was OOM-killed (over 512 MB)"; exit 1; fi
+          if [ "$rc" != "0" ] || [ "$code" != "200" ] || [ "$running" != "true" ]; then
+            head -c 500 /tmp/transfer.json 2>/dev/null || true; echo
+            echo "::error::stylization failed"; exit 1
+          fi
           docker stats --no-stream pictura
+
+      - name: Container diagnostics
+        if: failure()
+        run: |
+          docker ps -a --filter name=pictura || true
+          docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} OOMKilled={{.State.OOMKilled}} error={{.State.Error}}' pictura || true
+          docker logs --tail 300 pictura || true
 
       - name: Stop the container
         if: always()
@@ -141,13 +177,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: "20"
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -164,9 +202,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 

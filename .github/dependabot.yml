@@ -1,0 +1,11 @@
+# Keeps the SHA-pinned actions in .github/workflows/ci.yml up to date.
+# Dependabot updates both the SHA and the "# vX.Y.Z" comment next to it.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
