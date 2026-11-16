@@ -9,6 +9,7 @@ export function createFrame({ onFiles }) {
   const compare = $('#compare');
   const handle = $('#compare-handle');
   const tag = $('#tag-original');
+  const tagPainting = $('#tag-painting');
   const empty = $('#frame-empty');
   const veil = $('#veil');
   const veilText = $('#veil-text');
@@ -21,6 +22,34 @@ export function createFrame({ onFiles }) {
   const studio = $('#studio');
 
   let pos = 0;
+  // The first result of a visit slides the divider out to the middle once, so it is
+  // clear that the frame compares the photo with the painting. Any touch of the
+  // slider stops it and keeps the user's position from then on.
+  let introduced = false;
+  let sweepTimer = 0;
+  let sweepFrame = 0;
+  function stopSweep() {
+    clearTimeout(sweepTimer);
+    cancelAnimationFrame(sweepFrame);
+    sweepTimer = 0;
+    sweepFrame = 0;
+  }
+  function sweepTo(target, delay) {
+    stopSweep();
+    if (prefersReducedMotion()) { setCompare(target); return; }
+    sweepTimer = setTimeout(() => {
+      const from = pos;
+      const start = performance.now();
+      const dur = 700;
+      const step = (now) => {
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setCompare(from + (target - from) * eased, { announce: t === 1 });
+        sweepFrame = t < 1 ? requestAnimationFrame(step) : 0;
+      };
+      sweepFrame = requestAnimationFrame(step);
+    }, delay);
+  }
 
   function setAspect(ar) {
     if (ar > 0) studio.style.setProperty('--ar', String(Math.round(ar * 10000) / 10000));
@@ -40,6 +69,7 @@ export function createFrame({ onFiles }) {
     result.hidden = true;
     compare.hidden = true;
     tag.hidden = true;
+    tagPainting.hidden = true;
     clearResultLabel();
   }
 
@@ -53,6 +83,8 @@ export function createFrame({ onFiles }) {
         : pos === 100 ? 'Showing your photo' : `Your photo on the left ${pos}%, painting on the right`);
     }
     tag.hidden = compare.hidden || pos < 12;
+    tagPainting.hidden = compare.hidden || pos > 88;
+    compare.dataset.at = pos === 0 ? 'start' : pos === 100 ? 'end' : 'mid';
   }
 
   function pctFromEvent(e) {
@@ -60,8 +92,11 @@ export function createFrame({ onFiles }) {
     return ((e.clientX - r.left) / r.width) * 100;
   }
 
+  handle.addEventListener('focus', () => { introduced = true; stopSweep(); });
   handle.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    introduced = true;
+    stopSweep();
     handle.setPointerCapture(e.pointerId);
     compare.classList.remove('is-intro');
     // .is-dragging (app.css) keeps the held look while the pointer is off the handle.
@@ -111,23 +146,26 @@ export function createFrame({ onFiles }) {
       result.classList.add('is-unveiling');
       const done = () => result.classList.remove('is-unveiling');
       result.addEventListener('animationend', done, { once: true });
-      if (compareEnabled && !prefersReducedMotion()) {
-        compare.classList.remove('is-intro');
-        setTimeout(() => compare.classList.add('is-intro'), 750);
-      }
+    }
+    if (compareEnabled && !introduced && pos === 0) {
+      introduced = true;
+      // after the brush-wipe unveiling (700 ms) has finished
+      sweepTo(50, unveil ? 900 : 300);
     }
   }
 
   function hideResult() {
+    stopSweep();
     result.hidden = true;
     compare.hidden = true;
     tag.hidden = true;
+    tagPainting.hidden = true;
     clearResultLabel();
   }
 
   function setCompareEnabled(on) {
     compare.hidden = !on || result.hidden;
-    if (compare.hidden) { stage.style.setProperty('--pos', '0%'); tag.hidden = true; }
+    if (compare.hidden) { stopSweep(); stage.style.setProperty('--pos', '0%'); tag.hidden = true; tagPainting.hidden = true; }
     else setCompare(pos, { announce: true });
   }
 

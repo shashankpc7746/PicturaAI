@@ -219,45 +219,53 @@
 
 /* Compare slider (lives on the frame) */
 .compare { position: absolute; inset: 0; pointer-events: none; }
+/* The divider must read on any photo, light or dark: a linen rule with a dark
+   halo, running the full height of the picture, through the handle. */
 .compare__line {
   position: absolute;
   top: 0; bottom: 0;
   left: var(--pos, 0%);
-  width: 2px;
-  margin-left: -1px;
-  background: var(--gilt);
-  box-shadow: 0 0 0 1px rgba(20, 38, 34, .35);
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--label);
+  box-shadow: 0 0 0 1px rgba(20, 38, 34, .55), 0 0 12px 1px rgba(20, 38, 34, .45);
+  transition: width var(--t-fast) var(--ease), margin var(--t-fast) var(--ease);
 }
+/* At 0 % the rule would sit on the picture's edge; hide it there */
+.compare[data-at="start"] .compare__line { opacity: 0; }
+/* The grip: a linen disc with a gilt ring and two arrows, on the rule */
 .compare__handle {
   position: absolute;
   top: 50%;
-  left: clamp(26px, var(--pos, 0%), calc(100% - 26px));
+  left: clamp(28px, var(--pos, 0%), calc(100% - 28px));
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin: -22px 0 0 -22px;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border: 3px solid var(--gilt);
   border-radius: 50%;
-  background: var(--gilt);
-  color: var(--on-gilt);
-  box-shadow: 0 0 0 2px var(--wall-deep);
+  background: var(--label);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px rgba(20, 38, 34, .5), 0 4px 14px rgba(20, 38, 34, .45);
   cursor: ew-resize;
   pointer-events: auto;
   touch-action: none;
-  transition: background-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
   -webkit-tap-highlight-color: transparent;
 }
-.compare__handle:focus-visible { outline-color: var(--linen); }
+.compare__handle .icon { width: 26px; height: 26px; stroke-width: 2; }
+.compare__handle:focus-visible { outline-color: var(--linen); outline-offset: 3px; }
 @media (hover: hover) {
-  .compare__handle:hover { background: var(--gilt-bright); }
+  .compare__handle:hover { background: #FFFDF8; border-color: var(--gilt-bright); }
 }
-/* Held / dragged: brighter, a touch larger, and a heavier line (frame.js sets
+/* Held / dragged: gilt disc, a touch larger, and a heavier rule (frame.js sets
    .is-dragging on .compare while the pointer is captured, so the state holds
    when the pointer leaves the handle during a drag) */
 .compare__handle:active,
-.compare.is-dragging .compare__handle { background: var(--gilt-bright); }
+.compare.is-dragging .compare__handle { background: var(--gilt-bright); border-color: var(--label); }
 .compare:has(.compare__handle:active) .compare__line,
-.compare.is-dragging .compare__line { width: 3px; margin-left: -1.5px; }
+.compare.is-dragging .compare__line { width: 4px; margin-left: -2px; }
 @media (prefers-reduced-motion: no-preference) {
   .compare__handle:active,
   .compare.is-dragging .compare__handle { transform: scale(1.08); }
@@ -278,6 +286,7 @@
   font-size: var(--fs-meta);
   pointer-events: none;
 }
+.frame__tag--painting { left: auto; right: var(--s-3); }
 
 /* Generating: linen veil + label card + gilt line along the bottom edge */
 .veil {
