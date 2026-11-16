@@ -17,7 +17,7 @@ def main():
     print("""
   ╔════════════════════════════════════════════════════╗
   ║         PicturaAI — Neural Style Transfer           ║
-  ║          v2.1 Local Dev Server (reload)            ║
+  ║          v2.0 Local Dev Server (reload)            ║
   ╚════════════════════════════════════════════════════╝
 
   ► App:      http://localhost:8000/app

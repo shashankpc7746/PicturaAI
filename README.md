@@ -13,6 +13,7 @@ Free, no sign-up, no watermark. On most devices your photo never leaves your bro
 [![The collection](https://img.shields.io/badge/The_collection-1D3530?style=for-the-badge)](https://picturaai-k7q6.onrender.com/app/styles/)
 [![API docs](https://img.shields.io/badge/API_docs-24423B?style=for-the-badge)](https://picturaai-k7q6.onrender.com/docs)
 
+[![Version 2.0](https://img.shields.io/badge/version-2.0-C9A44C)](https://github.com/shashankpc7746/PicturaAI/releases/tag/v2.0)
 [![CI](https://github.com/shashankpc7746/PicturaAI/actions/workflows/ci.yml/badge.svg)](https://github.com/shashankpc7746/PicturaAI/actions/workflows/ci.yml)
 ![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.134-009688?logo=fastapi&logoColor=white)
