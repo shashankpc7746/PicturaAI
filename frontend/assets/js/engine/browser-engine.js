@@ -54,16 +54,20 @@ function loadScript({ file, integrity }) {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[data-pictura-src="${src}"]`);
     if (existing && existing.dataset.loaded === '1') { resolve(); return; }
-    const s = existing || document.createElement('script');
+    // A <script> that already failed never fires again, so a retry needs a fresh one.
+    // loadTf shares one in-flight promise, so two calls never race on the same element.
+    if (existing) existing.remove();
+    const s = document.createElement('script');
     s.addEventListener('load', () => { s.dataset.loaded = '1'; resolve(); }, { once: true });
-    s.addEventListener('error', () => reject(new EngineError('Could not load the on-device engine.', 'ENGINE_UNAVAILABLE')), { once: true });
-    if (!existing) {
-      s.src = src;
-      s.integrity = integrity;
-      s.async = false;
-      s.dataset.picturaSrc = src;
-      document.head.appendChild(s);
-    }
+    s.addEventListener('error', () => {
+      s.remove();
+      reject(new EngineError('Could not load the on-device engine.', 'ENGINE_UNAVAILABLE'));
+    }, { once: true });
+    s.src = src;
+    s.integrity = integrity;
+    s.async = false;
+    s.dataset.picturaSrc = src;
+    document.head.appendChild(s);
   });
 }
 
