@@ -109,15 +109,16 @@ function markSample(key) {
 }
 
 // ── Engine warm-up (lazy: only once someone shows intent) ────────────────
-// Skipped on touch devices and data saver: the model is about 8 MB, so phones load it
-// on the first "Paint it" instead, with visible progress.
+// Skipped on touch devices and data saver (the model is about 8 MB; phones load it
+// on the first "Paint it" with visible progress), and when the engine would run on
+// the page's main thread, where compiling shaders would freeze the page.
 function prefetchEngine() {
   if (warm.promise || navigator.connection?.saveData || matchMedia('(pointer: coarse)').matches) return;
   const run = async () => {
     try {
       const engine = await getEngine();
       store.set({ engineKind: engine.kind });
-      if (engine.kind !== 'browser' || engine.ready) return;
+      if (engine.kind !== 'browser' || engine.ready || !engine.offMainThread) return;
       warm.promise = engine.warmup((p) => { warm.last = p; if (warm.listener) warm.listener(p); });
       await warm.promise;
     } catch { warm.promise = null; /* painting will retry and fall back to the server */ }
@@ -231,7 +232,8 @@ export async function paint() {
     if (vstate.downloading) return;
     const secs = Math.round((performance.now() - t0) / 1000);
     const asleep = store.get().engineKind === 'server' && secs >= 8;
-    frame.veil.text(null, asleep ? `${secs} seconds. The server was asleep, so the first picture can take up to a minute.` : `${secs} seconds`);
+    const elapsed = `${secs} ${secs === 1 ? 'second' : 'seconds'}`;
+    frame.veil.text(null, asleep ? `${elapsed}. The server was asleep, so the first picture can take up to a minute.` : elapsed);
   }, 1000);
   try {
     const out = st.mode === 'palette' ? await runPalette(st) : await runStyle(st, signal, onProgress);

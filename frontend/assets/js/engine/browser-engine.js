@@ -1,49 +1,46 @@
 // On-device style transfer with TensorFlow.js (WebGL).
 //
-// Model: the same Magenta "arbitrary-image-stylization-v1-256" network the
-// server runs (Ghiasi et al. 2017), converted to TF.js and split in two:
+// Model: the server's Magenta "arbitrary-image-stylization-v1-256" network,
+// converted to TF.js and split in two (docs/revamp/engine/ENGINE.md):
 //   style/        style image (256x256) -> style parameters [1, N]
-//                 (Inception-v3 bottleneck + the per-layer gamma/beta projections)
 //   transformer/  content image + style parameters -> stylized image
-// Preset styles ship precomputed parameters (models/style-vectors.json), so the
-// common path downloads only the transformer. The style network is fetched the
-// first time someone uses their own painting.
+// Presets ship precomputed parameters (models/style-vectors.json), so the usual
+// path downloads only the transformer. Mixing two styles interpolates their
+// parameters (they are affine in the style bottleneck).
 //
-// The parameters are affine in the style bottleneck, so mixing two styles by
-// interpolating their parameters is exactly the same as interpolating bottlenecks.
+// Runs on the page or inside engine/worker.js (no DOM needed there).
 
 import { installBandedConv } from './tiled-conv.js';
 import { resizeImageData, makeImageData } from './composite.js';
 import { EngineError } from './errors.js';
+import { localStore, isMobileLike, deviceSideCap, LS_SIDE, LS_FAILED } from './support.js';
 
 export { EngineError };
 
+// Self-hosted, unmodified npm builds (frontend/vendor/tfjs/4.22.0/README.md).
 const TF_VERSION = '4.22.0';
-const CDN = 'https://cdn.jsdelivr.net/npm';
+const TF_BASE = new URL(`../../../vendor/tfjs/${TF_VERSION}/`, import.meta.url).href;
 const TF_SCRIPTS = [
-  { src: `${CDN}/@tensorflow/tfjs-core@${TF_VERSION}/dist/tf-core.es2017.min.js`,
-    integrity: 'sha384-pwFlZMvh0feP+i0lcqJy+EGMsa8y8MInwWkUgARHZEHUGyTNqxnqfi38fzMU994Z', bytes: 255317 },
-  { src: `${CDN}/@tensorflow/tfjs-backend-webgl@${TF_VERSION}/dist/tf-backend-webgl.es2017.min.js`,
-    integrity: 'sha384-vLZ29FEcQ9QWLdF6cKts4jNSPRioiSHmaggrIjdw0FbgdUp3CV0qUb4Mvp1C/ehV', bytes: 370446 },
-  { src: `${CDN}/@tensorflow/tfjs-converter@${TF_VERSION}/dist/tf-converter.es2017.min.js`,
-    integrity: 'sha384-jYgcd4ez9iEjyoeMMxPS7PCpt0FCX9Mc3ovkX5gEI0BnKmxJOiBBi9wWaPyzE40X', bytes: 286781 },
+  { file: 'tf-core.es2017.min.js', bytes: 255317,
+    integrity: 'sha384-pwFlZMvh0feP+i0lcqJy+EGMsa8y8MInwWkUgARHZEHUGyTNqxnqfi38fzMU994Z' },
+  { file: 'tf-backend-webgl.es2017.min.js', bytes: 370446,
+    integrity: 'sha384-vLZ29FEcQ9QWLdF6cKts4jNSPRioiSHmaggrIjdw0FbgdUp3CV0qUb4Mvp1C/ehV' },
+  { file: 'tf-converter.es2017.min.js', bytes: 286781,
+    integrity: 'sha384-jYgcd4ez9iEjyoeMMxPS7PCpt0FCX9Mc3ovkX5gEI0BnKmxJOiBBi9wWaPyzE40X' },
 ];
 
 const DEFAULT_MODEL_BASE = new URL('../../../models/arbitrary-stylization-v1-256/', import.meta.url).href;
 const DEFAULT_VECTORS_URL = new URL('../../../models/style-vectors.json', import.meta.url).href;
 const MODEL_CACHE_PREFIX = 'pictura-models-';
 const STYLE_SIDE = 256;
-const LS_SIDE = 'pictura.engine.side';
-const LS_FAILED = 'pictura.engine.browserFailedAt';
 
-// Inference shapes are snapped to a few aspect-ratio buckets: WebGL compiles a
-// set of shaders per input shape (10-30 s on a weak integrated GPU), so reusing
-// shapes matters far more than the few percent of stretch a bucket introduces.
-// 4:3 and 3:2 (most cameras and phones) share the sqrt(2) bucket (6% stretch at most).
+// Inference shapes snap to a few aspect buckets: WebGL compiles a shader set per
+// input shape (10-30 s on a weak GPU), which costs far more than a few percent of
+// stretch. 4:3 and 3:2 share the sqrt(2) bucket.
 const BUCKETS = [1, 5 / 4, Math.SQRT2, 16 / 9, 9 / 4];
 const MAX_STRETCH = 1.08;
 
-// ── Small utilities ─────────────────────────────────────────────────────────
+const IN_WINDOW = typeof document !== 'undefined';
 
 function abortError() {
   return new DOMException('The operation was aborted.', 'AbortError');
@@ -52,47 +49,8 @@ function checkAbort(signal) {
   if (signal && signal.aborted) throw abortError();
 }
 
-function lsGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
-function lsSet(key, v) { try { localStorage.setItem(key, v); } catch { /* storage blocked */ } }
-
-export function isMobileLike() {
-  const coarseOnly = typeof matchMedia === 'function'
-    && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
-  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
-  const iPadOS = /Macintosh/.test(ua) && typeof navigator !== 'undefined' && navigator.maxTouchPoints > 1;
-  return coarseOnly || /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || iPadOS;
-}
-
-/** Largest inference side this device should attempt (before timing it). */
-export function deviceSideCap() {
-  const mem = typeof navigator !== 'undefined' ? navigator.deviceMemory : undefined;
-  if ((typeof mem === 'number' && mem <= 4) || isMobileLike()) return 768;
-  return 1024;
-}
-
-/** Quick capability check: WebGL2 with renderable float textures. */
-export function hasWebGL2() {
-  try {
-    // A page canvas: when WebGL is disabled by policy, OffscreenCanvas can still
-    // report a context in some Chromium builds.
-    const c = typeof document !== 'undefined' ? document.createElement('canvas') : new OffscreenCanvas(1, 1);
-    const gl = c.getContext('webgl2');
-    if (!gl) return false;
-    const ok = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
-    const lose = gl.getExtension('WEBGL_lose_context');
-    if (lose) lose.loseContext();
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
-export function recentBrowserFailure(days = 7) {
-  const t = Number(lsGet(LS_FAILED) || 0);
-  return t > 0 && Date.now() - t < days * 864e5;
-}
-
-function loadScript({ src, integrity }) {
+function loadScript({ file, integrity }) {
+  const src = TF_BASE + file;
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(`script[data-pictura-src="${src}"]`);
     if (existing && existing.dataset.loaded === '1') { resolve(); return; }
@@ -102,7 +60,6 @@ function loadScript({ src, integrity }) {
     if (!existing) {
       s.src = src;
       s.integrity = integrity;
-      s.crossOrigin = 'anonymous';
       s.async = false;
       s.dataset.picturaSrc = src;
       document.head.appendChild(s);
@@ -111,19 +68,28 @@ function loadScript({ src, integrity }) {
 }
 
 let tfPromise = null;
-/** Loads TF.js (core + WebGL backend + converter) once, with SRI. */
+/** Loads TF.js (core + WebGL backend + converter) once. */
 function loadTf(onBytes) {
   if (!tfPromise) {
     tfPromise = (async () => {
       for (const script of TF_SCRIPTS) {
-        // Sequential: each bundle extends the global `tf` from the previous one.
-        await loadScript(script);
+        // In order: each UMD bundle extends the global `tf` of the previous one.
+        if (IN_WINDOW) await loadScript(script);
+        else {
+          try { await import(TF_BASE + script.file); } catch (e) {
+            throw new EngineError('Could not load the on-device engine.', 'ENGINE_UNAVAILABLE', e);
+          }
+        }
         onBytes(script.bytes);
       }
       const tf = globalThis.tf;
-      if (!tf || !tf.loadGraphModel) throw new EngineError('The on-device engine did not start.', 'ENGINE_UNAVAILABLE');
-      const ok = await tf.setBackend('webgl');
-      if (!ok) throw new EngineError('This browser cannot run the on-device engine.', 'ENGINE_UNAVAILABLE');
+      if (!tf || !tf.loadGraphModel) throw new EngineError('The on-device engine did not start.', 'ENGINE_WORKER');
+      // TF.js refuses OffscreenCanvas on Safari; we only get here in a worker
+      // after checking that OffscreenCanvas WebGL2 works.
+      if (!IN_WINDOW) tf.env().set('IS_SAFARI', false);
+      let ok = false;
+      try { ok = await tf.setBackend('webgl'); } catch { ok = false; }
+      if (!ok) throw new EngineError('This browser cannot run the on-device engine.', IN_WINDOW ? 'ENGINE_UNAVAILABLE' : 'ENGINE_WORKER');
       await tf.ready();
       installBandedConv(tf);
       return tf;
@@ -133,8 +99,9 @@ function loadTf(onBytes) {
   return tfPromise;
 }
 
-// Cache-first fetch for model files (Cache Storage, one cache per model
-// version; older versions are deleted), counting downloaded bytes.
+// Model files: cache-first in Cache Storage (one cache per model version, older
+// ones deleted), counting bytes. URLs carry ?v=<version>, so the server can let
+// browsers cache /app/models/ for a year.
 async function openModelCache(version) {
   try {
     const name = `${MODEL_CACHE_PREFIX}${version}`;
@@ -143,13 +110,19 @@ async function openModelCache(version) {
     }
     return await caches.open(name);
   } catch {
-    return null;   // no Cache Storage (insecure context, private mode): plain HTTP cache
+    return null;   // no Cache Storage (insecure context, private mode): HTTP cache only
   }
+}
+
+function versioned(url, version) {
+  const u = new URL(url, typeof location !== 'undefined' ? location.href : undefined);
+  u.searchParams.set('v', String(version));
+  return u.href;
 }
 
 function makeModelFetch(onBytes, version) {
   return async (input, init) => {
-    const url = typeof input === 'string' ? input : input.url;
+    const url = versioned(typeof input === 'string' ? input : input.url, version);
     const cache = await openModelCache(version);
     if (cache) {
       const hit = await cache.match(url);
@@ -160,10 +133,8 @@ function makeModelFetch(onBytes, version) {
       }
     }
     const res = await fetch(url, init);
-    if (!res.ok || !res.body) {
-      if (!res.ok) throw new EngineError(`Model download failed (${res.status}).`, 'ENGINE_UNAVAILABLE');
-      return res;
-    }
+    if (!res.ok) throw new EngineError(`Model download failed (${res.status}).`, 'ENGINE_UNAVAILABLE');
+    if (!res.body) return res;
     const reader = res.body.getReader();
     const chunks = [];
     let size = 0;
@@ -176,8 +147,8 @@ function makeModelFetch(onBytes, version) {
     }
     const headers = new Headers(res.headers);
     headers.set('content-length', String(size));
-    const body = new Blob(chunks);
-    const copy = new Response(body, { status: 200, headers });
+    headers.delete('content-encoding');
+    const copy = new Response(new Blob(chunks), { status: 200, headers });
     if (cache) cache.put(url, copy.clone()).catch(() => {});
     return copy;
   };
@@ -185,14 +156,13 @@ function makeModelFetch(onBytes, version) {
 
 // ── IndexedDB cache for style parameters ────────────────────────────────────
 
-const IDB_NAME = 'pictura-engine';
 const IDB_STORE = 'style-params';
 let idbPromise = null;
 function idb() {
   if (!idbPromise) {
     idbPromise = new Promise((resolve) => {
       try {
-        const req = indexedDB.open(IDB_NAME, 1);
+        const req = indexedDB.open('pictura-engine', 1);
         req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => resolve(null);
@@ -246,13 +216,7 @@ function hashPixels(data) {
 }
 
 function drawableSize(src) {
-  const w = src.naturalWidth || src.videoWidth || src.width;
-  const h = src.naturalHeight || src.videoHeight || src.height;
-  return [w, h];
-}
-
-function toImageData(src, w, h) {
-  return resizeImageData(src, w, h);
+  return [src.naturalWidth || src.videoWidth || src.width, src.naturalHeight || src.videoHeight || src.height];
 }
 
 /** Picks the inference shape for a content of size (w, h) at long side `side`. */
@@ -261,8 +225,7 @@ export function inferenceShape(w, h, side) {
   const aspect = landscape ? w / h : h / w;
   let best = BUCKETS[0];
   for (const b of BUCKETS) if (Math.abs(Math.log(aspect / b)) < Math.abs(Math.log(aspect / best))) best = b;
-  const useBucket = Math.exp(Math.abs(Math.log(aspect / best))) <= MAX_STRETCH;
-  const a = useBucket ? best : aspect;
+  const a = Math.exp(Math.abs(Math.log(aspect / best))) <= MAX_STRETCH ? best : aspect;
   const short = Math.max(16, Math.round(side / a / 4) * 4);
   const long = Math.round(side / 4) * 4;
   const out = Math.max(1, Math.round(side / aspect));
@@ -281,11 +244,15 @@ export function inferenceShape(w, h, side) {
  * @param {(key:string)=>Promise<string>|string} [options.styleImageUrl]  preset key -> image URL
  * @param {number} [options.maxInferSide] force the inference long side (skips the speed probe)
  * @param {number} [options.timeBudgetMs] target time for one stylization when picking the side (6000)
+ * @param {{get(k):string|null, set(k,v):void}} [options.store] remembered side / failure (localStorage)
+ * @param {boolean} [options.mobile]     phone/tablet (smaller side cap); detected when omitted
  */
 export function createBrowserEngine(options = {}) {
   const modelBase = options.modelBase || DEFAULT_MODEL_BASE;
   const vectorsUrl = options.vectorsUrl === undefined ? DEFAULT_VECTORS_URL : options.vectorsUrl;
-  const cap = Math.min(deviceSideCap(), options.maxInferSide || Infinity);
+  const store = options.store || localStore;
+  const mobile = options.mobile === undefined ? isMobileLike() : options.mobile;
+  const cap = Math.min(deviceSideCap(mobile), options.maxInferSide || Infinity);
   const budget = options.timeBudgetMs || 6000;
   const forcedSide = options.maxInferSide || null;
 
@@ -304,7 +271,8 @@ export function createBrowserEngine(options = {}) {
   const engine = {
     kind: 'browser',
     label: 'on this device',
-    maxInferSide: Math.min(cap, Number(lsGet(LS_SIDE)) || 768),
+    offMainThread: !IN_WINDOW,
+    maxInferSide: Math.min(cap, Number(store.get(LS_SIDE)) || 768),
     timings: {},
     warmup,
     stylize,
@@ -325,10 +293,9 @@ export function createBrowserEngine(options = {}) {
 
   function watchContext() {
     try {
-      const gl = tf.backend().gpgpu.gl;
-      gl.canvas.addEventListener('webglcontextlost', (ev) => {
+      tf.backend().gpgpu.gl.canvas.addEventListener('webglcontextlost', (ev) => {
         broken = true;
-        lsSet(LS_FAILED, String(Date.now()));
+        store.set(LS_FAILED, String(Date.now()));
         ev.preventDefault();
       });
     } catch { /* not the webgl backend */ }
@@ -350,8 +317,8 @@ export function createBrowserEngine(options = {}) {
     };
   }
 
-  // Everyone waiting on the warm-up hears its progress (an idle prefetch may
-  // start it before the person presses "Paint it").
+  // Every caller waiting on the warm-up hears its progress (an idle prefetch may
+  // start it before "Paint it").
   const listeners = new Set();
   function emit(p) {
     for (const fn of listeners) { try { fn(p); } catch { /* listener error */ } }
@@ -380,16 +347,16 @@ export function createBrowserEngine(options = {}) {
     tick(0);
     tf = await loadTf(tick);
     watchContext();
-    if (isMobileLike()) tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0);
+    if (mobile) tf.env().set('WEBGL_DELETE_TEXTURE_THRESHOLD', 0);
     transformer = await tf.loadGraphModel(new URL(m.transformer.path, modelBase).href, { fetchFunc: makeModelFetch(tick, m.version) });
     engine.timings.loadMs = performance.now() - t0;
 
-    // Inference size: forced, remembered from an earlier visit, or measured now
-    // by timing one 512 px stylization and taking the largest side whose
-    // predicted time (cost ~ pixels) fits the budget.
+    // Inference size: forced, remembered from an earlier visit, or measured now by
+    // timing one 512 px run and taking the largest side whose predicted time
+    // (cost ~ pixels) fits the budget.
     emit({ loaded: 0, total: 1, phase: 'compile' });
     const t1 = performance.now();
-    let side = forcedSide || Number(lsGet(LS_SIDE)) || 0;
+    let side = forcedSide || Number(store.get(LS_SIDE)) || 0;
     if (!side) {
       const probeSide = Math.min(512, cap);
       const [pw, ph] = inferenceShape(4, 3, probeSide).infer;
@@ -402,7 +369,7 @@ export function createBrowserEngine(options = {}) {
       for (const s of [1024, 768]) {
         if (s <= cap && probeMs * (s / probeSide) ** 2 <= budget) { side = s; break; }
       }
-      if (!forcedSide) lsSet(LS_SIDE, String(side));
+      store.set(LS_SIDE, String(side));
     }
     engine.maxInferSide = Math.min(side, cap);
     await compileShape(...inferenceShape(4, 3, engine.maxInferSide).infer);
@@ -411,7 +378,8 @@ export function createBrowserEngine(options = {}) {
     emit({ loaded: 1, total: 1, phase: 'ready' });
   }
 
-  // Compile all shaders for one input shape without running them.
+  // Compile all shaders for one input shape without running them
+  // (KHR_parallel_shader_compile where available).
   async function compileShape(w, h) {
     const key = `${w}x${h}`;
     if (compiled.has(key)) return;
@@ -466,8 +434,7 @@ export function createBrowserEngine(options = {}) {
         const res = await fetch('/api/styles');
         if (res.ok) {
           const body = await res.json();
-          const list = Array.isArray(body) ? body : body.styles || [];
-          for (const s of list) if (s && s.key && s.image) presetUrlMap.set(s.key, s.image);
+          for (const s of Array.isArray(body) ? body : body.styles || []) if (s && s.key && s.image) presetUrlMap.set(s.key, s.image);
         }
       } catch { /* offline: use the default path */ }
     }
@@ -492,7 +459,7 @@ export function createBrowserEngine(options = {}) {
   async function paramsFromImage(image, cacheKey, onProgress, signal) {
     const [w, h] = drawableSize(image);
     if (!w || !h) throw new EngineError('The style image is empty.', 'ENGINE_INPUT');
-    const px = toImageData(image, STYLE_SIDE, STYLE_SIDE);
+    const px = resizeImageData(image, STYLE_SIDE, STYLE_SIDE);
     const key = cacheKey || `img:${manifest.version}:${hashPixels(px.data)}`;
     if (paramCache.has(key)) return paramCache.get(key);
     const stored = await idbGet(key);
@@ -521,7 +488,7 @@ export function createBrowserEngine(options = {}) {
     const entry = index && index.model === manifest.name && index.version === manifest.version && index.styles && index.styles[key];
     if (entry) {
       try {
-        const res = await fetch(new URL(entry.file, vectorsUrl));
+        const res = await fetch(versioned(new URL(entry.file, vectorsUrl).href, index.version));
         if (res.ok) {
           const buf = await res.arrayBuffer();
           const params = index.dtype === 'float16' ? halfToFloat32(new Uint16Array(buf)) : new Float32Array(buf);
@@ -534,9 +501,9 @@ export function createBrowserEngine(options = {}) {
       } catch { /* fall back to computing it */ }
     }
     // No precomputed vector: run the style network on the preset image.
-    const url = await presetImageUrl(key);
-    const img = await loadImageBitmap(url);
-    return paramsFromImage(img, cacheKey, onProgress, signal);
+    const res = await fetch(await presetImageUrl(key));
+    if (!res.ok) throw new EngineError('Could not load the style image.', 'ENGINE_INPUT');
+    return paramsFromImage(await createImageBitmap(await res.blob()), cacheKey, onProgress, signal);
   }
 
   /** Style parameters for {key} or {image}; cached in memory and IndexedDB. */
@@ -569,15 +536,14 @@ export function createBrowserEngine(options = {}) {
       checkAbort(signal);
       const [cw, ch] = drawableSize(content);
       if (!cw || !ch) throw new EngineError('The photo is empty.', 'ENGINE_INPUT');
-      const side = engine.maxInferSide;
-      const { infer, output } = inferenceShape(cw, ch, side);
+      const { infer, output } = inferenceShape(cw, ch, engine.maxInferSide);
       if (!compiled.has(`${infer[0]}x${infer[1]}`)) {
         if (onProgress) onProgress({ loaded: 0, total: 1, phase: 'compile' });
         await compileShape(infer[0], infer[1]);
         checkAbort(signal);
       }
       if (onProgress) onProgress({ loaded: 0, total: 1, phase: 'paint' });
-      const input = toImageData(content, infer[0], infer[1]);
+      const input = resizeImageData(content, infer[0], infer[1]);
       const t1 = performance.now();
       const out = tf.tidy(() => {
         const x = tf.expandDims(tf.div(tf.cast(tf.browser.fromPixels(input), 'float32'), 255), 0);
@@ -617,11 +583,4 @@ export function createBrowserEngine(options = {}) {
   }
 
   return engine;
-}
-
-async function loadImageBitmap(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new EngineError('Could not load the style image.', 'ENGINE_INPUT');
-  const blob = await res.blob();
-  return createImageBitmap(blob);
 }
