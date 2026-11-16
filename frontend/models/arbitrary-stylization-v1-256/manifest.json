@@ -1,0 +1,448 @@
+{
+ "name": "arbitrary-stylization-v1-256",
+ "version": 1,
+ "n": 10438,
+ "source": "https://tfhub.dev/google/magenta/arbitrary-image-stylization-v1-256/2",
+ "quantization": "uint8",
+ "styleInput": 256,
+ "style": {
+  "path": "style/model.json",
+  "bytes": 17461467
+ },
+ "transformer": {
+  "path": "transformer/model.json",
+  "bytes": 6867417
+ },
+ "layout": [
+  {
+   "name": "transformer/expand/conv1/conv/StyleNorm/SpatialSqueeze",
+   "size": 64,
+   "offset": 0
+  },
+  {
+   "name": "transformer/expand/conv1/conv/StyleNorm/SpatialSqueeze_1",
+   "size": 64,
+   "offset": 64
+  },
+  {
+   "name": "transformer/expand/conv2/conv/StyleNorm/SpatialSqueeze",
+   "size": 32,
+   "offset": 128
+  },
+  {
+   "name": "transformer/expand/conv2/conv/StyleNorm/SpatialSqueeze_1",
+   "size": 32,
+   "offset": 160
+  },
+  {
+   "name": "transformer/expand/conv3/conv/StyleNorm/SpatialSqueeze",
+   "size": 3,
+   "offset": 192
+  },
+  {
+   "name": "transformer/expand/conv3/conv/StyleNorm/SpatialSqueeze_1",
+   "size": 3,
+   "offset": 195
+  },
+  {
+   "name": "transformer/residual/residual1/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 198
+  },
+  {
+   "name": "transformer/residual/residual1/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 326
+  },
+  {
+   "name": "transformer/residual/residual1/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 454
+  },
+  {
+   "name": "transformer/residual/residual1/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 582
+  },
+  {
+   "name": "transformer/residual/residual10/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 710
+  },
+  {
+   "name": "transformer/residual/residual10/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 838
+  },
+  {
+   "name": "transformer/residual/residual10/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 966
+  },
+  {
+   "name": "transformer/residual/residual10/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 1094
+  },
+  {
+   "name": "transformer/residual/residual11/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 1222
+  },
+  {
+   "name": "transformer/residual/residual11/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 1350
+  },
+  {
+   "name": "transformer/residual/residual11/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 1478
+  },
+  {
+   "name": "transformer/residual/residual11/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 1606
+  },
+  {
+   "name": "transformer/residual/residual12/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 1734
+  },
+  {
+   "name": "transformer/residual/residual12/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 1862
+  },
+  {
+   "name": "transformer/residual/residual12/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 1990
+  },
+  {
+   "name": "transformer/residual/residual12/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 2118
+  },
+  {
+   "name": "transformer/residual/residual13/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 2246
+  },
+  {
+   "name": "transformer/residual/residual13/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 2374
+  },
+  {
+   "name": "transformer/residual/residual13/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 2502
+  },
+  {
+   "name": "transformer/residual/residual13/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 2630
+  },
+  {
+   "name": "transformer/residual/residual14/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 2758
+  },
+  {
+   "name": "transformer/residual/residual14/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 2886
+  },
+  {
+   "name": "transformer/residual/residual14/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 3014
+  },
+  {
+   "name": "transformer/residual/residual14/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 3142
+  },
+  {
+   "name": "transformer/residual/residual15/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 3270
+  },
+  {
+   "name": "transformer/residual/residual15/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 3398
+  },
+  {
+   "name": "transformer/residual/residual15/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 3526
+  },
+  {
+   "name": "transformer/residual/residual15/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 3654
+  },
+  {
+   "name": "transformer/residual/residual16/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 3782
+  },
+  {
+   "name": "transformer/residual/residual16/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 3910
+  },
+  {
+   "name": "transformer/residual/residual16/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 4038
+  },
+  {
+   "name": "transformer/residual/residual16/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 4166
+  },
+  {
+   "name": "transformer/residual/residual17/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 4294
+  },
+  {
+   "name": "transformer/residual/residual17/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 4422
+  },
+  {
+   "name": "transformer/residual/residual17/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 4550
+  },
+  {
+   "name": "transformer/residual/residual17/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 4678
+  },
+  {
+   "name": "transformer/residual/residual18/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 4806
+  },
+  {
+   "name": "transformer/residual/residual18/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 4934
+  },
+  {
+   "name": "transformer/residual/residual18/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 5062
+  },
+  {
+   "name": "transformer/residual/residual18/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 5190
+  },
+  {
+   "name": "transformer/residual/residual19/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 5318
+  },
+  {
+   "name": "transformer/residual/residual19/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 5446
+  },
+  {
+   "name": "transformer/residual/residual19/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 5574
+  },
+  {
+   "name": "transformer/residual/residual19/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 5702
+  },
+  {
+   "name": "transformer/residual/residual2/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 5830
+  },
+  {
+   "name": "transformer/residual/residual2/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 5958
+  },
+  {
+   "name": "transformer/residual/residual2/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 6086
+  },
+  {
+   "name": "transformer/residual/residual2/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 6214
+  },
+  {
+   "name": "transformer/residual/residual20/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 6342
+  },
+  {
+   "name": "transformer/residual/residual20/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 6470
+  },
+  {
+   "name": "transformer/residual/residual20/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 6598
+  },
+  {
+   "name": "transformer/residual/residual20/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 6726
+  },
+  {
+   "name": "transformer/residual/residual3/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 6854
+  },
+  {
+   "name": "transformer/residual/residual3/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 6982
+  },
+  {
+   "name": "transformer/residual/residual3/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 7110
+  },
+  {
+   "name": "transformer/residual/residual3/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 7238
+  },
+  {
+   "name": "transformer/residual/residual4/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 7366
+  },
+  {
+   "name": "transformer/residual/residual4/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 7494
+  },
+  {
+   "name": "transformer/residual/residual4/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 7622
+  },
+  {
+   "name": "transformer/residual/residual4/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 7750
+  },
+  {
+   "name": "transformer/residual/residual5/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 7878
+  },
+  {
+   "name": "transformer/residual/residual5/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 8006
+  },
+  {
+   "name": "transformer/residual/residual5/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 8134
+  },
+  {
+   "name": "transformer/residual/residual5/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 8262
+  },
+  {
+   "name": "transformer/residual/residual6/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 8390
+  },
+  {
+   "name": "transformer/residual/residual6/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 8518
+  },
+  {
+   "name": "transformer/residual/residual6/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 8646
+  },
+  {
+   "name": "transformer/residual/residual6/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 8774
+  },
+  {
+   "name": "transformer/residual/residual7/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 8902
+  },
+  {
+   "name": "transformer/residual/residual7/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 9030
+  },
+  {
+   "name": "transformer/residual/residual7/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 9158
+  },
+  {
+   "name": "transformer/residual/residual7/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 9286
+  },
+  {
+   "name": "transformer/residual/residual8/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 9414
+  },
+  {
+   "name": "transformer/residual/residual8/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 9542
+  },
+  {
+   "name": "transformer/residual/residual8/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 9670
+  },
+  {
+   "name": "transformer/residual/residual8/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 9798
+  },
+  {
+   "name": "transformer/residual/residual9/conv1/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 9926
+  },
+  {
+   "name": "transformer/residual/residual9/conv1/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 10054
+  },
+  {
+   "name": "transformer/residual/residual9/conv2/StyleNorm/SpatialSqueeze",
+   "size": 128,
+   "offset": 10182
+  },
+  {
+   "name": "transformer/residual/residual9/conv2/StyleNorm/SpatialSqueeze_1",
+   "size": 128,
+   "offset": 10310
+  }
+ ]
+}

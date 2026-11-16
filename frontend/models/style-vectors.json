@@ -1,0 +1,64 @@
+{
+ "model": "arbitrary-stylization-v1-256",
+ "version": 1,
+ "n": 10438,
+ "dtype": "float16",
+ "styles": {
+  "starry_night": {
+   "file": "style-vectors/starry_night.bin",
+   "source": "starry_night.jpg"
+  },
+  "the_scream": {
+   "file": "style-vectors/the_scream.bin",
+   "source": "the_scream.jpg"
+  },
+  "great_wave": {
+   "file": "style-vectors/great_wave.bin",
+   "source": "great_wave.jpg"
+  },
+  "the_shipwreck": {
+   "file": "style-vectors/the_shipwreck.bin",
+   "source": "the_shipwreck.jpg"
+  },
+  "udnie": {
+   "file": "style-vectors/udnie.bin",
+   "source": "udnie.jpg"
+  },
+  "improvisation_27": {
+   "file": "style-vectors/improvisation_27.bin",
+   "source": "improvisation_27.jpg"
+  },
+  "blue_horses": {
+   "file": "style-vectors/blue_horses.bin",
+   "source": "blue_horses.jpg"
+  },
+  "the_kiss": {
+   "file": "style-vectors/the_kiss.bin",
+   "source": "the_kiss.jpg"
+  },
+  "grande_jatte": {
+   "file": "style-vectors/grande_jatte.bin",
+   "source": "grande_jatte.jpg"
+  },
+  "woman_with_a_hat": {
+   "file": "style-vectors/woman_with_a_hat.bin",
+   "source": "woman_with_a_hat.jpg"
+  },
+  "cafe_terrace": {
+   "file": "style-vectors/cafe_terrace.bin",
+   "source": "cafe_terrace.jpg"
+  },
+  "zodiac": {
+   "file": "style-vectors/zodiac.bin",
+   "source": "zodiac.jpg"
+  },
+  "sloop_nassau": {
+   "file": "style-vectors/sloop_nassau.bin",
+   "source": "sloop_nassau.jpg"
+  },
+  "splashed_ink": {
+   "file": "style-vectors/splashed_ink.bin",
+   "source": "splashed_ink.jpg"
+  }
+ }
+}
