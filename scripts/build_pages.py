@@ -286,8 +286,8 @@ def render(page: Page, site: str) -> str:
   <header class="site-header">
     <div class="container site-header__inner">
       <a class="wordmark" href="/app/#studio" aria-label="PicturaAI, open the studio">
-        {icon("frame-mark")}
-        PicturaAI
+        <img class="wordmark__mark" src="/app/assets/brand/mark.svg" alt="" width="32" height="32">
+        <span class="wordmark__text">Pictura<span class="wordmark__ai">AI</span></span>
       </a>
       <nav class="site-nav" aria-label="Main">
 {nav_links(page.current, "        ")}
@@ -304,8 +304,8 @@ def render(page: Page, site: str) -> str:
     <div class="menu-sheet__panel">
       <div class="menu-sheet__top">
         <span class="wordmark">
-          {icon("frame-mark")}
-          PicturaAI
+          <img class="wordmark__mark" src="/app/assets/brand/mark.svg" alt="" width="32" height="32">
+          <span class="wordmark__text">Pictura<span class="wordmark__ai">AI</span></span>
         </span>
         <button class="btn btn--quiet" type="button" data-menu-close>
           {icon("close")}
@@ -328,8 +328,8 @@ def render(page: Page, site: str) -> str:
     <div class="container site-footer__inner">
       <div class="site-footer__brand">
         <span class="wordmark">
-          {icon("frame-mark")}
-          PicturaAI
+          <img class="wordmark__mark" src="/app/assets/brand/mark.svg" alt="" width="32" height="32">
+          <span class="wordmark__text">Pictura<span class="wordmark__ai">AI</span></span>
         </span>
         <p>Pictura is Latin for a painting.</p>
       </div>

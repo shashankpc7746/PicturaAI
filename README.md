@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/assets/icon-192.png" alt="PicturaAI logo: a gilt frame" width="96">
+<img src="frontend/assets/brand/mark.svg" alt="PicturaAI logo: a night painting in a gilt frame, crossed by a vermilion brush stroke" width="96">
 
 # PicturaAI
 

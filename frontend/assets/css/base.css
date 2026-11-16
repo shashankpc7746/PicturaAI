@@ -206,8 +206,18 @@ p { max-width: var(--measure); }
   text-decoration: none;
   padding-block: var(--s-2);
 }
-/* Full-colour brand mark (icons.svg#frame-mark); big enough to read the moon and stroke */
-.wordmark .icon { width: 30px; height: 30px; flex: none; }
+/* Brand mark (assets/brand/mark.svg) and the Pictura/AI lockup: Pictura in the
+   display serif, AI smaller in the grotesk, spaced: the painting first, the tool second */
+.wordmark__mark { width: 32px; height: 32px; flex: none; }
+.wordmark__text { white-space: nowrap; }
+.wordmark__ai {
+  margin-left: 3px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: .56em;
+  letter-spacing: .08em;
+  vertical-align: baseline;
+}
 @media (pointer: coarse) {
   .wordmark { min-height: var(--touch); padding-block: 0; }
 }
