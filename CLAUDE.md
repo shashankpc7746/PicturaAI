@@ -91,9 +91,44 @@ the default path must stay byte-identical. Resolution is capped by `NST_MAX_DIM`
 **Frontend** ("Salon Wall", see `docs/revamp/BUILD-PLAN.md`): `frontend/index.html`
 loads `config.js` and `assets/js/main.js`; code is split into `core/`, `services/`
 (API, engine adapter, export, `gallery-db.js`, `video.js`) and `ui/`. Static pages use
-`assets/js/page.js`. `manifest.webmanifest` makes the site installable (gilt-frame
-icons in `assets/`). CSP-ready: no inline scripts, `on*` handlers or `style=""`
-attributes (set CSS custom properties from JS instead).
+`assets/js/page.js`. CSP-ready: no inline scripts, `on*` handlers or `style=""`
+attributes (set CSS custom properties from JS instead). Studio behaviour that is easy
+to break (regression tests in `tests/e2e/test_short_screens.py`):
+- **Frame:** height-capped on desktop and hung on the column's left edge, in line with
+  the intro text and the wall label. The **intensity slider sits on the frame's ledge**
+  (`.frame-ledge`, directly under the picture); `revealFrame()` in `ui/studio.js` keeps
+  frame and ledge in view between the sticky header and the phone action bar. Live
+  slider frames come from a display-size compositor; the sharpened full-size render
+  waits until the slider is still for 350 ms (see `ENGINE.md` §4).
+- **Compare slider** (`ui/frame.js`): the painting stays whole; the divider rests on
+  the picture's left edge with only its grip showing (the rule appears once it moves),
+  a "Drag to compare with your photo" chip shows until first use, and the first result
+  of a visit peeks the divider to ~20% and back once (skipped with reduced motion).
+- **Style panel on short desktop screens** (`@media (min-width: 1024px) and
+  (max-height: 820px)` in `app.css`): a three-column gallery of fixed-height
+  thumbnails with one-line titles (full name in `title` and the accessible name), so
+  the heading, tabs, one row of paintings, Mix and Paint it / Download fit. When even
+  that does not fit, the panel scrolls as a whole with the call to action sticky at its
+  bottom (its height is the panel's bottom `scroll-padding`) and a "More below" pill
+  (`initPanelScroll` in `ui/style-picker.js`). `revealInScrollers()` (`core/dom.js`)
+  scrolls a focused card, an opened Mix or a Describe it answer clear of it.
+- **Download menu** follows its button while the page or panel scrolls and closes once
+  the button is mostly out of view (under the sticky header, out of the panel, behind
+  the action bar).
+- **Toasts:** in the header bar on desktop (≥1024 px), just under the header on phones
+  and tablets (never over the intensity slider or the action bar).
+- **Brand:** `assets/brand/mark.svg` (night painting in a gilt frame crossed by a
+  vermilion brush stroke) is the logo in the nav, menu sheet and footer, used as an
+  `<img>` (gradients and masks are unreliable through `<use>`), with the "Pictura" +
+  small "AI" lockup (`.wordmark__text`). `assets/brand/monogram.svg` (a P: brush-stroke
+  stem, crescent-moon bowl) is for 16-32 px; `assets/icons/favicon.svg` is a copy of it.
+  The footer reads "Made by Shashank Gupta". The raster files were exported from the
+  SVGs by hand (there is no generator script in the repo; re-export them when a mark
+  changes): `favicon.ico` (16/32 monogram, 48 mark), `apple-touch-icon.png` (180),
+  `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (mark inside the safe zone,
+  used by `manifest.webmanifest`) and `og/og-default.jpg` (1200x630, mark above the
+  name). The header and footer markup exists twice: `frontend/index.html` and the
+  template in `scripts/build_pages.py` (rerun it after a change).
 
 **Engine** (`frontend/assets/js/engine/`, details and measurements in
 `docs/revamp/engine/ENGINE.md`): the UI reaches it only through
@@ -208,7 +243,8 @@ DSN) go in the host's dashboard, never in the repo.
 venv\Scripts\pip install -r requirements-dev.txt               # pytest, httpx, Playwright, ruff, pip-audit
 venv\Scripts\python -m playwright install chromium             # once, for tests/e2e
 venv\Scripts\python -m pytest backend/tests                    # backend tests
-venv\Scripts\python -m pytest tests/e2e                        # browser e2e (own server on :8230, ?engine=server, ~80 s)
+venv\Scripts\python -m pytest tests/e2e                        # browser e2e (own server on :8230, E2E_PORT to change; ?engine=server; 48 tests, ~3 min)
+venv\Scripts\python -m pytest tests/e2e/test_short_screens.py  # short laptop screens + phone toast checks only
 venv\Scripts\python -m pytest tests/e2e -m slow                # on-device engine smoke test (minutes)
 venv\Scripts\ruff check --select F,E9 backend tests/e2e        # lint (errors only)
 venv\Scripts\pip-audit -r backend/requirements.txt             # dependency CVEs

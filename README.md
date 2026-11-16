@@ -35,13 +35,16 @@ phones the painting is made **in your browser**, so the photo never leaves your 
 - **Your painting**: use any painting you have the right to use as the style.
 - **Describe it**: type a style in words. With Cloudflare Workers AI configured, a
   style image is generated; otherwise the closest painting in the collection is used.
-- **Live intensity**: the slider changes the picture instantly, without a new request.
+- **Live intensity**: the slider sits right under the frame and changes the picture
+  as you drag, without a new request.
 - **Colours only**: take just the painting's palette (LAB colour matching).
 - **Paint a region**: brush where the style goes, or one tap on "Style the subject" /
   "Style the background" (on-device segmentation).
 - **Mix two styles** with an adjustable share.
-- **Before/after** handle on the frame, **downloads** (full size, Instagram, A4 print),
-  **Share**, and **Animate** (a 0 to 100% reveal video, recorded in the browser).
+- **Before/after**: drag the grip on the picture's edge to compare the painting with
+  your photo (it shows itself once on your first result).
+- **Downloads** (full size, Instagram, A4 print), **Share**, and **Animate** (a 0 to
+  100% reveal video, recorded in the browser).
 - **My gallery**: save paintings in the browser (IndexedDB, this device only).
 - No accounts, no cookies, no tracking. See the
   [privacy page](https://picturaai-k7q6.onrender.com/app/privacy.html).
@@ -104,7 +107,7 @@ markers; the script keeps their header, footer and meta tags in step with the re
 venv\Scripts\pip install -r requirements-dev.txt                   # pytest, Playwright, ruff, pip-audit
 venv\Scripts\python -m playwright install chromium                 # once, for the browser tests
 venv\Scripts\python -m pytest backend/tests                        # API, catalogue, site config
-venv\Scripts\python -m pytest tests/e2e                            # studio in headless Chromium (~80 s)
+venv\Scripts\python -m pytest tests/e2e                            # studio in headless Chromium (~3 min)
 venv\Scripts\python -m pytest tests/e2e -m slow                    # on-device engine smoke test (minutes)
 venv\Scripts\python docs\revamp\engine\parity\composite_parity.py  # browser compositor vs run_nst (needs Node 18+)
 venv\Scripts\python scripts\build_pages.py --check                  # generated pages up to date
