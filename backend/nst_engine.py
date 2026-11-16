@@ -254,13 +254,15 @@ def run_nst(
     style_bytes_2: Optional[bytes] = None,
     style_mix_ratio: float = 0.5,
     mask_bytes: Optional[bytes] = None,
+    raw: bool = False,
 ) -> bytes:
     """
     Run Neural Style Transfer using the pre-trained Magenta model.
 
-    The style_weight, content_weight, tv_weight, num_steps, and learning_rate
-    parameters are accepted for backward compatibility with the API but are
-    NOT used — the pre-trained model handles everything in one pass.
+    style_weight is the style intensity (0–1). The content_weight, tv_weight,
+    num_steps, and learning_rate parameters are accepted for backward
+    compatibility with the API but are NOT used — the pre-trained model
+    handles everything in one pass.
 
     Args:
         content_bytes:     Raw bytes of the content image.
@@ -268,6 +270,10 @@ def run_nst(
         style_bytes_2:     Optional raw bytes of a second style image (style mixing).
         style_mix_ratio:   Blend ratio 0–1. 0 = 100 % Style A, 1 = 100 % Style B.
         progress_callback: Called with (step, total, loss, jpg_bytes).
+        raw:               Return the stylized image itself, resized to the
+                           content's output size (JPEG q95), skipping the
+                           intensity blend, detail re-injection, mask and
+                           sharpening. style_weight and mask_bytes are ignored.
 
     Returns:
         JPEG bytes of the stylized image.
@@ -328,6 +334,19 @@ def run_nst(
     if progress_callback is not None:
         pil_preview = tensor_to_pil(stylized_tensor)  # type: ignore[arg-type]
         progress_callback(2, total_steps, 0.0, pil_to_bytes(pil_preview, quality=60))
+
+    # ── Raw output: the stylized image only, for clients that composite ─────
+    # (intensity blend, detail, mask and sharpening happen in the browser).
+    if raw:
+        pil_raw = tensor_to_pil(stylized_tensor)  # type: ignore[arg-type]
+        result_bytes = pil_to_bytes(pil_raw, quality=95)
+        if progress_callback is not None:
+            progress_callback(total_steps, total_steps, 0.0, result_bytes)
+        logger.info(f"Raw stylization: {time.time() - t0:.1f}s | output: {len(result_bytes)/1024:.0f} KB")
+        del content_hr, stylized_tensor, pil_raw
+        import gc
+        gc.collect()
+        return result_bytes
 
     # ── Phase 3: Detail-preserving blend + enhancement (at output res) ──────
     alpha = max(0.0, min(1.0, style_weight))
