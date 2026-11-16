@@ -23,7 +23,7 @@ Free, no sign-up, no watermark. On most devices your photo never leaves your bro
 
 <br>
 
-<img src="docs/media/demo.gif" alt="Live demo: the intensity slider under the gilt frame sweeps the painting from photo to full Starry Night and back, then the before/after divider slides across the picture" width="540">
+<img src="docs/media/demo.webp" alt="Live demo: the intensity slider under the gilt frame sweeps the painting from photo to full Starry Night and back, then the before/after divider slides across the picture" width="540">
 
 <sub>Drag the slider and the picture changes as you move it: no new request, no waiting.</sub>
 
