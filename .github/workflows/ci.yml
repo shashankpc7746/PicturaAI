@@ -1,0 +1,185 @@
+# PicturaAI CI: backend tests + lint + dependency audit, browser e2e tests,
+# Docker image smoke test, browser/server compositor parity, generated-pages check.
+# How to run the same things locally: docs/revamp/TESTING.md.
+name: CI
+
+on:
+  push:
+    branches: [main, "revamp/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  # The style model's cache key. Change it when backend/model_store.py's
+  # MODEL_HANDLE changes, so CI downloads the new model once.
+  MODEL_CACHE_KEY: tfhub-magenta-arbitrary-image-stylization-v1-256-2
+  TFHUB_CACHE_DIR: ${{ github.workspace }}/.tfhub_cache
+  TF_CPP_MIN_LOG_LEVEL: "3"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  backend:
+    name: Backend tests, lint, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements-dev.txt
+
+      - name: Cache the style model
+        uses: actions/cache@v6
+        with:
+          path: .tfhub_cache
+          key: ${{ env.MODEL_CACHE_KEY }}
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt -r requirements-dev.txt
+
+      - name: Download the style model (skipped when cached)
+        run: python backend/model_store.py
+
+      - name: Lint (pyflakes errors and syntax only)
+        run: ruff check --select F,E9 backend tests/e2e
+
+      - name: Backend tests
+        run: python -m pytest backend/tests -q
+
+      - name: Audit dependencies for known vulnerabilities
+        run: pip-audit -r backend/requirements.txt
+
+  e2e:
+    name: Browser end-to-end tests
+    needs: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements-dev.txt
+
+      - name: Cache the style model
+        uses: actions/cache@v6
+        with:
+          path: .tfhub_cache
+          key: ${{ env.MODEL_CACHE_KEY }}
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt -r requirements-dev.txt
+
+      - name: Install Chromium for Playwright
+        run: python -m playwright install --with-deps chromium
+
+      - name: Download the style model (skipped when cached)
+        run: python backend/model_store.py
+
+      - name: End-to-end tests (server engine; slow browser-engine test skipped)
+        run: python -m pytest tests/e2e -q -rs --durations=10
+
+  docker:
+    name: Docker image builds and starts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image (no push)
+        run: docker build -t picturaai:ci .
+
+      # 512 MB is Render's free-tier limit: an out-of-memory start fails here first.
+      - name: Start the container and wait for /api/health
+        run: |
+          docker run -d --name pictura -p 8000:8000 --memory 512m picturaai:ci
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8000/api/health | grep -q '"ok"'; then
+              echo "healthy after ~$((i * 2))s"
+              curl -fsS -o /dev/null -w 'GET /app/ -> %{http_code}\n' http://127.0.0.1:8000/app/
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' pictura)" != "true" ]; then
+              echo "container exited"; docker logs pictura; exit 1
+            fi
+            sleep 2
+          done
+          echo "not healthy after 180s"; docker logs pictura; exit 1
+
+      - name: One real stylization inside the memory limit
+        run: |
+          code=$(curl -sS -o /tmp/transfer.json -w '%{http_code}' --max-time 180 \
+            -F content_image=@frontend/assets/samples/dog.jpg \
+            -F style_preset=starry_night -F output=raw \
+            http://127.0.0.1:8000/api/transfer)
+          echo "POST /api/transfer -> $code"
+          if [ "$code" != "200" ]; then head -c 500 /tmp/transfer.json; echo; docker logs pictura; exit 1; fi
+          docker stats --no-stream pictura
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f pictura || true
+
+  parity:
+    name: Engine compositor parity (JS vs Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Compare composite.js with run_nst post-processing
+        run: python docs/revamp/engine/parity/composite_parity.py
+
+  pages:
+    name: Generated assets and pages are up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Pillow (same pin as the backend)
+        run: pip install "$(grep -i '^pillow==' backend/requirements.txt)"
+
+      - name: Style assets match data/styles.json
+        run: python scripts/build_style_assets.py --check
+
+      - name: Static pages match their sources
+        run: |
+          if [ -f scripts/build_pages.py ]; then
+            python scripts/build_pages.py --check
+          else
+            echo "scripts/build_pages.py not present; skipping"
+          fi
