@@ -54,3 +54,6 @@ pyrightconfig.json
 
 # Local pointer for Claude Code; the real file is docs/CLAUDE.md
 /CLAUDE.md
+
+# Local MCP tool config (editor/agent tooling), never part of the app
+.mcp.json
