@@ -19,3 +19,6 @@ venv*/
 .playwright-mcp/
 docs/
 backend/tests/
+# Engine dev harness (frontend/assets/js/engine/dev-harness.html, .js, .css):
+# a local-development test page for the browser engine, not part of the app.
+frontend/assets/js/engine/dev-harness.*
