@@ -69,7 +69,9 @@ function revealFrame({ settled = false } = {}) {
   const header = $('.site-header');
   const top = header && getComputedStyle(header).position === 'sticky' ? header.offsetHeight : 0;
   const bar = $('#action-bar');
-  const bottom = bar && bar.offsetParent ? innerHeight - bar.getBoundingClientRect().top : 0;
+  // offsetParent is always null for the position:fixed bar, so test its display and box
+  const barBox = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect() : null;
+  const bottom = barBox && barBox.height && barBox.top < innerHeight ? innerHeight - barBox.top : 0;
   if (settled) {
     const l = box.querySelector('.frame-ledge').getBoundingClientRect();
     const seen = Math.min(r.bottom, innerHeight - bottom) - Math.max(r.top, top);
