@@ -5,8 +5,8 @@
 //   const { stylized } = await engine.stylize({ content, style: { key: 'starry_night' } });
 //
 // The browser engine runs in a Web Worker when it can (engine.offMainThread).
-// If a browser-engine call rejects with err.code 'ENGINE_RESOURCE' or
-// 'ENGINE_UNAVAILABLE', switch with `await createEngine({ prefer: 'server' })`.
+// If createEngine() or a browser-engine call rejects with err.code 'ENGINE_RESOURCE'
+// or 'ENGINE_UNAVAILABLE', switch with `await createEngine({ prefer: 'server' })`.
 // Testing: ?engine=browser or ?engine=server forces an engine; ?worker=0 keeps
 // the browser engine on the page.
 
@@ -47,6 +47,13 @@ function serverEngine(options) {
   return instances.server || (instances.server = createServerEngine(options.server));
 }
 
+function loadInPageEngine(options) {
+  return import('./browser-engine.js').then(
+    (m) => m.createBrowserEngine(options),
+    (e) => { throw new EngineError('Could not load the on-device engine.', 'ENGINE_UNAVAILABLE', e); },
+  );
+}
+
 /**
  * Picks the browser engine (TF.js, WebGL2) when supported, else the server engine.
  * @param {object} [options]
@@ -57,23 +64,25 @@ function serverEngine(options) {
  * @param {(p:{loaded:number,total:number,phase:string})=>void} [options.onProgress]
  * @param {object} [options.browser]  options for createBrowserEngine
  * @param {object} [options.server]   options for createServerEngine
- * @returns {Promise<object>} Engine (see docs/revamp/BUILD-PLAN.md section 3)
+ * @returns {Promise<object>} Engine (see docs/revamp/BUILD-PLAN.md section 3). Rejects with
+ *   code ENGINE_UNAVAILABLE when the in-page engine's code cannot load (unless
+ *   options.warmup); that failure is not cached, so the next call tries again.
  */
 export async function createEngine(options = {}) {
   if (preferredEngineKind(options) === 'server') return serverEngine(options);
   if (!instances.browser) {
     const inWorker = options.worker !== false && param('worker') !== '0' && workerCapable();
-    instances.browser = inWorker ? createWorkerEngine(options.browser)
-      : import('./browser-engine.js').then((m) => m.createBrowserEngine(options.browser));
+    const p = inWorker ? Promise.resolve(createWorkerEngine(options.browser)) : loadInPageEngine(options.browser);
+    instances.browser = p;
+    p.catch(() => { if (instances.browser === p) instances.browser = null; });
   }
-  const engine = await instances.browser;
-  if (options.warmup) {
-    try {
-      await engine.warmup(options.onProgress);
-    } catch (e) {
-      if ((e && e.name === 'AbortError') || urlChoice() === 'browser') throw e;
-      return serverEngine(options);
-    }
+  if (!options.warmup) return instances.browser;
+  try {
+    const engine = await instances.browser;
+    await engine.warmup(options.onProgress);
+    return engine;
+  } catch (e) {
+    if ((e && e.name === 'AbortError') || urlChoice() === 'browser') throw e;
+    return serverEngine(options);
   }
-  return engine;
 }
