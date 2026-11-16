@@ -33,14 +33,20 @@ There are no user accounts, no database and no payments. Server state is in memo
 
 ## Architecture
 `backend/main.py` is the FastAPI app. It serves the frontend as static files at
-`/app` (`/` redirects there) and exposes a JSON API under `/api`. Uploads are read
-with a size cap and verified with Pillow (`read_image_upload`). Heavy work runs on a
-single-thread `ThreadPoolExecutor`, so only one TF job runs at a time; a counter
-(`MAX_PENDING_JOBS`) returns 429 when too many requests are queued, and slowapi adds
-per-IP rate limits.
+`/app` (`/` redirects straight to `/app/`) and exposes a JSON API under `/api`.
+`BodySizeLimitMiddleware` caps POST `/api/*` bodies (`MAX_REQUEST_BYTES`, 413) and
+form parsing allows at most 4 files and 24 fields (more → 400). Uploads are read
+with a size cap and checked with Pillow from the header only (`read_image_upload`):
+over `MAX_UPLOAD_MB` or over the pixel budget (`MAX_UPLOAD_PIXELS`, or
+`MAX_UPLOAD_PIXELS_JPEG` for JPEGs, which are decoded at a reduced DCT scale) → 413.
+Heavy work runs on a single-thread `ThreadPoolExecutor`, so only one TF job runs at
+a time; a counter (`MAX_PENDING_JOBS`) returns 429 when too many requests are
+queued (the slot is taken before any upload is read), and slowapi adds per-IP rate
+limits.
 
 `/api/transfer` and `/api/palette-transfer` are **synchronous**: the request waits
-for the result and the response carries the image as base64. That was a deliberate
+for the result and the response carries the image as base64; nothing is stored on
+the server (no `job_id`, no file in `backend/outputs/`). That was a deliberate
 change because Render's free tier OOM-kills the process, which wiped the in-memory
 job store mid-job. `/api/interpolate` (GIF) is the only async job: it returns a
 `job_id`, and the client polls `/api/jobs/{id}` (a WebSocket at `/ws/{id}` also
@@ -119,21 +125,33 @@ the CPU delegate. URL switches for testing: `?engine=browser|server`, `?worker=0
 ## API
 | Method & path | What it does |
 |---|---|
-| `POST /api/transfer` | Stylize (sync, base64 JPEG). Form: `content_image`, one of `style_image` / `style_preset` / `text_prompt`, `intensity` 0–1 (alias of legacy `style_weight`; wins if both are sent), `output` = `final` (default) or `raw` (stylized image only; mask ignored), optional `style_image_2` / `style_preset_2` + `style_mix_ratio`, `mask_image` (white = styled). `content_weight`, `tv_weight`, `num_steps`, `learning_rate` are accepted and ignored. |
-| `POST /api/palette-transfer` | Colour-only transfer (sync; the UI does this in the browser) |
-| `POST /api/interpolate`, then `GET /api/jobs/{id}` or `WS /ws/{id}` | 0→100% style GIF (async job; not used by the UI, which records a video) |
+| `POST /api/transfer` | Stylize (sync). Returns `{status:"done", result (base64 JPEG), output, resolved_style_key, resolved_style_name}`: the image is inline, there is no `job_id` and nothing is stored. Form: `content_image`, one of `style_image` / `style_preset` / `text_prompt`, `intensity` 0–1 (alias of legacy `style_weight`; wins if both are sent), `output` = `final` (default) or `raw` (stylized image only; mask ignored), optional `style_image_2` / `style_preset_2` + `style_mix_ratio`, `mask_image` (white = styled). `content_weight`, `tv_weight`, `num_steps`, `learning_rate` are accepted and ignored. A `text_prompt` that matches no preset → 400 with a plain-language hint. |
+| `POST /api/palette-transfer` | Colour-only transfer (sync, base64 JPEG inline, not stored; the UI does this in the browser) |
+| `POST /api/interpolate`, then `GET /api/jobs/{id}` or `WS /ws/{id}` | 0→100% style GIF (the only async job; not used by the UI, which records a video) |
 | `POST /api/describe-style` | `prompt` (form field or JSON, 1–200 chars after control characters are stripped) → `{source:"generated", image, media_type, prompt}` or `{source:"matched", key, title, artist, message, reason}`; 404 when nothing matches or when `DESCRIBE_ENABLED=false` |
 | `GET /api/styles` | Presets: `key, slug, title, name` (legacy), `artist, year, medium, description, image, card, thumb` (`/app/…` URLs), `page, aspect, credit, source_url, license`. `Cache-Control: public, max-age=3600`. `?include=thumbnail` adds the old base64 `thumbnail`. |
 | `GET` / `HEAD /api/health` | `{"status":"ok"}` (Render health check) |
 | `GET /app/config.js` | `window.PICTURA_CONFIG = {siteUrl, sentryDsn, cfWebAnalyticsToken, describeEnabled, describeGenerates}` (public values only) |
 | `GET /robots.txt`, `GET /sitemap.xml` | Built from `PUBLIC_SITE_URL`. The sitemap lists `/app/`, every `/app/styles/<slug>/`, privacy/terms/credits, and `/app/styles/` once `frontend/styles/index.html` exists. |
-| `GET /api/result/{id}`, `DELETE /api/jobs/{id}` | Download or remove a result |
+| `GET /api/result/{id}`, `DELETE /api/jobs/{id}` | GIF job only: download the finished GIF (`image/gif`) or remove the job and its file |
+
+Upload errors: 413 for a file over `MAX_UPLOAD_MB`, an image over its pixel budget,
+or a body over `MAX_REQUEST_BYTES`; 400 for a file that is not an image or a form
+with too many parts; 429 when the queue is full or a rate limit is hit.
 
 Every response carries `X-Content-Type-Options`, `X-Frame-Options: DENY`,
 `Referrer-Policy`, `Permissions-Policy: camera=(), microphone=(), geolocation=()`
-and a CSP (`script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'`, no
-`unsafe-inline` or `unsafe-eval`; `/docs` and `/redoc` get a relaxed policy). HSTS
-is added only when the request is HTTPS (`X-Forwarded-Proto: https`). jsDelivr is
+and a CSP: `script-src` and `connect-src` allow `'self'` plus only the pinned
+MediaPipe path `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/`
+(`MEDIAPIPE_VERSION` in `site_config.py`, kept equal to `MP_VERSION` in
+`segment.js` by a test), `script-src` adds `'wasm-unsafe-eval'`; `style-src` and
+`font-src` add Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`) while the
+pages still link them; no `unsafe-inline` or `unsafe-eval`; `/docs` and `/redoc`
+get a relaxed policy. HSTS
+is added only when the request is HTTPS (`X-Forwarded-Proto: https`). Redirects
+that point at the request's own origin (the trailing-slash redirects of `/app`,
+`/app/styles/<slug>` and `/docs/`) get a path-only `Location`, so an https visitor
+is never sent to `http://` while the proxy is not a trusted peer. jsDelivr is
 needed only for MediaPipe (`segment.js`: ES module and wasm). TF.js is self-hosted as
 the `es2017` builds (`tf-core`, `tf-backend-webgl`, `tf-converter`), loaded with SRI on
 the page and by `import()` in the worker; never use `dist/tf.min.js`, which calls
@@ -160,10 +178,14 @@ model (~90 MB) into `.tfhub_cache/` (gitignored).
 | `NST_PALETTE_MAX_DIM` | Working resolution cap for palette transfer (1024) |
 | `MAX_UPLOAD_MB` | Per-file upload cap (10) |
 | `MAX_IMAGE_PIXELS` | Pillow decompression-bomb limit (64,000,000) |
+| `MAX_UPLOAD_PIXELS` | Pixel budget per non-JPEG upload, checked from the header before decoding (12,000,000; 413 above) |
+| `MAX_UPLOAD_PIXELS_JPEG` | Pixel budget per JPEG upload (40,000,000; JPEGs are decoded at a reduced scale). Both budgets are capped at `MAX_IMAGE_PIXELS` |
+| `MAX_REQUEST_BYTES` | Cap on a whole POST `/api/*` body (default 4 × `MAX_UPLOAD_MB` + 64 KB: content, two styles and a mask; 413 above) |
 | `MAX_PENDING_JOBS` | Queue size before 429 (3) |
 | `JOB_TTL_SECONDS` | How long finished jobs/outputs are kept (3600) |
 | `RATE_LIMIT_TRANSFER` / `RATE_LIMIT_INTERPOLATE` / `RATE_LIMIT_PALETTE` / `RATE_LIMIT_DESCRIBE` | slowapi limit strings (describe default `5/minute`) |
 | `CLIENT_IP_HEADER` | Header holding the real visitor IP for rate limiting (`cf-connecting-ip` on Render; leave empty elsewhere) |
+| `FORWARDED_ALLOW_IPS` | Peers whose `X-Forwarded-For` / `X-Forwarded-Proto` uvicorn trusts (`python backend/main.py`; default `127.0.0.1`). Set it to your reverse proxy's own address only when that proxy is the sole way in and overwrites those headers; never `*` (the leftmost `X-Forwarded-For` entry is client-controlled). Not needed on Render: rate limits use `CLIENT_IP_HEADER`, HSTS reads `X-Forwarded-Proto` directly and redirects are path-only |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins (default `*`; no credentials) |
 | `TFHUB_CACHE_DIR` | Model cache location (`NST_MODEL_DIR` overrides the exact model directory) |
 | `STYLES_FILE` | Style catalogue JSON (default `<repo>/data/styles.json`); the app refuses to start if it is missing or invalid |
