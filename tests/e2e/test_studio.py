@@ -42,9 +42,12 @@ def test_keyboard_pick_paint_and_result_controls(open_page, tmp_path):
     expect(first).to_have_attribute("aria-checked", "true")
     expect(page.locator("#selected-style")).to_contain_text("The Starry Night")
     expect(page.locator("#paint-reason")).to_have_text("")
+    # The intensity ledge appears only with a painting in the frame.
+    expect(page.locator("#frame-ledge")).to_be_hidden()
 
     # Paint it: the result appears in the frame with a wall label.
     paint(page)
+    expect(page.locator("#frame-ledge")).to_be_visible()
     expect(label_title(page)).to_have_text(re.compile(r"^After The Starry Night"))
     expect(page.locator("#label-line2")).to_have_text("Intensity 75%")
     assert any("/api/transfer" in u for u in api)

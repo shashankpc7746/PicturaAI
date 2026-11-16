@@ -623,6 +623,18 @@ function updateRegion() {
   $('#mode-hint').textContent = MODE_HINTS[st.mode];
 }
 
+// The intensity ledge appears with the first painting in the frame and goes when the
+// painting does (a new photo); before that the default 75 % applies. With a region
+// painting in the frame, the brush hatch steps back to a faint trace (app.css) so
+// what was styled shows through.
+function updateResultView() {
+  const st = store.get();
+  const has = !!current && !!st.result;
+  const ledge = $('#frame-ledge');
+  if (ledge.hidden === has) ledge.hidden = !has;
+  $('#frame-mask').classList.toggle('is-faint', has && st.mode === 'region' && current.kind === 'nst');
+}
+
 // ── Download menu ────────────────────────────────────────────────────────
 function updateSizes() {
   // The painting's size, not the canvas's: the canvas is smaller while the slider moves.
@@ -994,8 +1006,9 @@ function initControls() {
     $('#brush-size-value').textContent = `${size.value} px`;
     mask.setSize(Number(size.value));
   });
-  $('#mask-clear').addEventListener('click', () => mask.clear());
-  $('#mask-invert').addEventListener('click', () => mask.invert());
+  // Changing the area with a button shows the full hatch for a moment (see app.css).
+  $('#mask-clear').addEventListener('click', () => { mask.clear(); mask.reveal(); });
+  $('#mask-invert').addEventListener('click', () => { mask.invert(); mask.reveal(); });
   $('#seg-subject').addEventListener('click', (e) => segment(e.currentTarget, false));
   $('#seg-background').addEventListener('click', (e) => segment(e.currentTarget, true));
 
@@ -1071,6 +1084,7 @@ async function segment(btn, invert) {
       toast("We couldn't find a clear subject. Brush over it instead.");
     } else {
       mask.setFromImageData(subjectMask, { invert });
+      mask.reveal();
       const what = foundLabels.slice(0, 2).join(' and ');
       toast(invert ? `Selected everything except the ${what}.` : `Selected the ${what}.`);
     }
@@ -1159,9 +1173,11 @@ export function initStudio({ galleryApi } = {}) {
     updateButtons();
     if (st.mode !== prev.mode || st.photo !== prev.photo || st.phase !== prev.phase) updateRegion();
     if (st.photo !== prev.photo || st.phase !== prev.phase || st.result !== prev.result) updateLabel();
+    if (st.mode !== prev.mode || st.result !== prev.result) updateResultView();
   });
   updateButtons();
   updateRegion();
+  updateResultView();
   return {
     paint,
     openSaved,

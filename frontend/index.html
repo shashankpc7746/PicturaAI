@@ -127,7 +127,7 @@
                         aria-valuetext="Showing the painting">
                         <svg class="icon" aria-hidden="true"><use href="assets/icons/icons.svg#compare"/></svg>
                       </div>
-                      <span class="compare__hint" aria-hidden="true">Drag to compare with your photo</span>
+                      <span class="compare__hint" aria-hidden="true">Drag to compare<span class="compare__hint-more"> with your photo</span></span>
                     </div>
                     <span class="frame__tag" id="tag-original" hidden>Your photo</span>
                     <span class="frame__tag frame__tag--painting" id="tag-painting" hidden>Painting</span>
@@ -173,8 +173,9 @@
               </div>
             </figure>
             <!-- Intensity sits on the frame's own ledge, so the picture and the slider
-                 that changes it are always in view together -->
-            <div class="frame-ledge">
+                 that changes it are always in view together. Hidden until there is
+                 a painting in the frame (studio.js); the default 75 % applies until then. -->
+            <div class="frame-ledge" id="frame-ledge" hidden>
               <label class="control-label" for="intensity">Intensity</label>
               <input class="range" type="range" id="intensity" min="0" max="100" step="1" value="75" aria-describedby="intensity-hint">
               <output class="control-value" id="intensity-value" for="intensity">75%</output>

@@ -22,13 +22,16 @@
   .studio {
     --band: 22px;
     --mat: 28px;
-    /* leave room under the frame for its intensity ledge on short screens
-       (e.g. 1536x690 at 125 % scaling): header, gaps and the 56 px ledge */
-    --frame-max-h: min(70vh, 760px, calc(100vh - var(--header-h) - 56px - 3 * var(--s-4)));
-    --frame-max-h: min(70svh, 760px, calc(100svh - var(--header-h) - 56px - 3 * var(--s-4)));
     background:
       radial-gradient(ellipse 880px 480px at 30% -80px, rgba(243, 238, 227, .09), transparent 72%),
       var(--wall);
+  }
+  /* Once there is a result (the intensity ledge is shown), leave room under the
+     frame for the ledge on short screens (e.g. 1536x690 at 125 % scaling): header,
+     gaps and the 56 px ledge. Before that the frame keeps the larger size. */
+  .studio:has(.frame-ledge:not([hidden])) {
+    --frame-max-h: min(70vh, 760px, calc(100vh - var(--header-h) - 56px - 3 * var(--s-4)));
+    --frame-max-h: min(70svh, 760px, calc(100svh - var(--header-h) - 56px - 3 * var(--s-4)));
   }
 }
 
@@ -88,8 +91,10 @@
 .studio__frame { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); }
 
 /* The frame's ledge: the intensity slider directly under the picture it changes.
-   Same width as the frame (at least a usable slider width for portrait photos). */
+   Same width as the frame (at least a usable slider width for portrait photos).
+   Shown only while there is a painting in the frame to adjust (studio.js). */
 .frame-ledge {
+  animation: fade-in var(--t-base) var(--ease);
   --ledge-h: 56px;
   display: flex;
   align-items: center;
@@ -169,6 +174,16 @@
   transition: opacity var(--t-base) var(--ease);
 }
 .frame__mask.is-drawing { opacity: .9; }
+/* A region painting is in the frame: the hatch steps back to a faint trace so the
+   styled pixels under it read clearly (studio.js sets .is-faint). It comes back
+   while the brush is over the picture, while brushing, and for a moment after the
+   area is changed with a button (.is-editing, mask-painter.js). */
+.frame__mask.is-faint { opacity: .15; }
+@media (hover: hover) and (pointer: fine) {
+  .frame__mask.is-faint:hover { opacity: .7; }
+}
+.frame__mask.is-faint.is-editing { opacity: .7; }
+.frame__mask.is-faint.is-drawing { opacity: .9; }
 .frame.is-empty .frame__photo { visibility: hidden; }
 /* While an overlay has made the stage taller than the photo, letterbox the
    picture on the mat instead of zooming into it. */
@@ -309,11 +324,19 @@
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 2px 10px rgba(20, 38, 34, .35);
-  animation: fade-in var(--t-base) var(--ease) both;
-  animation-delay: 1.2s;
+  /* In after the peek, out again about 4 s later even if the slider is never used
+     (reduced motion: the global 1 ms duration makes both a plain show and hide). */
+  animation:
+    fade-in var(--t-base) var(--ease) 1.2s both,
+    hint-out 400ms var(--ease) 5.2s forwards;
 }
+@keyframes hint-out { to { opacity: 0; visibility: hidden; } }
 .compare.is-used .compare__hint,
 .compare:not([data-at="start"]) .compare__hint { display: none; }
+/* A phone-sized stage: the short wording, so the chip covers less of the picture */
+@container stage (max-width: 480px) {
+  .compare__hint-more { display: none; }
+}
 @container stage (max-width: 360px) {
   .compare__hint { font-size: 12px; padding: 5px 10px; }
 }
@@ -544,31 +567,37 @@
 }
 
 /* ── Plinth (controls) ─────────────────────────────────────────────────── */
+/* One column at every width (intensity lives on the frame's ledge): Mode, then the
+   region tools, then the result actions. */
 .plinth {
+  container: plinth / inline-size;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--s-5);
   padding: var(--s-4);
   border-radius: var(--r-panel);
   background: var(--wall-deep);
 }
-.plinth__group--region, .plinth__group--actions { grid-column: 1 / -1; }
 @media (min-width: 768px) {
   .plinth {
-    /* two columns when there is room for both (wide desktop), otherwise stacked */
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: var(--s-5) var(--s-6);
     padding: var(--s-5);
     max-width: 640px;
     width: 100%;
     justify-self: center;
   }
 }
-/* Tablet portrait: one column (intensity lives on the frame's ledge now) */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .plinth { grid-template-columns: minmax(0, 1fr); }
-}
 @media (min-width: 1024px) {
   .plinth { max-width: none; }
+}
+/* A wide plinth: the Mode switch and its hint side by side, the label above both */
+@container plinth (min-width: 600px) {
+  .plinth__group--mode {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--s-5);
+  }
+  .plinth__group--mode > .control-label { grid-column: 1 / -1; }
+  .plinth__group--mode > .control-hint { max-width: 40ch; }
 }
 .plinth__group { display: grid; gap: var(--s-2); align-content: start; min-width: 0; }
 .plinth__group--region, .plinth__group--actions {
@@ -755,6 +784,9 @@
 @property --gallery-fade { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @media (min-width: 1024px) {
   .tab-panel--gallery {
+    /* The next row under the fade shows at least this much, or not at all (then
+       style-picker.js trims the scroller to a clean cut and adds .is-clean-cut). */
+    --peek-min: 40px;
     flex: 1 1 auto;
     /* at least one full row of cards with titles, even with "Mix" open */
     min-height: min(17rem, 40vh);
@@ -776,7 +808,8 @@
       animation-timeline: auto, scroll(self);
     }
   }
-  .tab-panel--gallery.is-scrolled-end { -webkit-mask-image: none; mask-image: none; }
+  .tab-panel--gallery.is-scrolled-end,
+  .tab-panel--gallery.is-clean-cut { -webkit-mask-image: none; mask-image: none; }
   /* Reserve the hang's height before the cards arrive, so Paint it does not jump down */
   .style-grid[aria-busy="true"] { min-height: 100vh; }
 }
@@ -1032,8 +1065,16 @@
   overflow-x: auto;
   padding: 4px 4px var(--s-2);
   margin-inline: -4px;
+  /* a focused thumbnail scrolls clear of the right-edge fade (revealInScrollers) */
+  scroll-padding-inline: 4px var(--s-7);
   scrollbar-width: thin;
   scrollbar-color: var(--wall-raised) transparent;
+}
+/* "There is more to the right": the rail fades out at its right edge while it can
+   still scroll that way (style-picker.js sets .has-more-right). */
+.mix-rail.has-more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--s-7)), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--s-7)), transparent);
 }
 .mix-thumb {
   flex: 0 0 56px;
@@ -1120,18 +1161,28 @@
 .btn--paint { width: 100%; min-height: 52px; font-size: 17px; }
 .paint-reason { font-size: var(--fs-meta); color: var(--linen-muted); text-align: center; max-width: none; }
 .paint-reason:empty { display: none; }
+/* Under the gallery the line keeps its height when empty, so picking a painting
+   (which clears "Pick a painting first") does not grow the gallery above it and
+   change its cut. The other tabs keep the room for their own content. */
+.style-panel:has(> #panel-gallery:not([hidden])) .paint-reason {
+  display: block;
+  min-height: calc(var(--fs-meta) * var(--lh-body));
+  min-height: 1lh;
+}
 
 /* ── Short desktop screens ─────────────────────────────────────────────────
    1536x690 (a 1920x1080 laptop at 125 %), 1366x625, 1280x650, 1024x690, 1180x720
    (iPad landscape): the heading, the tabs, one full row of paintings with titles,
    "Mix" and Paint it / Download all fit the panel's height cap in every tab. The
    panel tightens (16 px padding, 12 px gaps), the gallery becomes an even
-   three-column grid of fixed-height thumbnails with one-line titles (the full name
-   is the card's tooltip and accessible name) showing one full row and the top of
-   the next, the "Your painting" and "Describe it" tiles are smaller, and after a
-   painting Download and Paint it share a row. Where even that cannot fit (1280x585
-   at 150 %, 1024x600, 175 % zoom) the panel scrolls as a whole, with the "More
-   below" pill over the stuck buttons. */
+   three-column grid of fixed-height thumbnails showing one full row and either the
+   top of the next (at least --peek-min of it) or a clean cut, the "Your painting"
+   and "Describe it" tiles are smaller, and after a painting Download and Paint it
+   share a row. Titles take up to two lines from 680 px tall up (1536x690, 1024x768,
+   1180x720) and one line below that (the full name is the card's tooltip and
+   accessible name); the artist line is always one line. Where even that cannot fit
+   (1280x585 at 150 %, 1024x600, 175 % zoom) the panel scrolls as a whole, with the
+   "More below" pill over the stuck buttons. */
 @media (min-width: 1024px) and (max-height: 820px) {
   .style-panel {
     --panel-pad: var(--s-4);
@@ -1141,12 +1192,16 @@
        gaps), the header, the panel's margins and the row's text, plus some slack. */
     --thumb-h: clamp(76px, calc(100vh - 530px), 112px);
     --thumb-h: clamp(76px, calc(100dvh - 530px), 112px);
-    /* one card: thumbnail, 8 px, a line of title and a line of artist */
-    --row-h: calc(var(--thumb-h) + var(--s-2) + 36px);
-    --peek: 28px;   /* the next row's top edge, under the "more below" fade */
+    --title-lines: 1;
+    /* one card: thumbnail, 8 px, the title's lines and a line of artist (18 px each) */
+    --row-h: calc(var(--thumb-h) + var(--s-2) + (var(--title-lines) + 1) * 18px);
+    --peek: 28px;   /* the "more below" fade */
   }
   .tab-panel--gallery {
-    min-height: calc(var(--s-2) + var(--row-h) + var(--peek));
+    --peek-min: 24px;
+    /* One full row and a little air: a crowded panel (Mix open) cuts cleanly under
+       the first row rather than showing a sliver of the second. */
+    min-height: calc(var(--s-2) + var(--row-h) + var(--s-2));
     /* a focused card lands clear of the fade (revealInScrollers in dom.js) */
     scroll-padding: var(--s-2) 0 var(--peek);
   }
@@ -1163,6 +1218,7 @@
   .style-card__title, .style-card__meta { -webkit-line-clamp: 1; line-clamp: 1; overflow-wrap: anywhere; }
   .style-card__title { line-height: 18px; }
   .style-card__meta { line-height: 18px; }
+  .style-card__title { -webkit-line-clamp: var(--title-lines); line-clamp: var(--title-lines); }
   .style-card.is-skeleton .style-card__title { margin-top: 12px; }
 
   .upload-tile { gap: var(--s-3); padding: var(--s-3); }
@@ -1179,6 +1235,10 @@
   /* After a painting: Download and Paint it side by side, the reason under both */
   .style-panel__cta:has(> #panel-download:not([hidden])) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .style-panel__cta:has(> #panel-download:not([hidden])) .paint-reason { grid-column: 1 / -1; }
+}
+/* Room for a second line of title: "The Great Wave off Kanagawa", not "The Great Wav…" */
+@media (min-width: 1024px) and (min-height: 680px) and (max-height: 820px) {
+  .style-panel { --title-lines: 2; }
 }
 /* A mouse or trackpad does not need 44 px rows; 40 px is still a large target. */
 @media (min-width: 1024px) and (max-height: 820px) and (hover: hover) and (pointer: fine) {
@@ -1371,6 +1431,11 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
   .section { padding-block: var(--s-8); }
 }
 .section--deep { background: var(--wall-deep); }
+/* Tablet portrait: the studio above is a centred 640 px column, so the sections
+   under it use the same column and the left edge does not jump while scrolling. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .section > .container { max-width: calc(640px + 2 * var(--gutter)); }
+}
 .section__head { margin-bottom: var(--s-6); }
 .section__head p { margin-top: var(--s-2); max-width: 60ch; }
 .section__head--row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-3); }
@@ -1455,10 +1520,8 @@ body { padding-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); }
   font-size: var(--fs-h3);
 }
 .step h3 { margin-bottom: var(--s-1); }
-.faq__title { margin-bottom: var(--s-3); }
-@media (min-width: 1024px) {
-  .faq__title { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-h2); line-height: var(--lh-display); margin-bottom: var(--s-5); }
-}
+/* The section's second heading: the same display serif as "How it works" */
+.faq__title { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-h2); line-height: var(--lh-display); margin-bottom: var(--s-5); }
 .faq { border-bottom: 1px solid var(--hairline); }
 .faq:first-of-type { border-top: 1px solid var(--hairline); }
 .faq summary {

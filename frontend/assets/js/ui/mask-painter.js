@@ -40,6 +40,7 @@ export function createMaskPainter(overlay, { onChange, onCommit } = {}) {
   let hasContent = false;
   let drawing = null;       // { id, x, y }
   let raf = 0;
+  let revealTimer = 0;
 
   function reset(width, height) {
     const k = MASK_SIDE / Math.max(width, height);
@@ -212,5 +213,11 @@ export function createMaskPainter(overlay, { onChange, onCommit } = {}) {
     },
     setBrush(kind) { brush = kind; },
     setSize(px) { size = px; },
+    /** Show the full hatch for a moment (.is-editing) after a button changed the area. */
+    reveal(ms = 1600) {
+      clearTimeout(revealTimer);
+      overlay.classList.add('is-editing');
+      revealTimer = setTimeout(() => overlay.classList.remove('is-editing'), ms);
+    },
   };
 }
