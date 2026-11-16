@@ -27,6 +27,7 @@ RUN python backend/model_store.py
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 COPY images/style_image/ ./images/style_image/
+COPY data/ ./data/
 
 # Create runtime directories and hand everything to the runtime user
 RUN mkdir -p backend/uploads backend/outputs && chown -R user:user /app
