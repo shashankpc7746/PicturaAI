@@ -59,13 +59,22 @@ const isAriaDisabled = (btn) => btn.getAttribute('aria-disabled') === 'true';
 // Bring the frame and its intensity ledge fully into view (above the phone action
 // bar, below the sticky header) when they are not, so the person can watch the
 // picture while dragging the slider.
-function revealFrame() {
+// `settled`: the result has just arrived and the person may already be reaching for
+// the slider, so leave the page alone when the ledge and most of the picture are in view.
+function revealFrame({ settled = false } = {}) {
+  // Never scroll the slider out from under a pointer that is dragging it.
+  if ($('#intensity').matches(':active')) return;
   const box = frame.el.parentElement;   // .studio__frame: the frame + its ledge
   const r = box.getBoundingClientRect();
   const header = $('.site-header');
   const top = header && getComputedStyle(header).position === 'sticky' ? header.offsetHeight : 0;
   const bar = $('#action-bar');
   const bottom = bar && bar.offsetParent ? innerHeight - bar.getBoundingClientRect().top : 0;
+  if (settled) {
+    const l = box.querySelector('.frame-ledge').getBoundingClientRect();
+    const seen = Math.min(r.bottom, innerHeight - bottom) - Math.max(r.top, top);
+    if (l.top >= top && l.bottom <= innerHeight - bottom && seen >= r.height * 0.6) return;
+  }
   if (r.top < top || r.bottom > innerHeight - bottom) box.scrollIntoView({ block: 'start', behavior: smoothScroll() });
 }
 
@@ -417,7 +426,8 @@ function showResult(out, { unveil = false, saved = null } = {}) {
   updateLabel(true);
   updateSizes();
   announce(`Your painting is ready: after ${out.meta.title}.`);
-  revealFrame();
+  revealFrame({ settled: true });
+  schedulePreview(out);
 }
 
 // ── Rendering (live) ─────────────────────────────────────────────────────
@@ -439,11 +449,13 @@ function compose(final, intensity = store.get().intensity) {
 }
 
 let rafId = 0;
+let finalTimer = 0;
 let paletteToken = 0;
 function render(final) {
   if (!current) return;
   cancelAnimationFrame(rafId);
   rafId = 0;
+  cancelFinal();
   if (current.kind === 'palette' && final) {
     const token = ++paletteToken;
     paletteTransfer(current.content, current.styleData, { ...current.opts, strength: store.get().intensity })
@@ -452,8 +464,57 @@ function render(final) {
   }
   imageDataToCanvas(compose(final), frame.result);
 }
+// Live frames (slider drag, brushing) are drawn from a compositor at the frame's
+// on-screen size when that is smaller than the painting, into a reused buffer: the
+// whole recomposite runs on the main thread every frame, so its cost decides how
+// smoothly the slider's thumb follows the pointer. The canvas shrinks to that size
+// while dragging (CSS scales it, so nothing on the page moves); render(true) puts
+// the full-size, sharpened picture back.
 function renderSoon() {
-  if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; if (current) imageDataToCanvas(compose(false), frame.result); });
+  if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; if (current) drawLive(); });
+}
+function drawLive() {
+  if (current.kind !== 'nst') { imageDataToCanvas(compose(false), frame.result); return; }
+  const st = store.get();
+  const comp = (current.preview || current).compositor;
+  current.liveOut = comp.render({
+    intensity: st.intensity, mask: st.mode === 'region' ? mask.getMask() : null, sharpen: false, into: current.liveOut,
+  });
+  imageDataToCanvas(current.liveOut, frame.result);
+}
+
+// The sharpened full-size render is slow (hundreds of ms on a slow laptop) and blocks
+// the page, so it waits until the slider has been still for a moment: running it on
+// release froze the thumb when the person grabbed it again straight away.
+const FINAL_DELAY_MS = 350;
+function cancelFinal() { clearTimeout(finalTimer); finalTimer = 0; }
+function renderFinalSoon() {
+  cancelFinal();
+  finalTimer = setTimeout(() => { finalTimer = 0; render(true); }, FINAL_DELAY_MS);
+}
+
+// Build the display-size compositor once the result is on screen and the page is idle
+// (building it on the first drag would stall that drag instead).
+function schedulePreview(out) {
+  if (out.kind !== 'nst' || out.preview) return;
+  const build = async () => {
+    if (current !== out) return;
+    const c = frame.result.getBoundingClientRect();
+    const k = (c.width * (window.devicePixelRatio || 1)) / out.content.width;
+    if (!c.width || k > 0.85) return;   // already about the size it is shown at
+    const w = Math.max(1, Math.round(out.content.width * k));
+    const hh = Math.max(1, Math.round(out.content.height * k));
+    try {
+      const pc = await resizeImageData(out.content, w, hh);
+      const ps = await resizeImageData(out.stylized, w, hh);
+      if (current !== out) return;
+      out.preview = { compositor: await createCompositor(pc, ps) };
+    } catch (e) {
+      console.warn(e);   // the live preview falls back to the full-size compositor
+    }
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(build, { timeout: 1500 });
+  else setTimeout(build, 300);
 }
 
 // ── Wall label ───────────────────────────────────────────────────────────
@@ -564,8 +625,9 @@ function updateRegion() {
 
 // ── Download menu ────────────────────────────────────────────────────────
 function updateSizes() {
-  const c = frame.result;
-  if (!c.width) return;
+  // The painting's size, not the canvas's: the canvas is smaller while the slider moves.
+  const c = current && current.content;
+  if (!c || !c.width) return;
   const sizes = exportSizes(c.width, c.height);
   for (const [k, v] of Object.entries(sizes)) {
     const el = document.querySelector(`[data-size-label="${k}"]`);
@@ -577,38 +639,110 @@ function updateSizes() {
 function initDownloadMenu() {
   const menu = $('#download-menu');
   const items = $$('.menu__item', menu);
+  const bar = $('#action-bar');
+  const GAP = 8; // between the menu and its trigger, and from the screen edges
   let trigger = null;
+  let raf = 0;
+
+  // Top of the phone action bar while it is on screen; the menu stays above it.
+  function barTop() {
+    if (!bar) return innerHeight;
+    const b = bar.getBoundingClientRect();
+    return b.height && b.top < innerHeight ? b.top : innerHeight;
+  }
+  // The band of the screen where the trigger can be seen: inside every ancestor
+  // that clips (the style panel scrolls on its own) and above the action bar.
+  function visibleBand(el) {
+    let top = 0;
+    let bottom = el.closest('#action-bar') ? innerHeight : barTop();
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      if (getComputedStyle(p).overflowY === 'visible') continue;
+      const pr = p.getBoundingClientRect();
+      top = Math.max(top, pr.top);
+      bottom = Math.min(bottom, pr.bottom);
+    }
+    return { top, bottom };
+  }
 
   function place() {
     const r = trigger.getBoundingClientRect();
     const w = menu.offsetWidth;
-    const left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8));
-    menu.style.left = `${Math.max(8, r.left + w > innerWidth - 8 ? left : r.left)}px`;
-    if (r.top > innerHeight / 2) {
-      menu.style.top = '';
-      menu.style.bottom = `${innerHeight - r.top + 8}px`;
+    const left = Math.max(GAP, Math.min(r.right - w, innerWidth - w - GAP));
+    menu.style.left = `${Math.max(GAP, r.left + w > innerWidth - GAP ? left : r.left)}px`;
+
+    // Vertical: keep the old preference (above when the trigger is in the lower half)
+    // wherever the menu fits; otherwise use the side that fits; if neither does (a
+    // phone held sideways), pin the whole menu on screen even if it covers its trigger.
+    const inBar = !!trigger.closest('#action-bar');
+    const floor = barTop();                       // lowest edge the menu may reach
+    const anchorTop = inBar ? floor : r.top;      // a bar button opens from the bar's edge
+    menu.style.maxHeight = '';
+    menu.style.overflowY = '';
+    const h = menu.offsetHeight;
+    const above = anchorTop - 2 * GAP;
+    const below = floor - r.bottom - 2 * GAP;
+    let up = inBar || r.top > innerHeight / 2;
+    if (up && h > above && h <= below) up = false;
+    else if (!up && h > below && h <= above) up = true;
+    menu.style.top = '';
+    menu.style.bottom = '';
+    if (up && h <= above) {
+      menu.style.bottom = `${innerHeight - anchorTop + GAP}px`;
+    } else if (!up && h <= below) {
+      menu.style.top = `${r.bottom + GAP}px`;
     } else {
-      menu.style.bottom = '';
-      menu.style.top = `${r.bottom + 8}px`;
+      const room = Math.max(0, floor - 2 * GAP);
+      if (h > room) {
+        menu.style.maxHeight = `${room}px`;
+        menu.style.overflowY = 'auto';
+      }
+      menu.style.top = `${Math.max(GAP, floor - GAP - Math.min(h, room))}px`;
     }
   }
+  // Keep the open menu on its trigger while the page or the style panel scrolls
+  // (wheel, trackpad, keyboard); close it once the trigger has scrolled out of sight.
+  function onScroll(e) {
+    if (e.target !== document && menu.contains(e.target)) return;
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      if (menu.hidden || !trigger) return;
+      const r = trigger.getBoundingClientRect();
+      const band = visibleBand(trigger);
+      if (!r.height || r.bottom <= band.top || r.top >= band.bottom) close('keep');
+      else place();
+    });
+  }
+  function onResize() { close('keep'); }
   function open(btn) {
     trigger = btn;
     updateSizes();
     menu.hidden = false;
     place();
     btn.setAttribute('aria-expanded', 'true');
-    items[0].focus();
-    setTimeout(() => document.addEventListener('pointerdown', outside), 0);
-    window.addEventListener('resize', close, { once: true });
+    items[0].focus({ preventScroll: true });
+    setTimeout(() => { if (!menu.hidden) document.addEventListener('pointerdown', outside); }, 0);
+    window.addEventListener('resize', onResize);
+    // Capture: scroll does not bubble, and the style panel has its own scroller.
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
   }
+  /**
+   * @param {true|false|'keep'} refocus true: focus the trigger (Escape, Tab, a choice).
+   *   'keep': only if focus was inside the menu, and without scrolling the page, so a
+   *   scroll or resize never strands keyboard focus on <body>. false: leave focus alone.
+   */
   function close(refocus = true) {
     if (menu.hidden) return;
+    const hadFocus = menu.contains(document.activeElement);
     menu.hidden = true;
     document.removeEventListener('pointerdown', outside);
+    window.removeEventListener('resize', onResize);
+    document.removeEventListener('scroll', onScroll, { capture: true });
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
     if (trigger) {
       trigger.setAttribute('aria-expanded', 'false');
       if (refocus === true) trigger.focus();
+      else if (refocus === 'keep' && hadFocus) trigger.focus({ preventScroll: true });
     }
   }
   function outside(e) { if (!menu.contains(e.target) && e.target !== trigger && !trigger.contains(e.target)) close(false); }
@@ -825,14 +959,17 @@ function initControls() {
 
   const intensity = $('#intensity');
   paintRange(intensity);
+  // A new grab or step cancels the pending sharpened render (see renderFinalSoon).
+  intensity.addEventListener('pointerdown', cancelFinal);
   intensity.addEventListener('input', () => {
+    cancelFinal();
     paintRange(intensity);
     $('#intensity-value').textContent = `${intensity.value}%`;
     store.set({ intensity: Number(intensity.value) / 100 });
     renderSoon();
     if (current) updateLabel();
   });
-  intensity.addEventListener('change', () => { render(true); updateLabel(); });
+  intensity.addEventListener('change', () => { renderFinalSoon(); updateLabel(); });
 
   const brushItems = $$('[data-brush]');
   rovingRadios(brushItems[0].parentElement, '[data-brush]', (el) => {

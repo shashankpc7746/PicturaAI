@@ -249,18 +249,20 @@ export function createCompositor(contentImageData, stylizedImageData) {
   const rgb8 = [new Uint8Array(n), new Uint8Array(n), new Uint8Array(n)];
 
   /**
-   * @param {{intensity:number, mask?:ImageData|null, sharpen?:boolean}} opts
+   * @param {{intensity:number, mask?:ImageData|null, sharpen?:boolean, into?:ImageData|null}} opts
    *   intensity 0..1; mask white = styled (any size, resized to fit);
    *   sharpen applies the server's final unsharp mask (slower; use false while dragging).
+   *   into: an ImageData of this size to overwrite instead of allocating a new one
+   *   (a live slider renders every frame; every pixel is rewritten).
    * @returns {ImageData}
    */
-  function render({ intensity = 1, mask = null, sharpen = true } = {}) {
+  function render({ intensity = 1, mask = null, sharpen = true, into = null } = {}) {
     const a = Math.max(0, Math.min(1, Number(intensity) || 0));
     const keep = 1.0 - a * 0.6;
     const strength = 0.15 + a * 0.30;
     const m = mask ? maskPlane(mask) : null;
     const lumGain = (1 - keep) * a;   // target luminance = lumC + lumGain * dLum
-    const out = makeImageData(w, h);
+    const out = into && into.width === w && into.height === h ? into : makeImageData(w, h);
     const od = out.data;
     const [or, og, ob] = rgb8;
     for (let i = 0, k = 0, j = 0; i < n; i++, k += 3, j += 4) {
