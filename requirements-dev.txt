@@ -1,0 +1,12 @@
+# Development and CI tools (not needed to run the app). Install next to the app's
+# own requirements:
+#   venv\Scripts\pip install -r backend\requirements.txt -r requirements-dev.txt
+#   venv\Scripts\python -m playwright install chromium     # browser for tests/e2e
+# See docs/revamp/TESTING.md.
+pytest==9.2.0
+# FastAPI's TestClient (backend/tests) needs httpx
+httpx==0.28.1
+# Python Playwright (sync API) drives Chromium in tests/e2e
+playwright==1.65.2
+pip-audit==2.10.1
+ruff==0.17.5
